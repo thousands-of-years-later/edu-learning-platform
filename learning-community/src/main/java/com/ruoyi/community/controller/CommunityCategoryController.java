@@ -4,7 +4,10 @@ import java.util.List;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -24,8 +27,8 @@ import com.ruoyi.course.service.ICategoryService;
  * 靠 category_type 隔离数据：本控制器只碰 category_type = 'article' 的数据。
  * 类别领域对象与服务来自依赖的 learning-course 模块。
  *
- * 本控制器只提供 JSON 接口，不带页面。前端做好后再补回返回视图的方法，
- * 并执行 sql/learning_category_menu.sql 恢复菜单与按钮权限。
+ * 页面模板位于 templates/community/category/ 下，菜单与按钮权限见
+ * sql/learning_category_menu.sql。
  *
  * @author edu
  */
@@ -33,11 +36,45 @@ import com.ruoyi.course.service.ICategoryService;
 @RequestMapping("/community/category")
 public class CommunityCategoryController extends BaseController
 {
+    /** 页面根路径，模板位于 templates/<prefix>/ 下 */
+    private String prefix = "community/category";
+
     /** 本模块的类别类型，服务端常量，前端传入的 categoryType 一律被覆盖 */
     private static final String CATEGORY_TYPE = Category.TYPE_ARTICLE;
 
     @Autowired
     private ICategoryService categoryService;
+
+    /**
+     * 社区类别列表页
+     */
+    @RequiresPermissions("community:category:view")
+    @GetMapping()
+    public String category()
+    {
+        return prefix + "/category";
+    }
+
+    /**
+     * 新增社区类别页
+     */
+    @RequiresPermissions("community:category:add")
+    @GetMapping("/add")
+    public String add()
+    {
+        return prefix + "/add";
+    }
+
+    /**
+     * 修改社区类别页
+     */
+    @RequiresPermissions("community:category:edit")
+    @GetMapping("/edit/{categoryId}")
+    public String edit(@PathVariable("categoryId") Long categoryId, ModelMap mmap)
+    {
+        mmap.put("category", categoryService.selectCategoryById(categoryId));
+        return prefix + "/edit";
+    }
 
     /**
      * 查询社区类别列表

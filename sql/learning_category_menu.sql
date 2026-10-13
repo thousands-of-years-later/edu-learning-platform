@@ -1,14 +1,11 @@
 -- ----------------------------
 -- 类别管理 菜单与按钮权限
 --
--- 【当前不执行】。控制器目前只提供 JSON 接口、没有页面，
--- 现在执行只会让后台侧边栏出现打不开的死链接。
---
--- 什么时候执行：前端页面做好、控制器补回返回视图的方法之后。
---   届时两个控制器需要恢复的入口是：
---     GET /course/category    （课程类别列表页）
---     GET /community/category （社区类别列表页）
---   以及各自的 /add、/edit/{categoryId} 页面方法。
+-- 页面已补齐，可执行。对应的入口（两个控制器里都已实现）：
+--   GET /course/category    课程类别列表页  → templates/course/category/category.html
+--   GET /course/category/add、/edit/{categoryId}
+--   GET /community/category 社区类别列表页  → templates/community/category/category.html
+--   GET /community/category/add、/edit/{categoryId}
 --
 -- 前置条件：先执行过 sql/learning_category.sql（类别表与字典）。
 -- 本脚本可重复执行（幂等）。
@@ -69,6 +66,17 @@ select concat(b.menu_label, a.action_label), IFNULL(b.parent_id, 0), a.order_num
        ) a
   left join sys_menu m on m.perms = concat(b.perm_prefix, ':', a.action)
  where m.menu_id is null;
+
+-- 1.5 把【已存在】的按钮权限挂到对应的类别菜单下
+--     上面 1.4 带 `where m.menu_id is null`，对已存在的权限行会跳过、不会更新 parent_id。
+--     早期为了「只授权限、不产生侧边栏死链接」，曾单独插入过这些 F 行（parent_id=0），
+--     这里把它们重新挂到各自的类别菜单下，否则在「菜单管理」里会显示成游离的顶级按钮权限。
+--     用 perms 前缀精确限定，不碰其他菜单；幂等。
+update sys_menu set parent_id = @courseMenuId
+ where menu_type = 'F' and perms like 'course:category:%' and parent_id <> @courseMenuId;
+
+update sys_menu set parent_id = @communityMenuId
+ where menu_type = 'F' and perms like 'community:category:%' and parent_id <> @communityMenuId;
 
 -- ----------------------------
 -- 2、角色授权

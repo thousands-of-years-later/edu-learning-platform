@@ -9,6 +9,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.course.domain.Category;
 import com.ruoyi.course.mapper.CategoryMapper;
+import com.ruoyi.course.mapper.CourseMapper;
 import com.ruoyi.course.service.ICategoryService;
 
 /**
@@ -21,6 +22,10 @@ public class CategoryServiceImpl implements ICategoryService
 {
     @Autowired
     private CategoryMapper categoryMapper;
+
+    /** 类别删除前要统计课程是否还在用，因此需要读课程表 */
+    @Autowired
+    private CourseMapper courseMapper;
 
     /**
      * 查询类别列表
@@ -143,6 +148,9 @@ public class CategoryServiceImpl implements ICategoryService
     /**
      * 统计该类别下已关联的内容数量（课程/文章）
      *
+     * 课程表已建好，course 类型按 category_id 真实统计；
+     * 社区文章表还没建，article 类型暂时统计不到内容，固定返回 0。
+     *
      * @param categoryId 类别ID
      * @param categoryType 类别类型
      * @return 关联内容数量
@@ -150,7 +158,11 @@ public class CategoryServiceImpl implements ICategoryService
     @Override
     public int countContentByCategoryId(Long categoryId, String categoryType)
     {
-        return 0;
+        if (!Category.TYPE_COURSE.equals(categoryType))
+        {
+            return 0;
+        }
+        return courseMapper.countCourseByCategoryId(categoryId);
     }
 
     /**

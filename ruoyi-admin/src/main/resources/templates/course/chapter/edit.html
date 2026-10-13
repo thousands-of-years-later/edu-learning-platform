@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+	<th:block th:include="include :: header('修改课程章节')" />
+</head>
+<body class="white-bg">
+	<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+		<form class="form-horizontal m" id="form-chapter-edit" th:object="${chapter}">
+			<input id="chapterId" name="chapterId" type="hidden" th:field="*{chapterId}"/>
+			<input id="courseId" name="courseId" type="hidden" th:field="*{courseId}"/>
+			<div class="form-group">
+				<label class="col-sm-3 control-label is-required">章节标题：</label>
+				<div class="col-sm-8">
+					<input class="form-control" type="text" name="chapterTitle" id="chapterTitle" th:field="*{chapterTitle}" required>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">章节内容：</label>
+				<div class="col-sm-8">
+					<textarea id="chapterContent" name="chapterContent" class="form-control" rows="5" th:text="*{chapterContent}"></textarea>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">显示顺序：</label>
+				<div class="col-sm-8">
+					<input class="form-control" type="text" name="orderNum" id="orderNum" th:field="*{orderNum}">
+				</div>
+			</div>
+		</form>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script type="text/javascript">
+		var prefix = ctx + "course/chapter";
+
+		$("#form-chapter-edit").validate({
+			onkeyup: false,
+			rules:{
+				orderNum:{
+					digits:true
+				}
+			},
+		    focusCleanup: true
+		});
+
+		function submitHandler() {
+	        if ($.validate.form()) {
+	        	$.operate.save(prefix + "/edit", $('#form-chapter-edit').serialize());
+	        }
+	    }
+	</script>
+</body>
+</html>

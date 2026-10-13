@@ -24,9 +24,13 @@ import com.ruoyi.common.utils.uuid.Seq;
 public class FileUploadUtils
 {
     /**
-     * 默认大小 50M
+     * 默认大小 200M
+     *
+     * 课程视频走 /common/upload 上传，50M 装不下一个正常的课时视频，
+     * 这里是无条件硬校验（见 assertAllowed），只调 spring.servlet.multipart 的配置没用。
+     * 注意：修改后需同步 application.yml 的 max-file-size / max-request-size。
      */
-    public static final long DEFAULT_MAX_SIZE = 50 * 1024 * 1024L;
+    public static final long DEFAULT_MAX_SIZE = 200 * 1024 * 1024L;
 
     /**
      * 默认的文件名最大长度 100

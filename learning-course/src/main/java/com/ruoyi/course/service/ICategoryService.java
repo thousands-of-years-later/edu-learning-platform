@@ -62,8 +62,7 @@ public interface ICategoryService
     /**
      * 统计该类别下已关联的内容数量（课程/文章）
      *
-     * 本阶段只建了类别表，course/article 内容表尚未创建，故固定返回 0。
-     * TODO 后续新增课程表/文章表后，在此按 category_id 统计数量，删除保护即自动生效。
+     * course 类型已按 learning_course 真实统计；article 类型待社区文章表建好后补齐。
      *
      * @param categoryId 类别ID
      * @param categoryType 类别类型

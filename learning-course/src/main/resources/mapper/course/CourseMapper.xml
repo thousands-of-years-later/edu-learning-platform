@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.course.mapper.CourseMapper">
+
+	<resultMap type="Course" id="CourseResult">
+		<id     property="courseId"      column="course_id"      />
+		<result property="courseName"    column="course_name"    />
+		<result property="categoryId"    column="category_id"    />
+		<result property="coverUrl"      column="cover_url"      />
+		<result property="intro"         column="intro"          />
+		<result property="likeCount"     column="like_count"     />
+		<result property="favoriteCount" column="favorite_count" />
+		<result property="commentCount"  column="comment_count"  />
+		<result property="status"        column="status"         />
+		<result property="delFlag"       column="del_flag"       />
+		<result property="categoryName"  column="category_name"  />
+		<result property="createBy"      column="create_by"      />
+		<result property="createTime"    column="create_time"    />
+		<result property="updateBy"      column="update_by"      />
+		<result property="updateTime"    column="update_time"    />
+		<result property="remark"        column="remark"         />
+	</resultMap>
+
+	<!-- 类别名称为逻辑外键关联查询，类别被删除时不影响课程本身的读取 -->
+	<sql id="selectCourseVo">
+		select c.course_id, c.course_name, c.category_id, c.cover_url, c.intro,
+		       c.like_count, c.favorite_count, c.comment_count, c.status, c.del_flag,
+		       c.create_by, c.create_time, c.update_by, c.update_time, c.remark,
+		       cat.category_name
+		  from learning_course c
+		  left join learning_category cat on cat.category_id = c.category_id and cat.del_flag = '0'
+	</sql>
+
+	<select id="selectCourseList" parameterType="Course" resultMap="CourseResult">
+	    <include refid="selectCourseVo"/>
+		<where>
+			c.del_flag = '0'
+			<if test="courseName != null and courseName != ''">
+				AND c.course_name like concat('%', #{courseName}, '%')
+			</if>
+			<if test="categoryId != null">
+				AND c.category_id = #{categoryId}
+			</if>
+			<if test="status != null and status != ''">
+				AND c.status = #{status}
+			</if>
+		</where>
+	</select>
+
+	<select id="selectCourseById" parameterType="Long" resultMap="CourseResult">
+		<include refid="selectCourseVo"/>
+		where c.course_id = #{courseId} and c.del_flag = '0'
+	</select>
+
+	<select id="checkCourseNameUnique" parameterType="Course" resultMap="CourseResult">
+		<include refid="selectCourseVo"/>
+		where c.course_name = #{courseName} and c.del_flag = '0' limit 1
+	</select>
+
+	<insert id="insertCourse" parameterType="Course" useGeneratedKeys="true" keyProperty="courseId">
+ 		insert into learning_course(
+ 			<if test="courseName != null and courseName != ''">course_name,</if>
+ 			<if test="categoryId != null">category_id,</if>
+ 			<if test="coverUrl != null and coverUrl != ''">cover_url,</if>
+ 			<if test="intro != null and intro != ''">intro,</if>
+ 			<if test="likeCount != null">like_count,</if>
+ 			<if test="favoriteCount != null">favorite_count,</if>
+ 			<if test="commentCount != null">comment_count,</if>
+ 			<if test="status != null and status != ''">status,</if>
+ 			<if test="remark != null and remark != ''">remark,</if>
+ 			<if test="createBy != null and createBy != ''">create_by,</if>
+ 			create_time
+ 		)values(
+ 			<if test="courseName != null and courseName != ''">#{courseName},</if>
+ 			<if test="categoryId != null">#{categoryId},</if>
+ 			<if test="coverUrl != null and coverUrl != ''">#{coverUrl},</if>
+ 			<if test="intro != null and intro != ''">#{intro},</if>
+ 			<if test="likeCount != null">#{likeCount},</if>
+ 			<if test="favoriteCount != null">#{favoriteCount},</if>
+ 			<if test="commentCount != null">#{commentCount},</if>
+ 			<if test="status != null and status != ''">#{status},</if>
+ 			<if test="remark != null and remark != ''">#{remark},</if>
+ 			<if test="createBy != null and createBy != ''">#{createBy},</if>
+ 			sysdate()
+ 		)
+	</insert>
+
+	<update id="updateCourse" parameterType="Course">
+ 		update learning_course
+ 		<set>
+ 			<if test="courseName != null and courseName != ''">course_name = #{courseName},</if>
+ 			<!-- category_id 不加 <if>：编辑页始终提交该字段，「不选类别」就是把它置空。
+ 			     包了 <if> 的话选了空类别也清不掉原来的绑定。 -->
+ 			category_id = #{categoryId,jdbcType=BIGINT},
+ 			<if test="coverUrl != null">cover_url = #{coverUrl},</if>
+ 			<if test="intro != null">intro = #{intro},</if>
+ 			<if test="likeCount != null">like_count = #{likeCount},</if>
+ 			<if test="favoriteCount != null">favorite_count = #{favoriteCount},</if>
+ 			<if test="commentCount != null">comment_count = #{commentCount},</if>
+ 			<if test="status != null and status != ''">status = #{status},</if>
+ 			<if test="remark != null">remark = #{remark},</if>
+ 			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+ 			update_time = sysdate()
+ 		</set>
+ 		where course_id = #{courseId} and del_flag = '0'
+	</update>
+
+	<update id="deleteCourseByIds" parameterType="Long">
+		update learning_course set del_flag = '2', update_time = sysdate() where course_id in
+		<foreach collection="array" item="courseId" open="(" separator="," close=")">
+ 			#{courseId}
+        </foreach>
+        and del_flag = '0'
+	</update>
+
+	<select id="countCourseByCategoryId" parameterType="Long" resultType="int">
+		select count(1) from learning_course where category_id = #{categoryId} and del_flag = '0'
+	</select>
+
+</mapper>

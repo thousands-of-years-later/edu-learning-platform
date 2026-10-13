@@ -23,6 +23,9 @@ server:
   tomcat:
     # tomcat的URI编码
     uri-encoding: UTF-8
+    # 上传视频时若超过限制，Tomcat 默认会中断连接导致前端只看到连接重置；
+    # 关掉丢弃上限，让超限以正常的错误响应返回
+    max-swallow-size: -1
     # 连接数满后的排队数，默认为100
     accept-count: 1000
     threads:
@@ -61,12 +64,14 @@ spring:
   profiles:
     active: druid
   # 文件上传
+  # 课程视频走 /common/upload，需要放宽到 200MB；
+  # 与 ruoyi-common 的 FileUploadUtils.DEFAULT_MAX_SIZE 保持一致，改一个要改两个。
   servlet:
     multipart:
       # 单个文件大小
-      max-file-size: 10MB
+      max-file-size: 200MB
       # 设置总上传的文件大小
-      max-request-size: 20MB
+      max-request-size: 210MB
 
 # MyBatis
 mybatis:

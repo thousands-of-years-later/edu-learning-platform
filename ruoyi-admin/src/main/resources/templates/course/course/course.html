@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+	<th:block th:include="include :: header('课程列表')" />
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12 search-collapse">
+				<form id="course-form">
+					<div class="select-list">
+						<ul>
+							<li>
+								课程名称：<input type="text" name="courseName"/>
+							</li>
+							<li>
+								类别：<select name="categoryId">
+									<option value="">所有</option>
+									<option th:each="c : ${categories}" th:text="${c.categoryName}" th:value="${c.categoryId}"></option>
+								</select>
+							</li>
+							<li>
+								状态：<select name="status" th:with="type=${@dict.getType('sys_normal_disable')}">
+									<option value="">所有</option>
+									<option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+								</select>
+							</li>
+							<li>
+								<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+							    <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+							</li>
+						</ul>
+					</div>
+				</form>
+			</div>
+
+			<div class="btn-group-sm" id="toolbar" role="group">
+				<a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="course:course:add">
+	                <i class="fa fa-plus"></i> 新增
+	            </a>
+				<a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="course:course:edit">
+		            <i class="fa fa-edit"></i> 修改
+		        </a>
+				<a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="course:course:remove">
+		            <i class="fa fa-remove"></i> 删除
+		        </a>
+				<a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="course:course:export">
+		            <i class="fa fa-download"></i> 导出
+		        </a>
+	        </div>
+
+	        <div class="col-sm-12 select-table table-striped">
+			    <table id="bootstrap-table"></table>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		var editFlag = /*[[${@permission.hasPermi('course:course:edit')}]]*/ "";
+		var removeFlag = /*[[${@permission.hasPermi('course:course:remove')}]]*/ "";
+		var datas = /*[[${@dict.getType('sys_normal_disable')}]]*/ [];
+		var prefix = ctx + "course/course";
+
+		/* 视频、章节是课程的下级内容，开成页签而不是弹层：
+		   弹层挂在顶层窗口，保存后 $.operate 的 activeWindow() 会刷新到错误的页签上。
+		   注意这两个是独立控制器（/course/video、/course/chapter），不能拿 prefix 拼。 */
+		function openVideos(courseId) {
+			$.modal.openTab("视频管理", ctx + "course/video?courseId=" + courseId);
+		}
+
+		function openChapters(courseId) {
+			$.modal.openTab("章节管理", ctx + "course/chapter?courseId=" + courseId);
+		}
+
+		$(function() {
+		    var options = {
+		        url: prefix + "/list",
+		        createUrl: prefix + "/add",
+		        updateUrl: prefix + "/edit/{id}",
+		        removeUrl: prefix + "/remove",
+		        exportUrl: prefix + "/export",
+		        modalName: "课程",
+		        uniqueId: "courseId",
+		        sortName: "courseId",
+		        columns: [{
+		            checkbox: true
+		        },
+		        {
+		            field: 'courseId',
+		            title: '课程编号',
+		            sortable: true
+		        },
+		        {
+		            field: 'coverUrl',
+		            title: '封面',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                return $.table.imageView(value, 40, 60);
+		            }
+		        },
+		        {
+		            field: 'courseName',
+		            title: '课程名称',
+		            sortable: true
+		        },
+		        {
+		            field: 'categoryName',
+		            title: '类别'
+		        },
+		        {
+		            field: 'intro',
+		            title: '简介'
+		        },
+		        {
+		            field: 'likeCount',
+		            title: '点赞',
+		            align: 'center'
+		        },
+		        {
+		            field: 'favoriteCount',
+		            title: '收藏',
+		            align: 'center'
+		        },
+		        {
+		            field: 'commentCount',
+		            title: '评论',
+		            align: 'center'
+		        },
+		        {
+		            field: 'status',
+		            title: '状态',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		            	return $.table.selectDictLabel(datas, value);
+		            }
+		        },
+		        {
+		            field: 'createTime',
+		            title: '创建时间',
+		            sortable: true
+		        },
+		        {
+		            title: '操作',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                var actions = [];
+		                actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.courseId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+		                actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="openVideos(\'' + row.courseId + '\')"><i class="fa fa-video-camera"></i>视频</a> ');
+		                actions.push('<a class="btn btn-warning btn-xs" href="javascript:void(0)" onclick="openChapters(\'' + row.courseId + '\')"><i class="fa fa-list-alt"></i>章节</a> ');
+		                actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.courseId + '\')"><i class="fa fa-remove"></i>删除</a>');
+		                return actions.join('');
+		            }
+		        }]
+		    };
+		    $.table.init(options);
+		});
+	</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.course.mapper.CourseChapterMapper">
+
+	<resultMap type="CourseChapter" id="CourseChapterResult">
+		<id     property="chapterId"      column="chapter_id"      />
+		<result property="courseId"       column="course_id"       />
+		<result property="chapterTitle"   column="chapter_title"   />
+		<result property="chapterContent" column="chapter_content" />
+		<result property="orderNum"       column="order_num"       />
+		<result property="delFlag"        column="del_flag"        />
+		<result property="createBy"       column="create_by"       />
+		<result property="createTime"     column="create_time"     />
+		<result property="updateBy"       column="update_by"       />
+		<result property="updateTime"     column="update_time"     />
+	</resultMap>
+
+	<sql id="selectChapterVo">
+        select chapter_id, course_id, chapter_title, chapter_content, order_num, del_flag,
+               create_by, create_time, update_by, update_time
+		from learning_course_chapter
+    </sql>
+
+	<select id="selectChapterList" parameterType="CourseChapter" resultMap="CourseChapterResult">
+	    <include refid="selectChapterVo"/>
+		<where>
+			del_flag = '0'
+			<if test="courseId != null">
+				AND course_id = #{courseId}
+			</if>
+			<if test="chapterTitle != null and chapterTitle != ''">
+				AND chapter_title like concat('%', #{chapterTitle}, '%')
+			</if>
+		</where>
+		order by order_num asc, chapter_id asc
+	</select>
+
+	<select id="selectChapterById" parameterType="Long" resultMap="CourseChapterResult">
+		<include refid="selectChapterVo"/>
+		where chapter_id = #{chapterId} and del_flag = '0'
+	</select>
+
+	<insert id="insertChapter" parameterType="CourseChapter" useGeneratedKeys="true" keyProperty="chapterId">
+ 		insert into learning_course_chapter(
+ 			<if test="courseId != null">course_id,</if>
+ 			<if test="chapterTitle != null and chapterTitle != ''">chapter_title,</if>
+ 			<if test="chapterContent != null and chapterContent != ''">chapter_content,</if>
+ 			<if test="orderNum != null">order_num,</if>
+ 			<if test="createBy != null and createBy != ''">create_by,</if>
+ 			create_time
+ 		)values(
+ 			<if test="courseId != null">#{courseId},</if>
+ 			<if test="chapterTitle != null and chapterTitle != ''">#{chapterTitle},</if>
+ 			<if test="chapterContent != null and chapterContent != ''">#{chapterContent},</if>
+ 			<if test="orderNum != null">#{orderNum},</if>
+ 			<if test="createBy != null and createBy != ''">#{createBy},</if>
+ 			sysdate()
+ 		)
+	</insert>
+
+	<update id="updateChapter" parameterType="CourseChapter">
+ 		update learning_course_chapter
+ 		<set>
+ 			<if test="chapterTitle != null and chapterTitle != ''">chapter_title = #{chapterTitle},</if>
+ 			<if test="chapterContent != null">chapter_content = #{chapterContent},</if>
+ 			<if test="orderNum != null">order_num = #{orderNum},</if>
+ 			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+ 			update_time = sysdate()
+ 		</set>
+ 		where chapter_id = #{chapterId} and del_flag = '0'
+	</update>
+
+	<update id="deleteChapterByIds" parameterType="Long">
+		update learning_course_chapter set del_flag = '2', update_time = sysdate() where chapter_id in
+		<foreach collection="array" item="chapterId" open="(" separator="," close=")">
+ 			#{chapterId}
+        </foreach>
+        and del_flag = '0'
+	</update>
+
+	<update id="deleteChapterByCourseIds" parameterType="Long">
+		update learning_course_chapter set del_flag = '2', update_time = sysdate() where del_flag = '0' and course_id in
+		<foreach collection="array" item="courseId" open="(" separator="," close=")">
+ 			#{courseId}
+        </foreach>
+	</update>
+
+</mapper>

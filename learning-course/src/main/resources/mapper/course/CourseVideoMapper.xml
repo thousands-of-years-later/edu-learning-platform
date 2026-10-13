@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.course.mapper.CourseVideoMapper">
+
+	<resultMap type="CourseVideo" id="CourseVideoResult">
+		<id     property="videoId"      column="video_id"      />
+		<result property="courseId"     column="course_id"     />
+		<result property="chapterId"    column="chapter_id"    />
+		<result property="videoTitle"   column="video_title"   />
+		<result property="videoUrl"     column="video_url"     />
+		<result property="orderNum"     column="order_num"     />
+		<result property="delFlag"      column="del_flag"      />
+		<result property="chapterTitle" column="chapter_title" />
+		<result property="createBy"     column="create_by"     />
+		<result property="createTime"   column="create_time"   />
+		<result property="updateBy"     column="update_by"     />
+		<result property="updateTime"   column="update_time"   />
+	</resultMap>
+
+	<!-- 章节标题为逻辑外键关联查询，chapter_id 为空时左连接自然为空（即「无章节」） -->
+	<sql id="selectVideoVo">
+		select v.video_id, v.course_id, v.chapter_id, v.video_title, v.video_url, v.order_num, v.del_flag,
+		       v.create_by, v.create_time, v.update_by, v.update_time,
+		       ch.chapter_title
+		  from learning_course_video v
+		  left join learning_course_chapter ch on ch.chapter_id = v.chapter_id and ch.del_flag = '0'
+	</sql>
+
+	<select id="selectVideoList" parameterType="CourseVideo" resultMap="CourseVideoResult">
+	    <include refid="selectVideoVo"/>
+		<where>
+			v.del_flag = '0'
+			<if test="courseId != null">
+				AND v.course_id = #{courseId}
+			</if>
+			<if test="chapterId != null">
+				AND v.chapter_id = #{chapterId}
+			</if>
+			<if test="videoTitle != null and videoTitle != ''">
+				AND v.video_title like concat('%', #{videoTitle}, '%')
+			</if>
+		</where>
+		order by v.order_num asc, v.video_id asc
+	</select>
+
+	<select id="selectVideoById" parameterType="Long" resultMap="CourseVideoResult">
+		<include refid="selectVideoVo"/>
+		where v.video_id = #{videoId} and v.del_flag = '0'
+	</select>
+
+	<!-- chapter_id 可空，显式给出 jdbcType 避免 null 值在部分驱动下报错 -->
+	<insert id="insertVideo" parameterType="CourseVideo" useGeneratedKeys="true" keyProperty="videoId">
+ 		insert into learning_course_video(
+ 			<if test="courseId != null">course_id,</if>
+ 			<if test="chapterId != null">chapter_id,</if>
+ 			<if test="videoTitle != null and videoTitle != ''">video_title,</if>
+ 			<if test="videoUrl != null and videoUrl != ''">video_url,</if>
+ 			<if test="orderNum != null">order_num,</if>
+ 			<if test="createBy != null and createBy != ''">create_by,</if>
+ 			create_time
+ 		)values(
+ 			<if test="courseId != null">#{courseId},</if>
+ 			<if test="chapterId != null">#{chapterId,jdbcType=BIGINT},</if>
+ 			<if test="videoTitle != null and videoTitle != ''">#{videoTitle},</if>
+ 			<if test="videoUrl != null and videoUrl != ''">#{videoUrl},</if>
+ 			<if test="orderNum != null">#{orderNum},</if>
+ 			<if test="createBy != null and createBy != ''">#{createBy},</if>
+ 			sysdate()
+ 		)
+	</insert>
+
+	<update id="updateVideo" parameterType="CourseVideo">
+ 		update learning_course_video
+ 		<set>
+ 			<!-- chapter_id 不加 <if>：编辑页始终提交该字段，「无章节」就是把它置空。
+ 			     包了 <if> 的话选了「无章节」也清不掉原来的绑定。 -->
+ 			chapter_id = #{chapterId,jdbcType=BIGINT},
+ 			<if test="videoTitle != null and videoTitle != ''">video_title = #{videoTitle},</if>
+ 			<if test="videoUrl != null">video_url = #{videoUrl},</if>
+ 			<if test="orderNum != null">order_num = #{orderNum},</if>
+ 			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+ 			update_time = sysdate()
+ 		</set>
+ 		where video_id = #{videoId} and del_flag = '0'
+	</update>
+
+	<update id="deleteVideoByIds" parameterType="Long">
+		update learning_course_video set del_flag = '2', update_time = sysdate() where video_id in
+		<foreach collection="array" item="videoId" open="(" separator="," close=")">
+ 			#{videoId}
+        </foreach>
+        and del_flag = '0'
+	</update>
+
+	<update id="deleteVideoByCourseIds" parameterType="Long">
+		update learning_course_video set del_flag = '2', update_time = sysdate() where del_flag = '0' and course_id in
+		<foreach collection="array" item="courseId" open="(" separator="," close=")">
+ 			#{courseId}
+        </foreach>
+	</update>
+
+	<update id="deleteVideoByChapterIds" parameterType="Long">
+		update learning_course_video set del_flag = '2', update_time = sysdate() where del_flag = '0' and chapter_id in
+		<foreach collection="array" item="chapterId" open="(" separator="," close=")">
+ 			#{chapterId}
+        </foreach>
+	</update>
+
+</mapper>

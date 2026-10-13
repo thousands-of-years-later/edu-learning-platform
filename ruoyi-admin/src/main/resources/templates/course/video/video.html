@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+	<th:block th:include="include :: header('课程视频列表')" />
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12 search-collapse">
+				<!-- 第一个 form 会被 bootstrap-table 的默认 queryParams 序列化；
+				     courseId 用 th:value 渲染成 HTML 默认值，$.form.reset() 后不会丢 -->
+				<form id="video-form">
+					<input type="hidden" id="courseId" name="courseId" th:value="${courseId}">
+					<div class="select-list">
+						<ul>
+							<li>
+								视频标题：<input type="text" name="videoTitle"/>
+							</li>
+							<li>
+								<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+							    <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+							</li>
+						</ul>
+					</div>
+				</form>
+			</div>
+
+			<div class="btn-group-sm" id="toolbar" role="group">
+				<a class="btn btn-success" onclick="addVideo()" shiro:hasPermission="course:course:add">
+	                <i class="fa fa-plus"></i> 新增视频
+	            </a>
+				<a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="course:course:edit">
+		            <i class="fa fa-edit"></i> 修改
+		        </a>
+				<a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="course:course:remove">
+		            <i class="fa fa-remove"></i> 删除
+		        </a>
+		        <a class="btn btn-danger" onclick="closeItem()">
+		            <i class="fa fa-reply-all"></i> 关闭
+		        </a>
+	        </div>
+
+	        <div class="col-sm-12 select-table table-striped">
+			    <table id="bootstrap-table"></table>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		var editFlag = /*[[${@permission.hasPermi('course:course:edit')}]]*/ "";
+		var removeFlag = /*[[${@permission.hasPermi('course:course:remove')}]]*/ "";
+		var prefix = ctx + "course/video";
+
+		/* $.operate.add(id) 只会替换 createUrl 里的 {id}，所以父课程 ID 用路径变量带走 */
+		function addVideo() {
+			$.operate.add($("#courseId").val());
+		}
+
+		$(function() {
+		    var options = {
+		        url: prefix + "/list",
+		        createUrl: prefix + "/add/{id}",
+		        updateUrl: prefix + "/edit/{id}",
+		        removeUrl: prefix + "/remove",
+		        queryParams: queryParams,
+		        modalName: "视频",
+		        uniqueId: "videoId",
+		        sortName: "videoId",
+		        columns: [{
+		            checkbox: true
+		        },
+		        {
+		            field: 'videoId',
+		            title: '视频编号',
+		            sortable: true
+		        },
+		        {
+		            field: 'videoTitle',
+		            title: '视频标题',
+		            sortable: true
+		        },
+		        {
+		            field: 'chapterTitle',
+		            title: '所属章节',
+		            formatter: function(value, row, index) {
+		                return $.common.isEmpty(value) ? '无章节' : value;
+		            }
+		        },
+		        {
+		            field: 'videoUrl',
+		            title: '视频地址',
+		            formatter: function(value, row, index) {
+		                if ($.common.isEmpty(value)) {
+		                    return '';
+		                }
+		                return '<a href="' + value + '" target="_blank">播放/下载</a>';
+		            }
+		        },
+		        {
+		            field: 'orderNum',
+		            title: '显示顺序',
+		            sortable: true
+		        },
+		        {
+		            field: 'createTime',
+		            title: '创建时间',
+		            sortable: true
+		        },
+		        {
+		            title: '操作',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                var actions = [];
+		                actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.videoId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+		                actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.videoId + '\')"><i class="fa fa-remove"></i>删除</a>');
+		                return actions.join('');
+		            }
+		        }]
+		    };
+		    $.table.init(options);
+		});
+
+		/* 无论分页、排序还是重置，courseId 都必须一直带着，否则会查出全库视频 */
+		function queryParams(params) {
+			var search = $.table.queryParams(params);
+			search.courseId = $("#courseId").val();
+			return search;
+		}
+	</script>
+</body>
+</html>

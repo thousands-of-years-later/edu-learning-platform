@@ -12,9 +12,18 @@
     <artifactId>learning-course</artifactId>
 
     <properties>
-        <maven.compiler.source>23</maven.compiler.source>
-        <maven.compiler.target>23</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <dependencies>
+
+        <!-- 通用工具：BaseEntity、@Excel、ServiceException、StringUtils/Convert、
+             校验注解、@Transactional（经 pagehelper 传递 spring-tx）、commons-lang3 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-common</artifactId>
+        </dependency>
+
+    </dependencies>
 
 </project>

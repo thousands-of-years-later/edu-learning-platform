@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.course.mapper.CategoryMapper">
+
+	<resultMap type="Category" id="CategoryResult">
+		<id     property="categoryId"    column="category_id"    />
+		<result property="categoryName"  column="category_name"  />
+		<result property="categoryType"  column="category_type"  />
+		<result property="orderNum"      column="order_num"      />
+		<result property="status"        column="status"         />
+		<result property="delFlag"       column="del_flag"       />
+		<result property="createBy"      column="create_by"      />
+		<result property="createTime"    column="create_time"    />
+		<result property="updateBy"      column="update_by"      />
+		<result property="updateTime"    column="update_time"    />
+		<result property="remark"        column="remark"         />
+	</resultMap>
+
+	<sql id="selectCategoryVo">
+        select category_id, category_name, category_type, order_num, status, del_flag,
+               create_by, create_time, update_by, update_time, remark
+		from learning_category
+    </sql>
+
+	<select id="selectCategoryList" parameterType="Category" resultMap="CategoryResult">
+	    <include refid="selectCategoryVo"/>
+		<where>
+			del_flag = '0'
+			<if test="categoryName != null and categoryName != ''">
+				AND category_name like concat('%', #{categoryName}, '%')
+			</if>
+			<if test="categoryType != null and categoryType != ''">
+				AND category_type = #{categoryType}
+			</if>
+			<if test="status != null and status != ''">
+				AND status = #{status}
+			</if>
+		</where>
+		order by order_num asc, category_id asc
+	</select>
+
+	<select id="selectCategoryById" parameterType="Long" resultMap="CategoryResult">
+		<include refid="selectCategoryVo"/>
+		where category_id = #{categoryId} and del_flag = '0'
+	</select>
+
+	<select id="checkCategoryNameUnique" parameterType="Category" resultMap="CategoryResult">
+		<include refid="selectCategoryVo"/>
+		where category_name = #{categoryName} and category_type = #{categoryType} and del_flag = '0' limit 1
+	</select>
+
+	<insert id="insertCategory" parameterType="Category" useGeneratedKeys="true" keyProperty="categoryId">
+ 		insert into learning_category(
+ 			<if test="categoryName != null and categoryName != ''">category_name,</if>
+ 			<if test="categoryType != null and categoryType != ''">category_type,</if>
+ 			<if test="orderNum != null">order_num,</if>
+ 			<if test="status != null and status != ''">status,</if>
+ 			<if test="remark != null and remark != ''">remark,</if>
+ 			<if test="createBy != null and createBy != ''">create_by,</if>
+ 			create_time
+ 		)values(
+ 			<if test="categoryName != null and categoryName != ''">#{categoryName},</if>
+ 			<if test="categoryType != null and categoryType != ''">#{categoryType},</if>
+ 			<if test="orderNum != null">#{orderNum},</if>
+ 			<if test="status != null and status != ''">#{status},</if>
+ 			<if test="remark != null and remark != ''">#{remark},</if>
+ 			<if test="createBy != null and createBy != ''">#{createBy},</if>
+ 			sysdate()
+ 		)
+	</insert>
+
+	<update id="updateCategory" parameterType="Category">
+ 		update learning_category
+ 		<set>
+ 			<if test="categoryName != null and categoryName != ''">category_name = #{categoryName},</if>
+ 			<if test="orderNum != null">order_num = #{orderNum},</if>
+ 			<if test="status != null and status != ''">status = #{status},</if>
+ 			<if test="remark != null">remark = #{remark},</if>
+ 			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+ 			update_time = sysdate()
+ 		</set>
+ 		where category_id = #{categoryId} and del_flag = '0'
+ 		<if test="categoryType != null and categoryType != ''">and category_type = #{categoryType}</if>
+	</update>
+
+	<update id="deleteCategoryByIds" parameterType="Long">
+		update learning_category set del_flag = '2', update_time = sysdate() where category_id in
+		<foreach collection="array" item="categoryId" open="(" separator="," close=")">
+ 			#{categoryId}
+        </foreach>
+        and del_flag = '0'
+	</update>
+
+</mapper>

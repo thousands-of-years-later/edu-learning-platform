@@ -53,6 +53,20 @@
             <artifactId>ruoyi-generator</artifactId>
         </dependency>
 
+        <!-- 学习平台-课程模块（含课程/社区共用的类别 Category 领域、服务、Mapper）-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>learning-course</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+
+        <!-- 学习平台-社区模块-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>learning-community</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>

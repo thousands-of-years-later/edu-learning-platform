@@ -12,9 +12,24 @@
     <artifactId>learning-community</artifactId>
 
     <properties>
-        <maven.compiler.source>23</maven.compiler.source>
-        <maven.compiler.target>23</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <dependencies>
+
+        <!-- 通用工具：BaseController、AjaxResult、@RequiresPermissions、spring-web 注解等 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-common</artifactId>
+        </dependency>
+
+        <!-- 依赖课程模块：共享的类别（Category）领域/服务，社区文章直接引用 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>learning-course</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+
+    </dependencies>
 
 </project>

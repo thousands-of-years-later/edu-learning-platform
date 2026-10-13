@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+	<th:block th:include="include :: header('社区帖子')" />
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12 search-collapse">
+				<form id="post-form">
+					<div class="select-list">
+						<ul>
+							<li>
+								帖子标题：<input type="text" name="postTitle"/>
+							</li>
+							<li>
+								类别：<select name="categoryId">
+									<option value="">所有</option>
+									<option th:each="c : ${categories}" th:text="${c.categoryName}" th:value="${c.categoryId}"></option>
+								</select>
+							</li>
+							<li>
+								状态：<select name="status" th:with="type=${@dict.getType('sys_post_status')}">
+									<option value="">所有</option>
+									<option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+								</select>
+							</li>
+							<li>
+								<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+							    <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+							</li>
+						</ul>
+					</div>
+				</form>
+			</div>
+
+			<div class="btn-group-sm" id="toolbar" role="group">
+				<a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="community:post:add">
+	                <i class="fa fa-plus"></i> 发帖
+	            </a>
+				<a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="community:post:edit">
+		            <i class="fa fa-edit"></i> 修改
+		        </a>
+				<a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="community:post:remove">
+		            <i class="fa fa-remove"></i> 删除
+		        </a>
+				<a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="community:post:export">
+		            <i class="fa fa-download"></i> 导出
+		        </a>
+	        </div>
+
+	        <div class="col-sm-12 select-table table-striped">
+			    <table id="bootstrap-table"></table>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		var editFlag = /*[[${@permission.hasPermi('community:post:edit')}]]*/ "";
+		var removeFlag = /*[[${@permission.hasPermi('community:post:remove')}]]*/ "";
+		var isAdmin = /*[[${isAdmin}]]*/ false;
+		var currentUserId = /*[[${currentUserId}]]*/ 0;
+		var datas = /*[[${@dict.getType('sys_post_status')}]]*/ [];
+		var prefix = ctx + "community/post";
+
+		$(function() {
+		    var options = {
+		        url: prefix + "/list",
+		        createUrl: prefix + "/add",
+		        updateUrl: prefix + "/edit/{id}",
+		        removeUrl: prefix + "/remove",
+		        exportUrl: prefix + "/export",
+		        detailUrl: prefix + "/detail/{id}",
+		        modalName: "帖子",
+		        uniqueId: "postId",
+		        /* 帖子是信息流，默认最新在前（ry-ui 的 sortOrder 默认是 asc） */
+		        sortName: "postId",
+		        sortOrder: "desc",
+		        columns: [{
+		            checkbox: true
+		        },
+		        {
+		            field: 'postId',
+		            title: '编号',
+		            sortable: true
+		        },
+		        {
+		            field: 'postTitle',
+		            title: '帖子标题',
+		            sortable: true
+		        },
+		        {
+		            field: 'categoryName',
+		            title: '类别',
+		            sortable: true
+		        },
+		        {
+		            field: 'userName',
+		            title: '作者',
+		            sortable: true
+		        },
+		        {
+		            field: 'likeCount',
+		            title: '点赞',
+		            align: 'center'
+		        },
+		        {
+		            field: 'favoriteCount',
+		            title: '收藏',
+		            align: 'center'
+		        },
+		        {
+		            field: 'commentCount',
+		            title: '评论',
+		            align: 'center'
+		        },
+		        {
+		            field: 'status',
+		            title: '状态',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		            	var cls = value == '1' ? 'label-info' : (value == '2' ? 'label-danger' : 'label-success');
+		            	return '<span class="label ' + cls + '">' + $.table.selectDictLabel(datas, value) + '</span>';
+		            }
+		        },
+		        {
+		            field: 'createTime',
+		            title: '创建时间',
+		            sortable: true
+		        },
+		        {
+		            title: '操作',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                var actions = [];
+		                actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="$.operate.detail(\'' + row.postId + '\')"><i class="fa fa-search"></i>详情</a> ');
+		                /* 只能维护自己的帖子：别人的已发布帖子只读 */
+		                if (isAdmin || row.userId == currentUserId) {
+		                	actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.postId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+		                	actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.postId + '\')"><i class="fa fa-remove"></i>删除</a>');
+		                }
+		                return actions.join('');
+		            }
+		        }]
+		    };
+		    $.table.init(options);
+		});
+	</script>
+</body>
+</html>

@@ -62,7 +62,8 @@ public interface ICategoryService
     /**
      * 统计该类别下已关联的内容数量（课程/文章）
      *
-     * course 类型已按 learning_course 真实统计；article 类型待社区文章表建好后补齐。
+     * course 类型按 learning_course 统计，article 类型按 learning_post 统计
+     * （含草稿与已下架，避免删类别时把草稿带走）。
      *
      * @param categoryId 类别ID
      * @param categoryType 类别类型

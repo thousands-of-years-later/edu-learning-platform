@@ -93,4 +93,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         and del_flag = '0'
 	</update>
 
+	<!-- 社区帖子的跨模块统计：帖子实体在 learning-community，
+	     本模块是它的依赖方，反向注入会循环，所以只写一条纯 SQL。
+	     统计所有未删除的帖子（含草稿、已下架），否则草稿会被「删除类别」带走。 -->
+	<select id="countPostByCategoryId" parameterType="Long" resultType="int">
+		select count(1) from learning_post where category_id = #{categoryId} and del_flag = '0'
+	</select>
+
 </mapper>

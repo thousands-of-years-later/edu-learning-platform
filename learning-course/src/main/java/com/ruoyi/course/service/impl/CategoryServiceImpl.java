@@ -148,8 +148,9 @@ public class CategoryServiceImpl implements ICategoryService
     /**
      * 统计该类别下已关联的内容数量（课程/文章）
      *
-     * 课程表已建好，course 类型按 category_id 真实统计；
-     * 社区文章表还没建，article 类型暂时统计不到内容，固定返回 0。
+     * course 类型统计 learning_course；article 类型统计 learning_post（含草稿、已下架，
+     * 否则草稿会被「删除类别」带走）。帖子实体属于 learning-community 模块，
+     * 本模块是它的依赖方，反向注入会形成循环依赖，所以统计 SQL 直接写在 CategoryMapper 里。
      *
      * @param categoryId 类别ID
      * @param categoryType 类别类型
@@ -158,11 +159,15 @@ public class CategoryServiceImpl implements ICategoryService
     @Override
     public int countContentByCategoryId(Long categoryId, String categoryType)
     {
-        if (!Category.TYPE_COURSE.equals(categoryType))
+        if (Category.TYPE_COURSE.equals(categoryType))
         {
-            return 0;
+            return courseMapper.countCourseByCategoryId(categoryId);
         }
-        return courseMapper.countCourseByCategoryId(categoryId);
+        if (Category.TYPE_ARTICLE.equals(categoryType))
+        {
+            return categoryMapper.countPostByCategoryId(categoryId);
+        }
+        return 0;
     }
 
     /**

@@ -91,6 +91,24 @@
 	<script th:src="@{/ajax/libs/summernote/summernote-zh-CN.js?v=0.8.18}"></script>
 </div>
 
+<!-- easymde Markdown编辑器插件（社区帖子正文用；工具栏图标复用 header 已加载的 font-awesome 4.7） -->
+<div th:fragment="easymde-css">
+    <link th:href="@{/ajax/libs/easymde/easymde.min.css?v=2.21.0}" rel="stylesheet"/>
+</div>
+<div th:fragment="easymde-js">
+    <script th:src="@{/ajax/libs/easymde/easymde.min.js?v=2.21.0}"></script>
+    <script th:src="@{/ajax/libs/marked/marked.min.js?v=4.3.0}"></script>
+    <script th:src="@{/ajax/libs/dompurify/purify.min.js?v=3.2.7}"></script>
+</div>
+
+<!-- Markdown 渲染：marked 负责解析，DOMPurify 负责清洗渲染结果。
+     正文是用户内容，直接 innerHTML 会被塞 <img onerror> 之类的存储型 XSS。
+     「帖子详情」这类只读页面只用这两个，不必加载整套编辑器。 -->
+<div th:fragment="markdown-js">
+    <script th:src="@{/ajax/libs/marked/marked.min.js?v=4.3.0}"></script>
+    <script th:src="@{/ajax/libs/dompurify/purify.min.js?v=3.2.7}"></script>
+</div>
+
 <!-- cropper图像裁剪插件 -->
 <div th:fragment="cropper-css">
     <link th:href="@{/ajax/libs/cropper/cropper.min.css?v=1.5.12}" rel="stylesheet"/>

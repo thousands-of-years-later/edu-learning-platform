@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.community.mapper.PostMapper">
+
+	<resultMap type="Post" id="PostResult">
+		<id     property="postId"        column="post_id"        />
+		<result property="postTitle"     column="post_title"     />
+		<result property="categoryId"    column="category_id"    />
+		<result property="userId"        column="user_id"        />
+		<result property="content"       column="content"        />
+		<result property="likeCount"     column="like_count"     />
+		<result property="favoriteCount" column="favorite_count" />
+		<result property="commentCount"  column="comment_count"  />
+		<result property="status"        column="status"         />
+		<result property="delFlag"       column="del_flag"       />
+		<result property="categoryName"  column="category_name"  />
+		<result property="userName"      column="user_name"      />
+		<result property="createBy"      column="create_by"      />
+		<result property="createTime"    column="create_time"    />
+		<result property="updateBy"      column="update_by"      />
+		<result property="updateTime"    column="update_time"    />
+		<result property="remark"        column="remark"         />
+	</resultMap>
+
+	<!--
+	  列表查询【不 join learning_category】，两个展示列用标量子查询取。
+	  原因：learning_category 也有 category_id/status/create_time 等同名列，一旦 join，
+	  bootstrap-table 点列头排序（sortName -> PageHelper 追加 order by <列名>）就会出现
+	  「Column 'xxx' in order clause is ambiguous」1052 错误；单表 FROM 则任何列都不会歧义。
+	  列表也【不查 content】：正文是 longtext，列表和导出都不该拖着它走。
+	-->
+	<sql id="selectPostVo">
+		select p.post_id, p.post_title, p.category_id, p.user_id,
+		       p.like_count, p.favorite_count, p.comment_count, p.status, p.del_flag,
+		       p.create_by, p.create_time, p.update_by, p.update_time, p.remark,
+		       (select c.category_name from learning_category c
+		         where c.category_id = p.category_id and c.del_flag = '0') as category_name,
+		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name
+		  from learning_post p
+	</sql>
+
+	<!-- 详情才带正文 -->
+	<sql id="selectPostDetailVo">
+		select p.post_id, p.post_title, p.category_id, p.user_id, p.content,
+		       p.like_count, p.favorite_count, p.comment_count, p.status, p.del_flag,
+		       p.create_by, p.create_time, p.update_by, p.update_time, p.remark,
+		       (select c.category_name from learning_category c
+		         where c.category_id = p.category_id and c.del_flag = '0') as category_name,
+		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name
+		  from learning_post p
+	</sql>
+
+	<select id="selectPostList" parameterType="Post" resultMap="PostResult">
+	    <include refid="selectPostVo"/>
+		<where>
+			p.del_flag = '0'
+			<if test="postTitle != null and postTitle != ''">
+				AND p.post_title like concat('%', #{postTitle}, '%')
+			</if>
+			<if test="categoryId != null">
+				AND p.category_id = #{categoryId}
+			</if>
+			<if test="status != null and status != ''">
+				AND p.status = #{status}
+			</if>
+			<!-- 可见性范围：非管理员只能看到「所有人已发布的 + 自己的全部（含草稿）」。
+			     这里只认 ownerId（控制层强制赋值），绝不用 userId —— userId 是实体字段，
+			     表单可以绑，用它过滤等于把「看谁的帖子」交给前端。 -->
+			<if test="ownerId != null">
+				AND (p.status = '0' or p.user_id = #{ownerId})
+			</if>
+		</where>
+	</select>
+
+	<select id="selectPostById" parameterType="Long" resultMap="PostResult">
+		<include refid="selectPostDetailVo"/>
+		where p.post_id = #{postId} and p.del_flag = '0'
+	</select>
+
+	<insert id="insertPost" parameterType="Post" useGeneratedKeys="true" keyProperty="postId">
+ 		insert into learning_post(
+ 			<if test="postTitle != null and postTitle != ''">post_title,</if>
+ 			<if test="categoryId != null">category_id,</if>
+ 			<if test="userId != null">user_id,</if>
+ 			<if test="content != null">content,</if>
+ 			<if test="likeCount != null">like_count,</if>
+ 			<if test="favoriteCount != null">favorite_count,</if>
+ 			<if test="commentCount != null">comment_count,</if>
+ 			<if test="status != null and status != ''">status,</if>
+ 			<if test="remark != null and remark != ''">remark,</if>
+ 			<if test="createBy != null and createBy != ''">create_by,</if>
+ 			create_time
+ 		)values(
+ 			<if test="postTitle != null and postTitle != ''">#{postTitle},</if>
+ 			<if test="categoryId != null">#{categoryId},</if>
+ 			<if test="userId != null">#{userId},</if>
+ 			<if test="content != null">#{content},</if>
+ 			<if test="likeCount != null">#{likeCount},</if>
+ 			<if test="favoriteCount != null">#{favoriteCount},</if>
+ 			<if test="commentCount != null">#{commentCount},</if>
+ 			<if test="status != null and status != ''">#{status},</if>
+ 			<if test="remark != null and remark != ''">#{remark},</if>
+ 			<if test="createBy != null and createBy != ''">#{createBy},</if>
+ 			sysdate()
+ 		)
+	</insert>
+
+	<update id="updatePost" parameterType="Post">
+ 		update learning_post
+ 		<set>
+ 			<if test="postTitle != null and postTitle != ''">post_title = #{postTitle},</if>
+ 			<!-- category_id 不加 <if>：编辑页始终提交该字段，「不选类别」就是把它置空。
+ 			     包了 <if> 的话选了空类别也清不掉原来的绑定。 -->
+ 			category_id = #{categoryId,jdbcType=BIGINT},
+ 			<!-- 正文用 != null：草稿允许把正文清空 -->
+ 			<if test="content != null">content = #{content},</if>
+ 			<!-- 三个计数用 != null：非管理员传 null，就不会改动计数 -->
+ 			<if test="likeCount != null">like_count = #{likeCount},</if>
+ 			<if test="favoriteCount != null">favorite_count = #{favoriteCount},</if>
+ 			<if test="commentCount != null">comment_count = #{commentCount},</if>
+ 			<if test="status != null and status != ''">status = #{status},</if>
+ 			<if test="remark != null">remark = #{remark},</if>
+ 			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+ 			update_time = sysdate()
+ 		</set>
+ 		where post_id = #{postId} and del_flag = '0'
+	</update>
+
+	<update id="deletePostByIds" parameterType="Long">
+		update learning_post set del_flag = '2', update_time = sysdate() where post_id in
+		<foreach collection="array" item="postId" open="(" separator="," close=")">
+ 			#{postId}
+        </foreach>
+        and del_flag = '0'
+	</update>
+
+</mapper>

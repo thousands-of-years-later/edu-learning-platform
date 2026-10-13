@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+	<th:block th:include="include :: header('发布帖子')" />
+	<th:block th:include="include :: easymde-css" />
+</head>
+<body class="white-bg">
+	<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+		<form class="form-horizontal m" id="form-post-add">
+			<div class="form-group">
+				<label class="col-sm-2 control-label is-required">帖子标题：</label>
+				<div class="col-sm-10">
+					<input class="form-control" type="text" name="postTitle" id="postTitle" required>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-2 control-label">所属类别：</label>
+				<div class="col-sm-10">
+					<select name="categoryId" class="form-control">
+						<option value="">无</option>
+						<option th:each="c : ${categories}" th:text="${c.categoryName}" th:value="${c.categoryId}"></option>
+					</select>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-2 control-label">正文：</label>
+				<div class="col-sm-10">
+					<!-- Markdown 原文，图片以 ![](/profile/...) 内联；内容由 EasyMDE 接管 -->
+					<textarea id="postContent" name="content" class="form-control"></textarea>
+				</div>
+			</div>
+			<div class="form-group" th:if="${isAdmin}">
+				<label class="col-sm-2 control-label">点赞/收藏/评论：</label>
+				<div class="col-sm-3">
+					<input class="form-control" type="text" name="likeCount" id="likeCount" value="0">
+				</div>
+				<div class="col-sm-3">
+					<input class="form-control" type="text" name="favoriteCount" id="favoriteCount" value="0">
+				</div>
+				<div class="col-sm-3">
+					<input class="form-control" type="text" name="commentCount" id="commentCount" value="0">
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-2 control-label">状态：</label>
+				<div class="col-sm-10">
+					<!-- 普通用户只能存草稿或直接发布；「已下架」是管理动作，不给这个选项 -->
+					<div class="radio-box" th:each="dict : ${@dict.getType('sys_post_status')}" th:if="${isAdmin or dict.dictValue != '2'}">
+						<input type="radio" th:id="${dict.dictCode}" name="status" th:value="${dict.dictValue}" th:checked="${dict.default}">
+						<label th:for="${dict.dictCode}" th:text="${dict.dictLabel}"></label>
+					</div>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-2 control-label">备注：</label>
+				<div class="col-sm-10">
+					<textarea id="remark" name="remark" class="form-control"></textarea>
+				</div>
+			</div>
+		</form>
+	</div>
+	<th:block th:include="include :: footer" />
+	<th:block th:include="include :: easymde-js" />
+	<script type="text/javascript">
+		var prefix = ctx + "community/post";
+
+		var easyMDE = new EasyMDE({
+			element: document.getElementById('postContent'),
+			/* 必须关闭：默认会去 CDN 拉 FontAwesome，内网/离线环境下工具栏图标会全空。
+			   include::header 已经加载了 font-awesome 4.7，EasyMDE 的图标用的就是 fa fa-* */
+			autoDownloadFontAwesome: false,
+			placeholder: '支持 Markdown，图片可直接拖拽或粘贴上传',
+			spellChecker: false,
+			status: false,
+			minHeight: '280px',
+			/* 只保留文字与图片相关按钮，帖子不含视频 */
+			toolbar: ['bold', 'italic', 'heading', '|', 'quote', 'unordered-list', 'ordered-list',
+			          '|', 'link', 'image', '|', 'preview', 'side-by-side', 'fullscreen', '|', 'guide'],
+			uploadImage: true,
+			imageUploadFunction: function (file, onSuccess, onError) {
+				var data = new FormData();
+				data.append("file", file);
+				$.ajax({
+					type: "POST",
+					url: ctx + "common/upload",
+					data: data,
+					cache: false,
+					contentType: false,
+					processData: false,
+					dataType: 'json',
+					success: function(result) {
+						if (result.code == web_status.SUCCESS) {
+							/* 存相对路径 /profile/...，不存绝对地址 */
+							onSuccess(result.fileName);
+						} else {
+							onError(result.msg);
+						}
+					},
+					error: function() {
+						onError("图片上传失败。");
+					}
+				});
+			},
+			/* 正文是用户内容，渲染结果必须先过 DOMPurify，否则预览里就能执行脚本 */
+			previewRender: function(plainText) {
+				return DOMPurify.sanitize(marked.parse(plainText, { gfm: true, breaks: true }));
+			}
+		});
+
+		$("#form-post-add").validate({
+			onkeyup: false,
+			rules:{
+				likeCount:{
+					digits:true
+				},
+				favoriteCount:{
+					digits:true
+				},
+				commentCount:{
+					digits:true
+				}
+			},
+		    focusCleanup: true
+		});
+
+		function submitHandler() {
+			/* EasyMDE 不会把内容同步回 textarea，serialize 前必须手动写回 */
+			$("#postContent").val(easyMDE.value());
+	        if ($.validate.form()) {
+	        	$.operate.save(prefix + "/add", $('#form-post-add').serialize());
+	        }
+	    }
+	</script>
+</body>
+</html>

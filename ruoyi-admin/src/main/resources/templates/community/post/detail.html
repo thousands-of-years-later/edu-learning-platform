@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('帖子详情')" />
+    <style type="text/css">
+        /* 正文是 Markdown 渲染出来的 HTML，不是模板结构，只能在这里统一排版 */
+        .md-body { padding: 14px 20px 20px; line-height: 1.8; color: #333; word-break: break-word; }
+        .md-body h1, .md-body h2, .md-body h3, .md-body h4 { margin: 18px 0 10px; font-weight: 600; }
+        .md-body h1 { font-size: 22px; }
+        .md-body h2 { font-size: 19px; }
+        .md-body h3 { font-size: 16px; }
+        .md-body h4 { font-size: 14px; }
+        .md-body p { margin: 0 0 12px; }
+        .md-body img { max-width: 100%; height: auto; border-radius: 4px; }
+        .md-body pre { background: #f7f9fb; border: 1px solid #e8ecf0; border-radius: 4px; padding: 12px 14px; overflow: auto; }
+        .md-body code { background: #f7f9fb; padding: 1px 5px; border-radius: 3px; font-family: Consolas, 'SFMono-Regular', monospace; font-size: 12px; color: #c7254e; }
+        .md-body pre code { background: none; color: #444; padding: 0; }
+        .md-body blockquote { border-left: 3px solid #dfe4ea; margin: 0 0 12px; padding: 6px 14px; color: #777; background: #fafbfc; }
+        .md-body table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
+        .md-body table th, .md-body table td { border: 1px solid #e8ecf0; padding: 6px 10px; }
+        .md-body ul, .md-body ol { padding-left: 22px; margin-bottom: 12px; }
+        .md-body a { color: #409eff; }
+        .md-body hr { border-top: 1px solid #eee; }
+        .md-empty { padding: 20px; color: #aaa; text-align: center; }
+    </style>
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content">
+<div class="detail-wrap">
+
+    <div class="detail-card">
+        <div class="detail-card-title"><i class="fa fa-info-circle"></i>帖子信息</div>
+        <table class="detail-table">
+            <tr>
+                <th>帖子标题</th>
+                <td th:text="${post.postTitle}">-</td>
+                <th>所属类别</th>
+                <td th:text="${post.categoryName} ?: '未分类'">-</td>
+            </tr>
+            <tr>
+                <th>作者</th>
+                <td th:text="${post.userName} ?: ${post.createBy}">-</td>
+                <th>状态</th>
+                <td>
+                    <span class="label"
+                          th:classappend="${post.status == '0' ? 'label-success' : (post.status == '1' ? 'label-info' : 'label-danger')}"
+                          th:text="${@dict.getLabel('sys_post_status', post.status)}">-</span>
+                </td>
+            </tr>
+            <tr>
+                <th>点赞 / 收藏 / 评论</th>
+                <td>
+                    <span th:text="${post.likeCount}">0</span> /
+                    <span th:text="${post.favoriteCount}">0</span> /
+                    <span th:text="${post.commentCount}">0</span>
+                </td>
+                <th>创建时间</th>
+                <td th:text="${post.createTime != null ? #dates.format(post.createTime,'yyyy-MM-dd HH:mm:ss') : '-'}">-</td>
+            </tr>
+            <tr th:if="${post.updateTime != null}">
+                <th>更新时间</th>
+                <td th:text="${#dates.format(post.updateTime,'yyyy-MM-dd HH:mm:ss')}">-</td>
+                <th>备注</th>
+                <td th:text="${post.remark}">-</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="detail-card">
+        <div class="detail-card-title"><i class="fa fa-file-text-o"></i>正文</div>
+        <!-- 渲染结果由脚本注入 -->
+        <div class="md-body" id="postBody"></div>
+        <div class="md-empty" id="postEmpty" style="display:none;">这条帖子的正文还是空的</div>
+    </div>
+
+</div>
+</div>
+
+<!-- 正文放在隐藏 textarea 里：既不把大段 Markdown 拼进 JS 字面量，
+     又能让浏览器帮忙做一次 HTML 反转义 -->
+<textarea id="postContent" style="display:none" th:text="${post.content}"></textarea>
+
+<th:block th:include="include :: footer" />
+<th:block th:include="include :: markdown-js" />
+<script type="text/javascript">
+    $(function() {
+        var content = $("#postContent").val();
+        if ($.common.isEmpty(content)) {
+            $("#postEmpty").show();
+            return;
+        }
+        /* 正文是用户写的 Markdown，渲染后必须过 DOMPurify 再进 DOM */
+        $("#postBody").html(DOMPurify.sanitize(marked.parse(content, { gfm: true, breaks: true })));
+    });
+</script>
+</body>
+</html>

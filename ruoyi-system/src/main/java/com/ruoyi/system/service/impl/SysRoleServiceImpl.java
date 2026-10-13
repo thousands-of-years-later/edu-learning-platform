@@ -128,6 +128,19 @@ public class SysRoleServiceImpl implements ISysRoleService
     }
 
     /**
+     * 通过角色权限字符串查询角色（仅未删除的角色）
+     *
+     * @param roleKey 角色权限字符串
+     * @return 角色对象信息
+     */
+    @Override
+    public SysRole selectRoleByKey(String roleKey)
+    {
+        // 该 statement 名为 checkRoleKeyUnique，实际返回的是 SysRole（条件 role_key=#{roleKey} and del_flag='0'）
+        return roleMapper.checkRoleKeyUnique(roleKey);
+    }
+
+    /**
      * 通过角色ID删除角色
      * 
      * @param roleId 角色ID

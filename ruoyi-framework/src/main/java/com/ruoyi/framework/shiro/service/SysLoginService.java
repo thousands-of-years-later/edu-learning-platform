@@ -92,17 +92,11 @@ public class SysLoginService
         // 查询用户信息
         SysUser user = userService.selectUserByLoginName(username);
 
-        /**
+        // 手机号可作为登录账号：新注册用户 login_name 即手机号，历史账号按 phonenumber 解析
         if (user == null && maybeMobilePhoneNumber(username))
         {
             user = userService.selectUserByPhoneNumber(username);
         }
-
-        if (user == null && maybeEmail(username))
-        {
-            user = userService.selectUserByEmail(username);
-        }
-        */
 
         if (user == null)
         {
@@ -131,15 +125,8 @@ public class SysLoginService
     }
 
     /**
-    private boolean maybeEmail(String username)
-    {
-        if (!username.matches(UserConstants.EMAIL_PATTERN))
-        {
-            return false;
-        }
-        return true;
-    }
-
+     * 是否为手机号
+     */
     private boolean maybeMobilePhoneNumber(String username)
     {
         if (!username.matches(UserConstants.MOBILE_PHONE_NUMBER_PATTERN))
@@ -148,7 +135,6 @@ public class SysLoginService
         }
         return true;
     }
-    */
 
     /**
      * 设置角色权限

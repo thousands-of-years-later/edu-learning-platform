@@ -53,7 +53,7 @@ function validateRule() {
         rules: {
             username: {
                 required: true,
-                minlength: 2
+                isPhone: true
             },
             password: {
                 required: true,
@@ -67,8 +67,8 @@ function validateRule() {
         },
         messages: {
             username: {
-                required: icon + "请输入您的用户名",
-                minlength: icon + "用户名不能小于2个字符"
+                required: icon + "请输入您的手机号",
+                isPhone: icon + "请填写正确的11位手机号"
             },
             password: {
             	required: icon + "请输入您的密码",

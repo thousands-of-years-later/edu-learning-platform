@@ -9,7 +9,7 @@
     <link href="../static/css/font-awesome.min.css" th:href="@{/css/font-awesome.min.css}" rel="stylesheet"/>
     <link href="../static/css/style.min.css" th:href="@{/css/style.min.css}" rel="stylesheet"/>
     <link href="../static/css/login.min.css" th:href="@{/css/login.min.css}" rel="stylesheet"/>
-    <link href="../static/ruoyi/css/ry-ui.css" th:href="@{/ruoyi/css/ry-ui.css?v=4.8.3}" rel="stylesheet"/>
+    <link href="../static/ruoyi/css/ry-ui.css" th:href="@{/ruoyi/css/ry-ui.css(v='4.8.3')}" rel="stylesheet"/>
     <!-- 360浏览器急速模式 -->
     <meta name="renderer" content="webkit">
     <!-- 避免IE使用兼容模式 -->
@@ -41,7 +41,7 @@
                 <form id="registerForm" autocomplete="off">
                     <h4 class="no-margins">注册：</h4>
                     <p class="m-t-md">你若不离不弃，我必生死相依</p>
-                    <input type="text"     name="username" class="form-control uname"         placeholder="用户名"   maxlength="20" />
+                    <input type="text"     name="username" class="form-control uname"         placeholder="手机号"   maxlength="11" />
                     <input type="password" name="password" class="form-control pword"         placeholder="密码"     maxlength="20" />
                     <input type="password" name="confirmPassword" class="form-control pword"  placeholder="确认密码" maxlength="20" />
 					<div class="row m-t" th:if="${captchaEnabled==true}">
@@ -68,14 +68,14 @@
             </div>
         </div>
     </div>
-<script th:inline="javascript"> var ctx = [[@{/}]]; var captchaType = [[${captchaType}]]; var captchaEnabled = [[${captchaEnabled}]];</script>
+<script th:inline="javascript"> var ctx = /*[[@{/}]]*/ "/"; var captchaType = /*[[${captchaType}]]*/ "math"; var captchaEnabled = /*[[${captchaEnabled}]]*/ true;</script>
 <!-- 全局js -->
 <script src="../static/js/jquery.min.js" th:src="@{/js/jquery.min.js}"></script>
 <script src="../static/ajax/libs/validate/jquery.validate.min.js" th:src="@{/ajax/libs/validate/jquery.validate.min.js}"></script>
 <script src="../static/ajax/libs/validate/jquery.validate.extend.js" th:src="@{/ajax/libs/validate/jquery.validate.extend.js}"></script>
 <script src="../static/ajax/libs/layer/layer.min.js" th:src="@{/ajax/libs/layer/layer.min.js}"></script>
 <script src="../static/ajax/libs/blockUI/jquery.blockUI.js" th:src="@{/ajax/libs/blockUI/jquery.blockUI.js}"></script>
-<script src="../static/ruoyi/js/ry-ui.js" th:src="@{/ruoyi/js/ry-ui.js?v=4.8.3}"></script>
+<script src="../static/ruoyi/js/ry-ui.js" th:src="@{/ruoyi/js/ry-ui.js(v='4.8.3')}"></script>
 <script src="../static/ruoyi/register.js" th:src="@{/ruoyi/register.js}"></script>
 </body>
 </html>

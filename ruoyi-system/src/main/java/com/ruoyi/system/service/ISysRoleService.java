@@ -52,6 +52,14 @@ public interface ISysRoleService
     public SysRole selectRoleById(Long roleId);
 
     /**
+     * 通过角色权限字符串查询角色（仅未删除的角色）
+     *
+     * @param roleKey 角色权限字符串
+     * @return 角色对象信息
+     */
+    public SysRole selectRoleByKey(String roleKey);
+
+    /**
      * 通过角色ID删除角色
      * 
      * @param roleId 角色ID

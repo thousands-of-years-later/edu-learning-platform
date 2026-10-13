@@ -82,7 +82,7 @@ public class SysRegisterService
         else if (password.length() < UserConstants.PASSWORD_MIN_LENGTH
                 || password.length() > UserConstants.PASSWORD_MAX_LENGTH)
         {
-            return MessageUtils.message("user.password.not.match");
+            return MessageUtils.message("user.password.length.not.valid");
         }
 
         SysUser probe = new SysUser();

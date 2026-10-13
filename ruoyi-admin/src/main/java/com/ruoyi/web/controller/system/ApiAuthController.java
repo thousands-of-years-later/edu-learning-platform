@@ -2,11 +2,14 @@ package com.ruoyi.web.controller.system;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.UsernamePasswordToken;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.ruoyi.common.annotation.Anonymous;
@@ -114,6 +117,30 @@ public class ApiAuthController extends BaseController
 
         String msg = registerService.register(user);
         return StringUtils.isEmpty(msg) ? success() : error(msg);
+    }
+
+    /**
+     * 手机号密码登录（JSON 请求体）
+     *
+     * @param body 请求体，字段同表单：phone、password
+     */
+    @Anonymous
+    @PostMapping(value = "/login", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public AjaxResult loginJson(@RequestBody Map<String, String> body)
+    {
+        return login(body.get("phone"), body.get("password"));
+    }
+
+    /**
+     * 手机号注册（JSON 请求体）
+     *
+     * @param body 请求体，字段同表单：phone、password、confirmPassword
+     */
+    @Anonymous
+    @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public AjaxResult registerJson(@RequestBody Map<String, String> body)
+    {
+        return register(body.get("phone"), body.get("password"), body.get("confirmPassword"));
     }
 
     /**

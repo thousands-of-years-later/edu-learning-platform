@@ -38,6 +38,14 @@ public class GlobalExceptionHandler
     {
         String requestURI = request.getRequestURI();
         log.error("请求地址'{}',权限校验失败'{}'", requestURI, e.getMessage());
+        // 类别操作接口即使未携带 Ajax 请求头，也返回明确的 JSON 权限提示。
+        String contextPath = request.getContextPath();
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && (requestURI.startsWith(contextPath + "/course/category/")
+                        || requestURI.startsWith(contextPath + "/community/category/")))
+        {
+            return AjaxResult.error("权限不足");
+        }
         if (ServletUtils.isAjaxRequest(request))
         {
             return AjaxResult.error(PermissionUtils.getMsg(e.getMessage()));

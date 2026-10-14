@@ -80,7 +80,7 @@ update sys_menu set parent_id = @communityMenuId
 
 -- ----------------------------
 -- 2、角色授权
---    admin(role_key='admin') 与 common(role_key='common') 全部放开，
+--    admin(role_key='admin') 全部放开；common(role_key='common') 仅查看、查询。
 --    sys_role_menu 主键为 (role_id, menu_id)，insert ignore 保证可重复执行
 -- ----------------------------
 
@@ -88,10 +88,30 @@ insert ignore into sys_role_menu (role_id, menu_id)
 select r.role_id, m.menu_id
   from sys_role r
   cross join sys_menu m
- where r.role_key in ('admin', 'common')
+ where r.role_key = 'admin'
    and (m.menu_id = @learnMenuId
         or m.perms like 'course:category:%'
         or m.perms like 'community:category:%');
+
+-- 撤销普通角色的历史授权，保证已执行过旧版脚本的数据库也变为只读。
+-- 使用只读白名单，同时撤销类别通配权限或后续新增的非只读权限。
+delete rm
+  from sys_role_menu rm
+  join sys_role r on r.role_id = rm.role_id
+  join sys_menu m on m.menu_id = rm.menu_id
+ where r.role_key = 'common'
+   and (m.perms like 'course:category:%' or m.perms like 'community:category:%')
+   and m.perms not in ('course:category:view', 'course:category:list',
+                      'community:category:view', 'community:category:list');
+
+insert ignore into sys_role_menu (role_id, menu_id)
+select r.role_id, m.menu_id
+  from sys_role r
+  cross join sys_menu m
+ where r.role_key = 'common'
+   and (m.menu_id = @learnMenuId
+        or m.perms in ('course:category:view', 'course:category:list',
+                      'community:category:view', 'community:category:list'));
 
 -- ----------------------------
 -- 3、自检
@@ -107,4 +127,14 @@ select r.role_key, count(1) as menu_count
   join sys_menu m on m.menu_id = rm.menu_id
  where m.perms like '%:category:%' or m.menu_name = '学习管理'
  group by r.role_key;
--- 期望：admin=13、common=13（1 个目录 + 2 个菜单 + 10 个按钮）
+-- 期望：admin=13（1 个目录 + 2 个菜单 + 10 个按钮）、
+--       common=5（1 个目录 + 2 个菜单 + 2 个查询按钮）
+-- 普通角色的非只读类别权限应为 0 条。
+select r.role_key, m.perms
+  from sys_role_menu rm
+  join sys_role r on r.role_id = rm.role_id
+  join sys_menu m on m.menu_id = rm.menu_id
+ where r.role_key = 'common'
+   and (m.perms like 'course:category:%' or m.perms like 'community:category:%')
+   and m.perms not in ('course:category:view', 'course:category:list',
+                      'community:category:view', 'community:category:list');

@@ -11,8 +11,10 @@ import com.fasterxml.jackson.annotation.JsonFormat;
  * （user_id = 被触发者，from_user_id = 触发者）。
  * 注意与后台的 sys_notice（管理员发公告）是两套东西，互不关联。
  *
- * 类型编码：1点赞 2收藏 3评论 4关注 —— 其中 1/2 与 {@link Interaction}.TYPE_LIKE/TYPE_FAVORITE
+ * 类型编码：1点赞 2收藏 3评论 4关注 5回复评论 —— 其中 1/2 与 {@link Interaction}.TYPE_LIKE/TYPE_FAVORITE
  * 【刻意同值】，点赞/收藏通知直接透传 Interaction 的 type，不用做翻译。
+ * 5回复评论 只发给【被回复评论的作者】（二级评论产生）；内容归属人收到的仍是 3评论，
+ * 但归属人就是被回复人时只发 5 那条，不重复打扰（见 NotificationServiceImpl.notifyReply）。
  *
  * 课程（target_type=2）永远不会产生通知：learning_course 没有 user_id 归属人列，
  * 没有「被触发者」可言，服务层对课程直接跳过。关注类没有内容目标，targetType / targetId 为 null。
@@ -45,6 +47,9 @@ public class Notification implements Serializable
     /** 通知类型：关注 */
     public static final String TYPE_FOLLOW = "4";
 
+    /** 通知类型：回复评论（发给被回复评论的作者；与 3评论 区分，客户端据此显示「回复了你的评论」） */
+    public static final String TYPE_REPLY = "5";
+
     /** 读取状态：未读 */
     public static final String IS_READ_NO = "0";
 
@@ -62,7 +67,7 @@ public class Notification implements Serializable
     /** 触发者用户ID（点赞/收藏/评论/关注的人，sys_user.user_id） */
     private Long fromUserId;
 
-    /** 通知类型（1点赞 2收藏 3评论 4关注） */
+    /** 通知类型（1点赞 2收藏 3评论 4关注 5回复评论） */
     private String type;
 
     /** 目标类型（1帖子 3短视频；关注类为 null；课程永不产生通知） */

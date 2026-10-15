@@ -5,35 +5,61 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 <mapper namespace="com.ruoyi.interaction.mapper.CommentMapper">
 
 	<resultMap type="Comment" id="CommentResult">
-		<id     property="commentId"  column="comment_id"  />
-		<result property="userId"     column="user_id"     />
-		<result property="targetType" column="target_type" />
-		<result property="targetId"   column="target_id"   />
-		<result property="content"    column="content"     />
-		<result property="delFlag"    column="del_flag"    />
-		<result property="createTime" column="create_time" />
-		<result property="updateTime" column="update_time" />
-		<result property="userName"   column="user_name"   />
+		<id     property="commentId"     column="comment_id"      />
+		<result property="userId"        column="user_id"         />
+		<result property="targetType"    column="target_type"     />
+		<result property="targetId"      column="target_id"       />
+		<result property="parentId"      column="parent_id"       />
+		<result property="replyUserId"   column="reply_user_id"   />
+		<result property="content"       column="content"         />
+		<result property="delFlag"       column="del_flag"        />
+		<result property="createTime"    column="create_time"     />
+		<result property="updateTime"    column="update_time"     />
+		<result property="userName"      column="user_name"       />
+		<result property="replyUserName" column="reply_user_name" />
+		<!-- children 是纯内存字段（本表没有这一列），由 CommentServiceImpl 组装，这里不映射 -->
 	</resultMap>
 
 	<!--
-	  列表查询【不 join sys_user】，评论人登录名用标量子查询取。
+	  列表查询【不 join sys_user】，评论人/被回复人登录名用标量子查询取。
 	  原因（与 PostMapper.xml / ShortVideoMapper.xml 一致）：sys_user 也有 user_id/status/create_time
 	  等同名列，一旦 join，客户端传 orderByColumn 让 PageHelper 追加 order by <列名>
 	  就会出现「Column 'xxx' in order clause is ambiguous」1052 错误；单表 FROM 则任何列都不会歧义。
 	-->
 	<sql id="selectCommentVo">
-		select c.comment_id, c.user_id, c.target_type, c.target_id, c.content,
-		       c.del_flag, c.create_time, c.update_time,
-		       (select u.user_name from sys_user u where u.user_id = c.user_id) as user_name
+		select c.comment_id, c.user_id, c.target_type, c.target_id, c.parent_id, c.reply_user_id,
+		       c.content, c.del_flag, c.create_time, c.update_time,
+		       (select u.user_name from sys_user u where u.user_id = c.user_id) as user_name,
+		       (select u.user_name from sys_user u where u.user_id = c.reply_user_id) as reply_user_name
 		  from learning_comment c
 	</sql>
 
-	<!-- 按 comment_id 倒序：create_time 只精确到秒，同秒发的评论会并列，排序不稳定 -->
+	<!--
+	  按 comment_id 倒序：create_time 只精确到秒，同秒发的评论会并列，排序不稳定。
+	  and parent_id is null：列表只返回【一级评论】（二级评论挂在其 children 里，见
+	  selectRepliesByParentIds）。这个谓词同时让 PageHelper 自动生成的 count 只数一级评论，
+	  客户端按 TableDataInfo.total 算页数才对得上 —— 而接口返回的 count 与内容表的
+	  comment_count 仍然包含回复（见 countByTarget），两者口径不同是刻意的。
+	-->
 	<select id="selectCommentList" parameterType="Comment" resultMap="CommentResult">
 		<include refid="selectCommentVo"/>
 		where c.target_type = #{targetType} and c.target_id = #{targetId} and c.del_flag = '0'
+		  and c.parent_id is null
 		order by c.comment_id desc
+	</select>
+
+	<!--
+	  一条 in 查询取回本页所有一级评论的回复（避免 N+1）。
+	  parentIds 由服务层保证非空：空集合的 foreach 会生成 in ()，是语法错误。
+	  comment_id asc：回复是根下面的对话流，正序阅读；与 idx_parent 的索引序一致，免 filesort。
+	-->
+	<select id="selectRepliesByParentIds" resultMap="CommentResult">
+		<include refid="selectCommentVo"/>
+		where c.del_flag = '0' and c.parent_id in
+		<foreach collection="parentIds" item="pid" open="(" separator="," close=")">
+			#{pid}
+		</foreach>
+		order by c.comment_id asc
 	</select>
 
 	<select id="countByTarget" resultType="int">
@@ -46,18 +72,29 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		where c.comment_id = #{commentId} and c.del_flag = '0'
 	</select>
 
+	<!-- 一级评论的 parent_id / reply_user_id 写 NULL；不拆 <if>，单条语句更简单 -->
 	<insert id="insertComment" parameterType="Comment" useGeneratedKeys="true" keyProperty="commentId">
-		insert into learning_comment (user_id, target_type, target_id, content, del_flag, create_time)
-		values (#{userId}, #{targetType}, #{targetId}, #{content}, '0', sysdate())
+		insert into learning_comment (user_id, target_type, target_id, content, parent_id, reply_user_id, del_flag, create_time)
+		values (#{userId}, #{targetType}, #{targetId}, #{content}, #{parentId}, #{replyUserId}, '0', sysdate())
 	</insert>
 
 	<!--
 	  CAS 逻辑删除：user_id 与 del_flag 都写进 where，
 	  并发双击时只有一次能影响 1 行，调用方据此决定要不要减计数（0 行绝不能减）。
+	  一级评论和二级评论走的是同一条语句（「只能删自己的」对回复同样成立）。
 	-->
 	<update id="softDeleteById">
 		update learning_comment set del_flag = '2', update_time = sysdate()
 		 where comment_id = #{commentId} and user_id = #{userId} and del_flag = '0'
+	</update>
+
+	<!--
+	  一级评论被删时级联软删其全部回复；where 带 del_flag='0'，影响行数即本次真正删掉的行数，
+	  调用方据此减计数（-(1 + 本语句影响行数)），并发下也准确。
+	-->
+	<update id="softDeleteRepliesByParentId">
+		update learning_comment set del_flag = '2', update_time = sysdate()
+		 where parent_id = #{parentId} and del_flag = '0'
 	</update>
 
 	<!--

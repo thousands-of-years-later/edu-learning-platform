@@ -2,7 +2,9 @@ package com.ruoyi.interaction.domain;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.List;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
  * 评论表 learning_comment
@@ -14,6 +16,18 @@ import com.fasterxml.jackson.annotation.JsonFormat;
  *
  * 删除是【逻辑删除】（del_flag 0存在 2删除）：本表没有唯一索引要维护，用户本来就可以重复发
  * 同样的话，因此不存在 learning_interaction 那种「硬删除才能建唯一索引」的约束。
+ *
+ * 【二级评论】是扁平两级（微信/微博形态），不是无限嵌套树：
+ *   一级评论：parent_id = null，children 挂它的全部二级回复（无回复时是空数组）；
+ *   二级评论：parent_id = 所属【一级】评论的 comment_id（【不是】直接父级 ——
+ *             回复另一条二级评论时，根会上溯到它们共同的一级评论），
+ *             children 恒为 null（序列化时被 NON_NULL 抹掉，客户端不用判）。
+ *   reply_user_id = 被回复人，由服务端从被回复评论的作者推导，不接受前端传入。
+ *
+ * children 是【纯内存字段】，本表没有这一列，由 CommentServiceImpl 组装（一次 in 查询，非 N+1）。
+ *
+ * 分页口径：列表只分页一级评论（TableDataInfo.total = 一级评论数），
+ * 而接口返回的 count 与内容表 comment_count 含二级评论 —— 两者口径不同是刻意的。
  *
  * 计数字段（learning_post.comment_count 等）只由本模块维护，后台编辑内容时不再改动它们；
  * 内容被删除时由内容模块在删除语句里连同 del_flag 一起清零
@@ -60,6 +74,12 @@ public class Comment implements Serializable
     /** 目标ID */
     private Long targetId;
 
+    /** 父评论ID（一级评论为 null；二级评论存所属【一级】评论的 comment_id，不是直接父级） */
+    private Long parentId;
+
+    /** 被回复人用户ID（仅二级评论有值；服务端从被回复评论的作者推导，不接受前端传入） */
+    private Long replyUserId;
+
     /** 评论内容（纯文本，最长500字） */
     private String content;
 
@@ -76,6 +96,12 @@ public class Comment implements Serializable
 
     /** 评论人登录名（关联 sys_user 查出，非本表列） */
     private String userName;
+
+    /** 被回复人登录名（关联 sys_user 查出，非本表列） */
+    private String replyUserName;
+
+    /** 该一级评论的二级回复（纯内存字段，非本表列；二级评论恒为 null） */
+    private List<Comment> children;
 
     public Long getCommentId()
     {
@@ -115,6 +141,26 @@ public class Comment implements Serializable
     public void setTargetId(Long targetId)
     {
         this.targetId = targetId;
+    }
+
+    public Long getParentId()
+    {
+        return parentId;
+    }
+
+    public void setParentId(Long parentId)
+    {
+        this.parentId = parentId;
+    }
+
+    public Long getReplyUserId()
+    {
+        return replyUserId;
+    }
+
+    public void setReplyUserId(Long replyUserId)
+    {
+        this.replyUserId = replyUserId;
     }
 
     public String getContent()
@@ -165,6 +211,31 @@ public class Comment implements Serializable
     public void setUserName(String userName)
     {
         this.userName = userName;
+    }
+
+    public String getReplyUserName()
+    {
+        return replyUserName;
+    }
+
+    public void setReplyUserName(String replyUserName)
+    {
+        this.replyUserName = replyUserName;
+    }
+
+    /**
+     * 二级评论不带 children 字段（NON_NULL）：一级评论恒带（没回复就是空数组），
+     * 客户端拿到的响应里「有 children = 是一级评论」，不用额外判 null。
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public List<Comment> getChildren()
+    {
+        return children;
+    }
+
+    public void setChildren(List<Comment> children)
+    {
+        this.children = children;
     }
 
     /** 目标类型是否合法 */

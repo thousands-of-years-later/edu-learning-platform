@@ -17,10 +17,13 @@ import com.ruoyi.interaction.service.INotificationService;
  * 通知写失败要和触发动作一起回滚，所以不能吞异常、也不能 REQUIRES_NEW。
  *
  * 谁会被通知（被触发者）：
- *   帖子 -> learning_post.user_id，短视频 -> learning_short_video.user_id；
- *   课程没有 user_id 归属人列，【永远不产生通知】（tableOf 返回 null 直接跳过）；
- *   关注 -> 被关注者本人。
- * 自我操作（自己赞自己 / 自评自论）不打扰任何人，静默跳过。
+ *   点赞/收藏/一级评论 -> 内容归属人：帖子 -> learning_post.user_id，
+ *                        短视频 -> learning_short_video.user_id；
+ *   回复（二级评论）    -> 被回复评论的作者（type=5）+ 内容归属人（type=3，见 notifyReply 的去重）；
+ *   关注               -> 被关注者本人。
+ * 课程没有 user_id 归属人列，【归属人侧永远不产生通知】（tableOf 返回 null 直接跳过）；
+ * 但回复课程评论时被回复人仍然会收到 type=5 —— 那条不依赖归属人。
+ * 自我操作（自己赞自己 / 自评自论 / 回复自己）不打扰任何人，静默跳过。
  *
  * MVP 取舍：取消点赞/收藏/关注不删已产生的通知；「赞 → 取消 → 再赞」会产生两条通知。
  * 将来要治，最便宜的做法是插入前查「同 (user_id, from_user_id, type, target_type, target_id)
@@ -78,6 +81,49 @@ public class NotificationServiceImpl implements INotificationService
         n.setTargetId(targetId);
         n.setContent(content);
         notificationMapper.insertNotification(n);
+    }
+
+    @Override
+    public void notifyReply(Long fromUserId, String targetType, Long targetId, Long toUserId, String content)
+    {
+        // 与 notifyComment 完全相同的长度纪律：调用方已保证 trim 且不超长，
+        // 这里【不做 Java substring 截断】兜底（substring 按 UTF-16 切，可能切坏 emoji 的代理对）
+        if (content != null && content.length() > Notification.MAX_CONTENT_LENGTH)
+        {
+            throw new ServiceException("评论内容不能超过" + Notification.MAX_CONTENT_LENGTH + "个字");
+        }
+
+        // 1、被回复人：回复自己的评论不打扰自己（与自赞自评静默跳过同一规矩）
+        if (toUserId != null && !toUserId.equals(fromUserId))
+        {
+            Notification n = new Notification();
+            n.setUserId(toUserId);
+            n.setFromUserId(fromUserId);
+            n.setType(Notification.TYPE_REPLY);
+            n.setTargetType(targetType);
+            n.setTargetId(targetId);
+            n.setContent(content);
+            notificationMapper.insertNotification(n);
+        }
+
+        // 2、内容归属人：与一级评论一致照旧通知（回复也计入 comment_count，楼主应当知道讨论在继续），
+        //    但两种情况不重复打扰 —— 归属人就是回复者；归属人就是被回复人（回复楼主自己的评论，
+        //    最常见），同一件事发「回复 + 评论」两条纯属噪音。
+        //    课程无归属人（ownerOf 返回 null），只通知被回复人 —— 比原先「课程评论零通知」是改进。
+        //    归属人通知仍要求内容可见（selectTargetOwner 带 status/del_flag），
+        //    内容刚被删时宁可漏发也不给不可见内容发通知（与 notifyComment 同一取舍）
+        Long owner = ownerOf(targetType, targetId);
+        if (owner != null && !owner.equals(fromUserId) && !owner.equals(toUserId))
+        {
+            Notification n = new Notification();
+            n.setUserId(owner);
+            n.setFromUserId(fromUserId);
+            n.setType(Notification.TYPE_COMMENT);
+            n.setTargetType(targetType);
+            n.setTargetId(targetId);
+            n.setContent(content);
+            notificationMapper.insertNotification(n);
+        }
     }
 
     @Override

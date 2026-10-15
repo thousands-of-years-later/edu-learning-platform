@@ -26,11 +26,26 @@ public interface INotificationService
     public void notifyInteraction(Long fromUserId, String targetType, Long targetId, String type);
 
     /**
-     * 评论成功后调用
+     * 评论成功后调用（一级评论）
      *
      * @param content 评论原文（调用方保证已 trim 且不超过 Notification.MAX_CONTENT_LENGTH）
      */
     public void notifyComment(Long fromUserId, String targetType, Long targetId, String content);
+
+    /**
+     * 回复（二级评论）成功后调用
+     *
+     * 通知两类人，且【同一件事只打扰一次】：
+     *   1. 被回复评论的作者（toUserId）：type=5 回复评论；
+     *   2. 内容归属人（帖子/短视频作者）：type=3 评论 —— 但归属人就是回复者、
+     *      或就是被回复人（回复楼主，最常见）时【跳过】，不发第二条。
+     * 课程没有归属人：回复课程评论只通知被回复人。
+     * 回复自己的评论：两边条件都不成立，零通知。
+     *
+     * @param toUserId 被回复评论的作者（由服务端从被回复评论推导，不接受前端传入）
+     * @param content  回复原文（调用方保证已 trim 且不超过 Notification.MAX_CONTENT_LENGTH）
+     */
+    public void notifyReply(Long fromUserId, String targetType, Long targetId, Long toUserId, String content);
 
     /**
      * 新增关注后调用（重复关注是幂等重放，不调用）

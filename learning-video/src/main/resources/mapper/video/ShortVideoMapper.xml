@@ -52,7 +52,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 				AND v.status = #{status}
 			</if>
 		</where>
-		order by v.video_id desc
+		<!-- 排序白名单：仅当 sortBy=likeCount（搜索接口用）时按点赞数倒序；
+		     其余（含 null）保持后台列表原有的「最新在前」 -->
+		<choose>
+			<when test="sortBy == 'likeCount'">order by v.like_count desc, v.video_id desc</when>
+			<otherwise>order by v.video_id desc</otherwise>
+		</choose>
 	</select>
 
 	<select id="selectShortVideoById" parameterType="Long" resultMap="ShortVideoResult">

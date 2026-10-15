@@ -74,6 +74,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 				AND (p.status = '0' or p.user_id = #{ownerId})
 			</if>
 		</where>
+		<!-- 排序白名单：仅当 sortBy=likeCount（搜索接口用）时按点赞数倒序；
+		     null/空/其他值保持原行为（无 ORDER BY），后台列表不受影响 -->
+		<if test="sortBy == 'likeCount'">
+			order by p.like_count desc, p.post_id desc
+		</if>
 	</select>
 
 	<select id="selectPostById" parameterType="Long" resultMap="PostResult">

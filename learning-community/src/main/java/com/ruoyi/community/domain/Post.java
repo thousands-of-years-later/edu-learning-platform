@@ -41,6 +41,9 @@ public class Post extends BaseEntity
     /** 精华标志：否 */
     public static final String FEATURED_NO = "0";
 
+    /** 排序方式：按点赞数（learning_post.like_count，搜索接口用） */
+    public static final String SORT_BY_LIKE_COUNT = "likeCount";
+
     /** 帖子ID */
     @Excel(name = "帖子ID", cellType = ColumnType.NUMERIC)
     private Long postId;
@@ -105,6 +108,9 @@ public class Post extends BaseEntity
      * 管理员为 null，不限制。绝不能用 userId 当列表过滤条件，那个字段前端可以绑。
      */
     private Long ownerId;
+
+    /** 排序方式（App 搜索接口入参，非本表列；由 Mapper 白名单翻译成 ORDER BY） */
+    private String sortBy;
 
     public Long getPostId()
     {
@@ -264,6 +270,16 @@ public class Post extends BaseEntity
     public void setOwnerId(Long ownerId)
     {
         this.ownerId = ownerId;
+    }
+
+    public String getSortBy()
+    {
+        return sortBy;
+    }
+
+    public void setSortBy(String sortBy)
+    {
+        this.sortBy = sortBy;
     }
 
     @Override

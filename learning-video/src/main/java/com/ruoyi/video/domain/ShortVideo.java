@@ -26,6 +26,9 @@ public class ShortVideo extends BaseEntity
     /** 状态：停用（小程序不可见） */
     public static final String STATUS_DISABLED = "1";
 
+    /** 排序方式：按点赞数（learning_short_video.like_count，搜索接口用） */
+    public static final String SORT_BY_LIKE_COUNT = "likeCount";
+
     /** 短视频ID */
     @Excel(name = "视频ID", cellType = ColumnType.NUMERIC)
     private Long videoId;
@@ -73,6 +76,9 @@ public class ShortVideo extends BaseEntity
 
     /** 删除标志（0代表存在 2代表删除） */
     private String delFlag;
+
+    /** 排序方式（App 搜索接口入参，非本表列；由 Mapper 白名单翻译成 ORDER BY） */
+    private String sortBy;
 
     /** 上传者登录名（关联 sys_user 查出，非本表列） */
     @Excel(name = "上传者")
@@ -227,6 +233,16 @@ public class ShortVideo extends BaseEntity
     public void setUserName(String userName)
     {
         this.userName = userName;
+    }
+
+    public String getSortBy()
+    {
+        return sortBy;
+    }
+
+    public void setSortBy(String sortBy)
+    {
+        this.sortBy = sortBy;
     }
 
     @Override

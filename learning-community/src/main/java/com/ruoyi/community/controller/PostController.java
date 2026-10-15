@@ -30,7 +30,11 @@ import com.ruoyi.course.service.ICategoryService;
  * 所以这里【不做】课程那种「只有超级管理员可以维护」的统一拦截，
  * 「只能动自己的帖子」由 PostServiceImpl 逐条校验 user_id 兜底。
  *
- * 页面模板位于 templates/community/post/ 下，菜单与按钮权限见 sql/learning_post_menu.sql。
+ * 审核链路：普通用户提交「发布」落「3 待审核」，由审核人（user_id==1 或持有
+ * community:post:audit 的账号）在「帖子审核」页通过(0)/驳回(4)，通过时可指定精华。
+ * 状态机与校验在 PostServiceImpl（insertPost/resolveStatus/auditPost），
+ * 页面模板位于 templates/community/post/ 下，菜单与权限见
+ * sql/learning_post_menu.sql 与 sql/learning_post_audit.sql。
  *
  * @author edu
  */
@@ -100,8 +104,8 @@ public class PostController extends BaseController
     /**
      * 帖子详情页（只读，同时是 Markdown 的实际渲染处）
      *
-     * 可见性：管理员看全部；作者看自己的（含草稿）；其他人的只放已发布，
-     * 否则猜个 id 就能绕过列表读到别人的草稿或已下架内容。
+     * 可见性：审核人看全部（要读待审帖的正文才能审）；作者看自己的（含草稿/已驳回）；
+     * 其他人的只放已发布，否则猜个 id 就能绕过列表读到别人的草稿或已下架内容。
      */
     @RequiresPermissions("community:post:view")
     @GetMapping("/detail/{postId}")
@@ -113,7 +117,70 @@ public class PostController extends BaseController
             return "error/unauth";
         }
         mmap.put("post", post);
+        mmap.put("canSeeAuditRemark", canAudit() || post.getUserId().equals(getUserId()));
         return prefix + "/detail";
+    }
+
+    /**
+     * 帖子审核列表页（默认筛「待审核」）
+     */
+    @RequiresPermissions("community:post:audit")
+    @GetMapping("/audit")
+    public String audit(ModelMap mmap)
+    {
+        mmap.put("categories", selectArticleCategories());
+        return prefix + "/audit";
+    }
+
+    /**
+     * 帖子审核表单页（弹出层打开）
+     *
+     * 只有待审核的帖子能审核，已发布/草稿/已驳回/已下架一律回无权限页
+     * （与 PostServiceImpl.auditPost 的校验保持一致，双保险）。
+     */
+    @RequiresPermissions("community:post:audit")
+    @GetMapping("/audit/{postId}")
+    public String auditForm(@PathVariable("postId") Long postId, ModelMap mmap)
+    {
+        Post post = postService.selectPostById(postId);
+        if (post == null || !canAudit() || !Post.STATUS_PENDING.equals(post.getStatus()))
+        {
+            return "error/unauth";
+        }
+        mmap.put("post", post);
+        return prefix + "/auditForm";
+    }
+
+    /**
+     * 查询审核列表
+     *
+     * 与 /list 的区别：要求审核权限，且不做 ownerId 收敛——审核人要看所有人提交的待审帖。
+     * /list 的社区广场可见范围不受影响。
+     */
+    @RequiresPermissions("community:post:audit")
+    @PostMapping("/auditList")
+    @ResponseBody
+    public TableDataInfo auditList(Post post)
+    {
+        startPage();
+        List<Post> list = postService.selectPostList(post);
+        return getDataTable(list);
+    }
+
+    /**
+     * 审核保存（通过 / 驳回，可同时指定精华）
+     *
+     * 刻意不加 @Validated：审核表单只有 postId/status/isFeatured/auditRemark，
+     * Post 上的 @NotBlank title 之类会误伤整张表单；需要校验的字段由 service 收敛。
+     */
+    @RequiresPermissions("community:post:audit")
+    @Log(title = "社区帖子", businessType = BusinessType.UPDATE)
+    @PostMapping("/audit")
+    @ResponseBody
+    public AjaxResult auditSave(Post post)
+    {
+        post.setUpdateBy(getLoginName());
+        return toAjax(postService.auditPost(post, canAudit()));
     }
 
     /**
@@ -171,10 +238,11 @@ public class PostController extends BaseController
     public AjaxResult addSave(@Validated Post post)
     {
         stripCountersIfNotAdmin(post);
+        regulateAuditFields(post);
         // 作者永远取当前登录用户，不接受表单传入的 userId
         post.setUserId(getUserId());
         post.setCreateBy(getLoginName());
-        return toAjax(postService.insertPost(post));
+        return toAjax(postService.insertPost(post, ShiroUtils.isAdmin()));
     }
 
     /**
@@ -187,6 +255,7 @@ public class PostController extends BaseController
     public AjaxResult editSave(@Validated Post post)
     {
         stripCountersIfNotAdmin(post);
+        regulateAuditFields(post);
         post.setUpdateBy(getLoginName());
         return toAjax(postService.updatePost(post, getUserId(), ShiroUtils.isAdmin()));
     }
@@ -217,6 +286,27 @@ public class PostController extends BaseController
     }
 
     /**
+     * 审核相关字段不由普通编辑表单维护：
+     *  · audit_remark：只在 /audit 审核接口写入；updatePost 的 SQL 里也不含该列（双保险，防表单伪造）
+     *  · is_featured：非管理员置空（mapper 的 &lt;if&gt; 会跳过，保持库里的值不变）；
+     *    管理员按复选框语义归档为 0/1 —— 勾选时浏览器提交 "1"，未勾选不提交，
+     *    这里把「未提交」统一成 "0"，否则管理员永远取消不了精华
+     */
+    private void regulateAuditFields(Post post)
+    {
+        post.setAuditRemark(null);
+        if (!ShiroUtils.isAdmin())
+        {
+            post.setIsFeatured(null);
+        }
+        else
+        {
+            post.setIsFeatured(Post.FEATURED_YES.equals(post.getIsFeatured())
+                    ? Post.FEATURED_YES : Post.FEATURED_NO);
+        }
+    }
+
+    /**
      * 当前登录用户能否维护这条帖子（管理员，或本人发布的）
      */
     private boolean canManage(Post post)
@@ -225,11 +315,26 @@ public class PostController extends BaseController
     }
 
     /**
-     * 当前登录用户能否查看这条帖子（管理员、本人，或别人已发布的）
+     * 当前登录用户能否审核帖子
+     *
+     * 不能只认 ShiroUtils.isAdmin()（user_id==1）：平台另建了 eduadmin 管理员账号
+     * （user_id != 1，role_key=admin，见 sql/learning_admin_account.sql），
+     * 它拿到 community:post:audit 授权后也该能审核，否则审核页永远是空的。
+     * 计数维护、编辑他人帖子等其它管理动作仍按 isAdmin() 判定，不在本次放宽范围。
+     */
+    private boolean canAudit()
+    {
+        return ShiroUtils.isAdmin() || ShiroUtils.getSubject().isPermitted("community:post:audit");
+    }
+
+    /**
+     * 当前登录用户能否查看这条帖子（审核人、本人，或别人已发布的）
+     *
+     * 审核人必须能读到别人待审核/已驳回帖子的正文，审核动作才有意义。
      */
     private boolean canView(Post post)
     {
-        return ShiroUtils.isAdmin()
+        return canAudit()
                 || post.getUserId().equals(getUserId())
                 || Post.STATUS_PUBLISHED.equals(post.getStatus());
     }

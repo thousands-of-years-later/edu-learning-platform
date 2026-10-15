@@ -45,6 +45,16 @@ public interface PostMapper
     public int updatePost(Post post);
 
     /**
+     * 审核帖子（只更新 状态 / 精华 / 审核备注 三列，不动标题、正文、类别与作者）
+     *
+     * where 带 status = '3'：只有待审核的帖子能被审核，并发重复审核时影响行数为 0。
+     *
+     * @param post 帖子信息（postId、status、isFeatured、auditRemark、updateBy 必填）
+     * @return 结果
+     */
+    public int updatePostAudit(Post post);
+
+    /**
      * 批量逻辑删除帖子
      *
      * @param postIds 需要删除的帖子ID数组

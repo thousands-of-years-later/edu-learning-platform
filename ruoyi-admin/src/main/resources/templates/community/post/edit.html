@@ -6,6 +6,16 @@
 </head>
 <body class="white-bg">
 	<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+		<!-- 审核状态提示：驳回原因给作者看，改完重新选「已发布」提交即可 -->
+		<div class="alert alert-danger" th:if="${post.status == '4' and !#strings.isEmpty(post.auditRemark)}">
+			<i class="fa fa-exclamation-triangle"></i> 该帖子已被驳回，原因：<span th:text="${post.auditRemark}">-</span>
+		</div>
+		<div class="alert alert-danger" th:if="${post.status == '4' and #strings.isEmpty(post.auditRemark)}">
+			<i class="fa fa-exclamation-triangle"></i> 该帖子已被驳回，请修改后选择「已发布」重新提交审核。
+		</div>
+		<div class="alert alert-info" th:if="${post.status == '3'}">
+			<i class="fa fa-clock-o"></i> 该帖子正在审核中；修改内容后选择「已发布」会重新提交审核。
+		</div>
 		<form class="form-horizontal m" id="form-post-edit" th:object="${post}">
 			<input id="postId" name="postId" type="hidden" th:field="*{postId}"/>
 			<div class="form-group">
@@ -48,11 +58,25 @@
 				<label class="col-sm-2 control-label">状态：</label>
 				<div class="col-sm-10">
 					<!-- 普通用户看不到「已下架」，也重新发布不了已被管理员下架的帖子：
-					     后端 PostServiceImpl.resolveStatus 会把状态强制保持为已下架 -->
-					<div class="radio-box" th:each="dict : ${@dict.getType('sys_post_status')}" th:if="${isAdmin or dict.dictValue != '2'}">
+					     后端 PostServiceImpl.resolveStatus 会把状态强制保持为已下架。
+					     「待审核 / 已驳回」只由审核链路流转，不给表单直选；
+					     处于这两个状态的帖子这里没有预选 radio，保存前会要求显式选择 -->
+					<div class="radio-box" th:each="dict : ${@dict.getType('sys_post_status')}"
+						 th:if="${dict.dictValue != '3' and dict.dictValue != '4' and (isAdmin or dict.dictValue != '2')}">
 						<input type="radio" th:id="${dict.dictCode}" name="status" th:value="${dict.dictValue}" th:field="*{status}">
 						<label th:for="${dict.dictCode}" th:text="${dict.dictLabel}"></label>
 					</div>
+					<p class="help-block" th:if="${!isAdmin}">选择「已发布」会先提交管理员审核，审核通过才公开。</p>
+				</div>
+			</div>
+			<div class="form-group" th:if="${isAdmin}">
+				<label class="col-sm-2 control-label">精华：</label>
+				<div class="col-sm-10">
+					<!-- 不用 th:field：未勾选时浏览器不提交该字段，由控制层归一化成 '0' -->
+					<label class="checkbox-inline">
+						<input type="checkbox" id="isFeatured" name="isFeatured" value="1"
+							   th:checked="${post.isFeatured == '1'}"> 设为精华
+					</label>
 				</div>
 			</div>
 			<div class="form-group">
@@ -127,6 +151,12 @@
 		});
 
 		function submitHandler() {
+			/* 待审核/已驳回的帖子没有预选状态；不显式选择时浏览器不提交 status，
+			   后端会静默保持原状态，作者会以为"改完提交了"——这里直接拦住 */
+			if ($("input[name='status']:checked").length == 0) {
+				$.modal.alertWarning("请选择帖子状态：发布（提交审核）或草稿");
+				return;
+			}
 			/* EasyMDE 不会把内容同步回 textarea，serialize 前必须手动写回 */
 			$("#postContent").val(easyMDE.value());
 	        if ($.validate.form()) {

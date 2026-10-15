@@ -44,11 +44,14 @@
 			<div class="form-group">
 				<label class="col-sm-2 control-label">状态：</label>
 				<div class="col-sm-10">
-					<!-- 普通用户只能存草稿或直接发布；「已下架」是管理动作，不给这个选项 -->
-					<div class="radio-box" th:each="dict : ${@dict.getType('sys_post_status')}" th:if="${isAdmin or dict.dictValue != '2'}">
+					<!-- 普通用户只能存草稿或提交发布；「已下架」是管理动作；
+					     「待审核 / 已驳回」只由审核链路流转，不给表单直选 -->
+					<div class="radio-box" th:each="dict : ${@dict.getType('sys_post_status')}"
+						 th:if="${dict.dictValue != '3' and dict.dictValue != '4' and (isAdmin or dict.dictValue != '2')}">
 						<input type="radio" th:id="${dict.dictCode}" name="status" th:value="${dict.dictValue}" th:checked="${dict.default}">
 						<label th:for="${dict.dictCode}" th:text="${dict.dictLabel}"></label>
 					</div>
+					<p class="help-block" th:if="${!isAdmin}">选择「已发布」后会先提交管理员审核，审核通过才公开。</p>
 				</div>
 			</div>
 			<div class="form-group">

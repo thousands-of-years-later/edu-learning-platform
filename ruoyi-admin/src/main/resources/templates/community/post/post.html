@@ -119,8 +119,16 @@
 		            title: '状态',
 		            align: 'center',
 		            formatter: function(value, row, index) {
-		            	var cls = value == '1' ? 'label-info' : (value == '2' ? 'label-danger' : 'label-success');
+		            	var cls = value == '0' ? 'label-success' : (value == '1' ? 'label-info' : (value == '3' ? 'label-warning' : 'label-danger'));
 		            	return '<span class="label ' + cls + '">' + $.table.selectDictLabel(datas, value) + '</span>';
+		            }
+		        },
+		        {
+		            field: 'isFeatured',
+		            title: '精华',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		            	return value == '1' ? '<span class="label label-warning">精华</span>' : '';
 		            }
 		        },
 		        {

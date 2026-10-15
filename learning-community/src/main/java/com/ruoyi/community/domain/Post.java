@@ -29,6 +29,18 @@ public class Post extends BaseEntity
     /** 状态：已下架（仅管理员可见、可恢复） */
     public static final String STATUS_OFFLINE = "2";
 
+    /** 状态：待审核（作者提交「发布」后、管理员审核前） */
+    public static final String STATUS_PENDING = "3";
+
+    /** 状态：已驳回（审核未通过，作者可修改后重新提交） */
+    public static final String STATUS_REJECTED = "4";
+
+    /** 精华标志：是 */
+    public static final String FEATURED_YES = "1";
+
+    /** 精华标志：否 */
+    public static final String FEATURED_NO = "0";
+
     /** 帖子ID */
     @Excel(name = "帖子ID", cellType = ColumnType.NUMERIC)
     private Long postId;
@@ -58,12 +70,25 @@ public class Post extends BaseEntity
     @Excel(name = "评论数", cellType = ColumnType.NUMERIC)
     private Integer commentCount;
 
-    /** 状态（0已发布 1草稿 2已下架） */
-    @Excel(name = "状态", readConverterExp = "0=已发布,1=草稿,2=已下架")
+    /** 状态（0已发布 1草稿 2已下架 3待审核 4已驳回） */
+    @Excel(name = "状态", readConverterExp = "0=已发布,1=草稿,2=已下架,3=待审核,4=已驳回")
     private String status;
+
+    /**
+     * 精华标志（0否 1是，管理员在审核时或编辑时指定）
+     *
+     * getter 用 getIsFeatured 而不是 isFeatured：Jackson 对 isXxx() 会序列化成 "featured"，
+     * 前端 row.isFeatured 就取不到了。
+     */
+    @Excel(name = "精华", readConverterExp = "0=否,1=是")
+    private String isFeatured;
 
     /** 删除标志（0代表存在 2代表删除） */
     private String delFlag;
+
+    /** 最近一次审核备注（审核时写入，作者在编辑页与详情页可见） */
+    @Excel(name = "审核备注")
+    private String auditRemark;
 
     /** 所属类别名称（关联 learning_category 查出，非本表列） */
     @Excel(name = "所属类别")
@@ -179,6 +204,17 @@ public class Post extends BaseEntity
         this.status = status;
     }
 
+    @Size(min = 0, max = 1, message = "精华标志长度不能超过1个字符")
+    public String getIsFeatured()
+    {
+        return isFeatured;
+    }
+
+    public void setIsFeatured(String isFeatured)
+    {
+        this.isFeatured = isFeatured;
+    }
+
     public String getDelFlag()
     {
         return delFlag;
@@ -187,6 +223,17 @@ public class Post extends BaseEntity
     public void setDelFlag(String delFlag)
     {
         this.delFlag = delFlag;
+    }
+
+    @Size(min = 0, max = 500, message = "审核备注长度不能超过500个字符")
+    public String getAuditRemark()
+    {
+        return auditRemark;
+    }
+
+    public void setAuditRemark(String auditRemark)
+    {
+        this.auditRemark = auditRemark;
     }
 
     public String getCategoryName()
@@ -230,7 +277,9 @@ public class Post extends BaseEntity
             .append("favoriteCount", getFavoriteCount())
             .append("commentCount", getCommentCount())
             .append("status", getStatus())
+            .append("isFeatured", getIsFeatured())
             .append("delFlag", getDelFlag())
+            .append("auditRemark", getAuditRemark())
             .append("categoryName", getCategoryName())
             .append("userName", getUserName())
             .append("createBy", getCreateBy())

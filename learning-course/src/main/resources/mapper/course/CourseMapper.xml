@@ -13,6 +13,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="likeCount"     column="like_count"     />
 		<result property="favoriteCount" column="favorite_count" />
 		<result property="commentCount"  column="comment_count"  />
+		<result property="ratingCount"   column="rating_count"   />
+		<result property="ratingScore"   column="rating_score"   />
 		<result property="status"        column="status"         />
 		<result property="delFlag"       column="del_flag"       />
 		<result property="categoryName"  column="category_name"  />
@@ -26,7 +28,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	<!-- 类别名称为逻辑外键关联查询，类别被删除时不影响课程本身的读取 -->
 	<sql id="selectCourseVo">
 		select c.course_id, c.course_name, c.category_id, c.cover_url, c.intro,
-		       c.like_count, c.favorite_count, c.comment_count, c.status, c.del_flag,
+		       c.like_count, c.favorite_count, c.comment_count, c.rating_count, c.rating_score,
+		       c.status, c.del_flag,
 		       c.create_by, c.create_time, c.update_by, c.update_time, c.remark,
 		       cat.category_name
 		  from learning_course c

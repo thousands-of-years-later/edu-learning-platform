@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.course.mapper.CourseRatingMapper">
+
+	<resultMap type="CourseRating" id="CourseRatingResult">
+		<id     property="ratingId"   column="rating_id"   />
+		<result property="courseId"   column="course_id"   />
+		<result property="userId"     column="user_id"     />
+		<result property="score"      column="score"       />
+		<result property="createTime" column="create_time" />
+		<result property="updateTime" column="update_time" />
+	</resultMap>
+
+	<!--
+	  普通 insert，不是 insert ignore：ignore 会把字段超长这类真错误也吞成 warning，
+	  服务层就没法区分「插入失败」和「已经评过」。
+	  重复评分由唯一索引 uk_course_user 正常报出，服务层捕获 DuplicateKeyException。
+	-->
+	<insert id="insertRating" parameterType="CourseRating">
+		insert into learning_course_rating (course_id, user_id, score, create_time)
+		values (#{courseId}, #{userId}, #{score}, sysdate())
+	</insert>
+
+	<!-- 修改自己的评分：course_id + user_id 同时进 where，别人改不到我的分 -->
+	<update id="updateScoreByCourseAndUser" parameterType="CourseRating">
+		update learning_course_rating set score = #{score}, update_time = sysdate()
+		 where course_id = #{courseId} and user_id = #{userId}
+	</update>
+
+	<select id="selectRatingByCourseAndUser" resultMap="CourseRatingResult">
+		select rating_id, course_id, user_id, score, create_time, update_time
+		  from learning_course_rating
+		 where course_id = #{courseId} and user_id = #{userId}
+	</select>
+
+	<!--
+	  for update：改分路径先锁住自己的评分行，两个并发改分事务在这里串行，
+	  后到的事务读到的才是最新的旧分，「新分 - 旧分」的差值不会算在过期快照上。
+	-->
+	<select id="selectRatingForUpdate" resultMap="CourseRatingResult">
+		select rating_id, course_id, user_id, score, create_time, update_time
+		  from learning_course_rating
+		 where course_id = #{courseId} and user_id = #{userId}
+		 for update
+	</select>
+
+	<!--
+	  可评分 = 未逻辑删除 + 状态正常（课程 status='0' 是正常，1 是停用），
+	  与 CommentMapper.existsCourse 同一写法。少了 status 这一层，停用的课程也能被评分。
+	-->
+	<select id="existsCourse" resultType="int">
+		select count(*) from learning_course where course_id = #{courseId} and del_flag = '0' and status = '0'
+	</select>
+
+	<!--
+	  count(*) / sum(score) 是评分统计的【唯一真相】：接口返回的平均分与评分人数永远来自这里，
+	  不读 learning_course 的两列冗余统计。
+	  别名写成驼峰：全局 mapUnderscoreToCamelCase 是关的，下划线别名会原样变成 map 的 key。
+	-->
+	<select id="selectCourseStats" resultType="java.util.Map">
+		select count(*) as ratingCount, ifnull(sum(score), 0) as ratingScore
+		  from learning_course_rating
+		 where course_id = #{courseId}
+	</select>
+
+	<!--
+	  原子写法（与 CommentMapper.updateCount 同一规矩）：col = col + delta，不做"读出来加一再写回"。
+	  新增传 (1, score)，改分传 (0, 新分-旧分)。递减只出现在改分，rating_score 不会被减成负数（每人至少 1 分）。
+	  where 带 del_flag 兜底：影响 0 行 = 课程在存在性校验之后又被删了，服务层报错回滚。
+	-->
+	<update id="updateCourseRatingStats">
+		update learning_course
+		   set rating_count = rating_count + #{countDelta},
+		       rating_score = rating_score + #{scoreDelta}
+		 where course_id = #{courseId} and del_flag = '0'
+	</update>
+
+</mapper>

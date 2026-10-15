@@ -50,6 +50,14 @@ public class Course extends BaseEntity
     @Excel(name = "评论数", cellType = ColumnType.NUMERIC)
     private Integer commentCount;
 
+    /** 评分人数（冗余统计，由课程评分模块维护，后台表单不写入） */
+    @Excel(name = "评分人数", cellType = ColumnType.NUMERIC)
+    private Integer ratingCount;
+
+    /** 评分总分（各用户评分之和，平均分 = ratingScore / ratingCount；冗余统计，由课程评分模块维护） */
+    @Excel(name = "评分总分", cellType = ColumnType.NUMERIC)
+    private Integer ratingScore;
+
     /** 状态（0正常 1停用） */
     @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
@@ -147,6 +155,28 @@ public class Course extends BaseEntity
         this.commentCount = commentCount;
     }
 
+    @Min(value = 0, message = "评分人数不能为负数")
+    public Integer getRatingCount()
+    {
+        return ratingCount;
+    }
+
+    public void setRatingCount(Integer ratingCount)
+    {
+        this.ratingCount = ratingCount;
+    }
+
+    @Min(value = 0, message = "评分总分不能为负数")
+    public Integer getRatingScore()
+    {
+        return ratingScore;
+    }
+
+    public void setRatingScore(Integer ratingScore)
+    {
+        this.ratingScore = ratingScore;
+    }
+
     @Size(min = 0, max = 1, message = "状态长度不能超过1个字符")
     public String getStatus()
     {
@@ -189,6 +219,8 @@ public class Course extends BaseEntity
             .append("likeCount", getLikeCount())
             .append("favoriteCount", getFavoriteCount())
             .append("commentCount", getCommentCount())
+            .append("ratingCount", getRatingCount())
+            .append("ratingScore", getRatingScore())
             .append("status", getStatus())
             .append("delFlag", getDelFlag())
             .append("createBy", getCreateBy())

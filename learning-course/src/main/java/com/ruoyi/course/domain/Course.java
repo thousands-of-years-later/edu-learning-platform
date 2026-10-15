@@ -19,6 +19,18 @@ public class Course extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
+    /** 排序方式：按点赞数（learning_course.like_count） */
+    public static final String SORT_BY_LIKE_COUNT = "likeCount";
+
+    /** 排序方式：按上传日期（learning_course.create_time） */
+    public static final String SORT_BY_CREATE_TIME = "createTime";
+
+    /** 排序方式：按综合评分（平均分 = rating_score / rating_count，无人评分排最后） */
+    public static final String SORT_BY_AVG_SCORE = "avgScore";
+
+    /** 默认排序方式：上传日期倒序 */
+    public static final String SORT_BY_DEFAULT = SORT_BY_CREATE_TIME;
+
     /** 课程ID */
     @Excel(name = "课程ID", cellType = ColumnType.NUMERIC)
     private Long courseId;
@@ -67,6 +79,12 @@ public class Course extends BaseEntity
 
     /** 所属类别名称（关联 learning_category 查出，非本表列） */
     private String categoryName;
+
+    /** 排序方式（App 列表入参，非本表列；由 Mapper 白名单 <choose> 翻译成 ORDER BY） */
+    private String sortBy;
+
+    /** 综合评分（平均分 = ratingScore / ratingCount，保留 1 位小数；无人评分返回 null，非本表列） */
+    private Double avgScore;
 
     public Long getCourseId()
     {
@@ -206,6 +224,34 @@ public class Course extends BaseEntity
     public void setCategoryName(String categoryName)
     {
         this.categoryName = categoryName;
+    }
+
+    public String getSortBy()
+    {
+        return sortBy;
+    }
+
+    public void setSortBy(String sortBy)
+    {
+        this.sortBy = sortBy;
+    }
+
+    public Double getAvgScore()
+    {
+        return avgScore;
+    }
+
+    public void setAvgScore(Double avgScore)
+    {
+        this.avgScore = avgScore;
+    }
+
+    /** 排序方式是否为白名单内的合法值（null / 空串由调用方决定是否套默认值） */
+    public static boolean isValidSortBy(String sortBy)
+    {
+        return SORT_BY_LIKE_COUNT.equals(sortBy)
+                || SORT_BY_CREATE_TIME.equals(sortBy)
+                || SORT_BY_AVG_SCORE.equals(sortBy);
     }
 
     @Override

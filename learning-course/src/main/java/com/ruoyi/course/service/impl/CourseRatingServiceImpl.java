@@ -1,7 +1,5 @@
 package com.ruoyi.course.service.impl;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -158,21 +156,15 @@ public class CourseRatingServiceImpl implements ICourseRatingService
     /**
      * 组装接口返回：{myScore, avgScore, ratingCount}
      *
-     * 平均分用 BigDecimal 除法（不用 double）：4.35 这类值用 double 会变成 4.3499… 被舍成 4.3；
-     * 无人评分时返回 null，客户端显示「暂无评分」，不能给假 0 分。
+     * 平均分的算法收敛在 CourseRating.avgScore（保留 1 位小数 / HALF_UP / 无人评分返回 null），
+     * 课程列表接口算 avgScore 用的是同一个方法，两处不会漂移。
      */
     private Map<String, Object> buildResult(Integer myScore, Map<String, Object> stats)
     {
         long ratingCount = ((Number) stats.get("ratingCount")).longValue();
         long ratingScore = ((Number) stats.get("ratingScore")).longValue();
 
-        Double avgScore = null;
-        if (ratingCount > 0)
-        {
-            avgScore = BigDecimal.valueOf(ratingScore)
-                    .divide(BigDecimal.valueOf(ratingCount), 1, RoundingMode.HALF_UP)
-                    .doubleValue();
-        }
+        Double avgScore = CourseRating.avgScore(ratingCount, ratingScore);
 
         Map<String, Object> result = new HashMap<String, Object>();
         result.put("myScore", myScore);

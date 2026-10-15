@@ -1,6 +1,8 @@
 package com.ruoyi.course.domain;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Date;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -113,5 +115,26 @@ public class CourseRating implements Serializable
     public static boolean isValidScore(Integer score)
     {
         return score != null && score >= MIN_SCORE && score <= MAX_SCORE;
+    }
+
+    /**
+     * 课程平均分（保留 1 位小数，HALF_UP；无人评分返回 null，绝不返回假 0 分）
+     *
+     * 评分接口（/api/rating/info 的 avgScore）与课程列表接口共用这一条规则，
+     * 避免两处实现漂移：列表里的 avgScore 与排序所用的 avgScore 必须是同一个值。
+     * 用 BigDecimal 除法而不是 double：4.35 这类值用 double 会变成 4.3499… 被舍成 4.3。
+     *
+     * @param ratingCount 评分人数
+     * @param ratingScore 评分总分（各用户评分之和）
+     */
+    public static Double avgScore(long ratingCount, long ratingScore)
+    {
+        if (ratingCount <= 0)
+        {
+            return null;
+        }
+        return BigDecimal.valueOf(ratingScore)
+                .divide(BigDecimal.valueOf(ratingCount), 1, RoundingMode.HALF_UP)
+                .doubleValue();
     }
 }

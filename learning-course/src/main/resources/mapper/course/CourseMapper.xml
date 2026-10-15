@@ -50,6 +50,31 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 				AND c.status = #{status}
 			</if>
 		</where>
+		<!--
+		  列表排序（App 接口传 sortBy）：只走白名单 <choose>，绝不 ${} 拼接。
+		  sortBy 为空（后台列表、导出、老的调用）时整段不输出，SQL 与加排序前完全一致；
+		  后台点列头排序走的是 PageHelper 的 orderByColumn 机制（它会替换掉 SQL 里的 order by），
+		  两者互不干扰。
+		  上面已 join learning_category，两表都有 create_time / status / remark，
+		  排序列一律带 c. 前缀，否则 MySQL 报 1052 Column ... in order clause is ambiguous。
+		  每个分支都补 course_id 兜底：create_time 只精确到秒、点赞数并列常见，
+		  少了第二排序键翻页会重复或漏行（与 CommentMapper / ShortVideoMapper 同一思路）。
+		-->
+		<if test="sortBy != null and sortBy != ''">
+			order by
+			<choose>
+				<when test="sortBy == 'likeCount'">c.like_count desc, c.course_id desc</when>
+				<when test="sortBy == 'avgScore'">
+					<!-- 综合评分 = rating_score / rating_count（MySQL 的 / 是精确除法，不是整除）；
+					     无人评分（rating_count 为 0 或 null）按 0 算，排最后；
+					     同分时评分人数多的在前，再同则新课程在前 -->
+					case when c.rating_count > 0 then c.rating_score / c.rating_count else 0 end desc,
+					c.rating_count desc,
+					c.course_id desc
+				</when>
+				<otherwise>c.create_time desc, c.course_id desc</otherwise>
+			</choose>
+		</if>
 	</select>
 
 	<select id="selectCourseById" parameterType="Long" resultMap="CourseResult">

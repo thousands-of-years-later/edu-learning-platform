@@ -9,6 +9,7 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.course.domain.Course;
+import com.ruoyi.course.domain.CourseRating;
 import com.ruoyi.course.mapper.CourseChapterMapper;
 import com.ruoyi.course.mapper.CourseMapper;
 import com.ruoyi.course.mapper.CourseVideoMapper;
@@ -34,7 +35,33 @@ public class CourseServiceImpl implements ICourseService
     @Override
     public List<Course> selectCourseList(Course course)
     {
-        return courseMapper.selectCourseList(course);
+        List<Course> list = courseMapper.selectCourseList(course);
+        // 平均分统一在 Java 里算（规则见 CourseRating.avgScore，与评分接口同一套 HALF_UP）。
+        // 只就地改元素、不新建 List —— list 就是 PageHelper 的 Page，
+        // 换成新 List 会让 getDataTable 里的 PageInfo 拿不到 total。
+        for (Course row : list)
+        {
+            long ratingCount = row.getRatingCount() == null ? 0L : row.getRatingCount().longValue();
+            long ratingScore = row.getRatingScore() == null ? 0L : row.getRatingScore().longValue();
+            row.setAvgScore(CourseRating.avgScore(ratingCount, ratingScore));
+        }
+        return list;
+    }
+
+    @Override
+    public void checkSortBy(Course course)
+    {
+        String sortBy = StringUtils.trim(course.getSortBy());
+        if (StringUtils.isEmpty(sortBy))
+        {
+            course.setSortBy(Course.SORT_BY_DEFAULT);
+            return;
+        }
+        if (!Course.isValidSortBy(sortBy))
+        {
+            throw new ServiceException("排序方式不合法，只支持 likeCount、createTime、avgScore");
+        }
+        course.setSortBy(sortBy);
     }
 
     @Override

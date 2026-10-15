@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.interaction.mapper.CommentMapper">
+
+	<resultMap type="Comment" id="CommentResult">
+		<id     property="commentId"  column="comment_id"  />
+		<result property="userId"     column="user_id"     />
+		<result property="targetType" column="target_type" />
+		<result property="targetId"   column="target_id"   />
+		<result property="content"    column="content"     />
+		<result property="delFlag"    column="del_flag"    />
+		<result property="createTime" column="create_time" />
+		<result property="updateTime" column="update_time" />
+		<result property="userName"   column="user_name"   />
+	</resultMap>
+
+	<!--
+	  列表查询【不 join sys_user】，评论人登录名用标量子查询取。
+	  原因（与 PostMapper.xml / ShortVideoMapper.xml 一致）：sys_user 也有 user_id/status/create_time
+	  等同名列，一旦 join，客户端传 orderByColumn 让 PageHelper 追加 order by <列名>
+	  就会出现「Column 'xxx' in order clause is ambiguous」1052 错误；单表 FROM 则任何列都不会歧义。
+	-->
+	<sql id="selectCommentVo">
+		select c.comment_id, c.user_id, c.target_type, c.target_id, c.content,
+		       c.del_flag, c.create_time, c.update_time,
+		       (select u.user_name from sys_user u where u.user_id = c.user_id) as user_name
+		  from learning_comment c
+	</sql>
+
+	<!-- 按 comment_id 倒序：create_time 只精确到秒，同秒发的评论会并列，排序不稳定 -->
+	<select id="selectCommentList" parameterType="Comment" resultMap="CommentResult">
+		<include refid="selectCommentVo"/>
+		where c.target_type = #{targetType} and c.target_id = #{targetId} and c.del_flag = '0'
+		order by c.comment_id desc
+	</select>
+
+	<select id="countByTarget" resultType="int">
+		select count(*) from learning_comment
+		 where target_type = #{targetType} and target_id = #{targetId} and del_flag = '0'
+	</select>
+
+	<select id="selectCommentById" parameterType="Long" resultMap="CommentResult">
+		<include refid="selectCommentVo"/>
+		where c.comment_id = #{commentId} and c.del_flag = '0'
+	</select>
+
+	<insert id="insertComment" parameterType="Comment" useGeneratedKeys="true" keyProperty="commentId">
+		insert into learning_comment (user_id, target_type, target_id, content, del_flag, create_time)
+		values (#{userId}, #{targetType}, #{targetId}, #{content}, '0', sysdate())
+	</insert>
+
+	<!--
+	  CAS 逻辑删除：user_id 与 del_flag 都写进 where，
+	  并发双击时只有一次能影响 1 行，调用方据此决定要不要减计数（0 行绝不能减）。
+	-->
+	<update id="softDeleteById">
+		update learning_comment set del_flag = '2', update_time = sysdate()
+		 where comment_id = #{commentId} and user_id = #{userId} and del_flag = '0'
+	</update>
+
+	<!--
+	  可评论 = 未逻辑删除 + 状态正常：
+	  帖子 status='0' 才是已发布（1草稿 2已下架），课程/短视频 status='0' 是正常（1停用）。
+	  少了 status 这一层，草稿和已下架内容也能被评论。
+	-->
+	<select id="existsPost" resultType="int">
+		select count(*) from learning_post where post_id = #{targetId} and del_flag = '0' and status = '0'
+	</select>
+
+	<select id="existsCourse" resultType="int">
+		select count(*) from learning_course where course_id = #{targetId} and del_flag = '0' and status = '0'
+	</select>
+
+	<select id="existsVideo" resultType="int">
+		select count(*) from learning_short_video where video_id = #{targetId} and del_flag = '0' and status = '0'
+	</select>
+
+	<!--
+	  table / idColumn 由服务层从常量映射而来（只可能是三张表名 + 三个主键列名），
+	  不接受任何外部输入，因此这里用 ${} 拼接是安全的。
+	  评论数只有 comment_count 一列，列名直接写死，比互动模块少一个 ${} 面。
+	  递减用 greatest(...,0) 兜底，防止历史漂移把计数减成负数。
+	-->
+	<update id="updateCount">
+		update ${table}
+		   set comment_count = <choose>
+		                         <when test="delta > 0">comment_count + #{delta}</when>
+		                         <otherwise>greatest(comment_count + #{delta}, 0)</otherwise>
+		                       </choose>
+		 where ${idColumn} = #{targetId} and del_flag = '0'
+	</update>
+
+</mapper>

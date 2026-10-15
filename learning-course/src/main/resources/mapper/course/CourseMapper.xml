@@ -65,7 +65,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  			<if test="categoryId != null">category_id,</if>
  			<if test="coverUrl != null and coverUrl != ''">cover_url,</if>
  			<if test="intro != null and intro != ''">intro,</if>
- 			<if test="commentCount != null">comment_count,</if>
  			<if test="status != null and status != ''">status,</if>
  			<if test="remark != null and remark != ''">remark,</if>
  			<if test="createBy != null and createBy != ''">create_by,</if>
@@ -75,7 +74,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  			<if test="categoryId != null">#{categoryId},</if>
  			<if test="coverUrl != null and coverUrl != ''">#{coverUrl},</if>
  			<if test="intro != null and intro != ''">#{intro},</if>
- 			<if test="commentCount != null">#{commentCount},</if>
  			<if test="status != null and status != ''">#{status},</if>
  			<if test="remark != null and remark != ''">#{remark},</if>
  			<if test="createBy != null and createBy != ''">#{createBy},</if>
@@ -92,7 +90,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  			category_id = #{categoryId,jdbcType=BIGINT},
  			<if test="coverUrl != null">cover_url = #{coverUrl},</if>
  			<if test="intro != null">intro = #{intro},</if>
- 			<if test="commentCount != null">comment_count = #{commentCount},</if>
  			<if test="status != null and status != ''">status = #{status},</if>
  			<if test="remark != null">remark = #{remark},</if>
  			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>

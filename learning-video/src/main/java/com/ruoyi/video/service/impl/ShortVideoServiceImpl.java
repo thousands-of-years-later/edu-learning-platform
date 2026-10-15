@@ -113,7 +113,13 @@ public class ShortVideoServiceImpl implements IShortVideoService
     }
 
     /**
-     * 批量逻辑删除短视频
+     * 批量逻辑删除短视频，并级联清理挂在它上面的点赞收藏与评论
+     *
+     * 顺序上【先删内容、后清子表】：删除语句把 del_flag='2' 与计数清零写在同一句，
+     * 视频先落删除态后，并发的点赞/评论要么被 existsVideo 的 del_flag='0' 拦住，
+     * 要么让 updateCount 的 del_flag='0' 兜底影响 0 行而整体回滚。
+     * 反过来先清子表的话，中间窗口里提交的互动会永远留在库里 —— 那正是本次修的缺陷。
+     * 三条语句同事务，任一失败整体回滚。
      *
      * @param ids 需要删除的数据ID
      * @return 结果
@@ -128,7 +134,12 @@ public class ShortVideoServiceImpl implements IShortVideoService
         {
             throw new ServiceException("未选择要删除的短视频数据");
         }
-        return shortVideoMapper.deleteShortVideoByIds(videoIds);
+        // 1、软删视频并清零三个计数（同一句 SQL）
+        int rows = shortVideoMapper.deleteShortVideoByIds(videoIds);
+        // 2、清掉挂在视频上的点赞收藏（硬删除）与评论（软删除）
+        shortVideoMapper.deleteInteractionByVideoIds(videoIds);
+        shortVideoMapper.softDeleteCommentByVideoIds(videoIds);
+        return rows;
     }
 
     /**

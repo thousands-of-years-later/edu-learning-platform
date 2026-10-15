@@ -105,8 +105,14 @@ public class CourseServiceImpl implements ICourseService
     }
 
     /**
-     * 删除课程时级联删掉它的章节和视频：三张表必须同进同退，
-     * 否则会出现「课程没了、视频还在」的悬挂数据。
+     * 删除课程时级联清理四张子表：点赞收藏、评论、课程视频、章节。
+     * 五张表必须同进同退，否则会出现「课程没了、视频/评论/互动还在」的悬挂数据。
+     *
+     * 顺序：先删课程本身（软删 + 清零三个计数），再清互动与评论，最后删课程视频与章节。
+     * 之所以把课程放到最前，是为了抢在并发点赞/评论之前 —— 它们的 existsCourse 与
+     * updateCount 都带 del_flag='0'，课程先落删除态，并发的子表写入要么被拦住、
+     * 要么影响 0 行而回滚；反过来先清子表的话，中间窗口里提交的互动会永远留在库里。
+     * 原子性由 @Transactional 保证，不靠语句顺序。
      */
     @Override
     @Transactional
@@ -126,9 +132,15 @@ public class CourseServiceImpl implements ICourseService
                 throw new ServiceException(String.format("课程ID[%s]不存在或已被删除", courseId));
             }
         }
+        // 1、软删课程并清零三个计数（同一句 SQL）
+        int rows = courseMapper.deleteCourseByIds(courseIds);
+        // 2、清掉挂在课程上的点赞收藏（硬删除）与评论（软删除）
+        courseMapper.deleteInteractionByCourseIds(courseIds);
+        courseMapper.softDeleteCommentByCourseIds(courseIds);
+        // 3、原有的课程内级联：课程视频与章节
         courseVideoMapper.deleteVideoByCourseIds(courseIds);
         courseChapterMapper.deleteChapterByCourseIds(courseIds);
-        return courseMapper.deleteCourseByIds(courseIds);
+        return rows;
     }
 
     private String trimCourseName(String courseName)

@@ -15,7 +15,9 @@ import com.fasterxml.jackson.annotation.JsonFormat;
  * 删除是【逻辑删除】（del_flag 0存在 2删除）：本表没有唯一索引要维护，用户本来就可以重复发
  * 同样的话，因此不存在 learning_interaction 那种「硬删除才能建唯一索引」的约束。
  *
- * 计数字段（learning_post.comment_count 等）只由本模块维护，后台编辑内容时不再改动它们。
+ * 计数字段（learning_post.comment_count 等）只由本模块维护，后台编辑内容时不再改动它们；
+ * 内容被删除时由内容模块在删除语句里连同 del_flag 一起清零
+ * （见 ShortVideoMapper.deleteShortVideoByIds 等，以及 sql/learning_orphan_cleanup.sql）。
  *
  * content 是【纯文本】，原样存 trim 后的用户输入，不做转义；渲染端只能以文本节点输出
  * （th:text / 小程序 <text> / textContent），禁止 innerHTML。

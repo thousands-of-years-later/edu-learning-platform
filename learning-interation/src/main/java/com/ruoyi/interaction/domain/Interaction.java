@@ -11,7 +11,8 @@ import java.util.Date;
  * (user_id, target_type, target_id, type) —— 它同时负责防重复与并发安全。
  *
  * 计数字段（learning_post.like_count 等）只由本模块维护，
- * 后台编辑内容时不再改动它们。
+ * 后台编辑内容时不再改动它们；内容被删除时由内容模块在删除语句里连同 del_flag 一起清零
+ * （见 ShortVideoMapper.deleteShortVideoByIds 等，以及 sql/learning_orphan_cleanup.sql）。
  *
  * @author edu
  */

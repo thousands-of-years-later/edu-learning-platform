@@ -116,12 +116,45 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  		where video_id = #{videoId} and del_flag = '0'
 	</update>
 
+	<!--
+	  逻辑删除短视频，并在同一句里清零三个计数列。
+	  这三列由 learning-interation 维护（点赞收藏 / 评论），内容一删它们的真实值就是 0，
+	  留着旧值会让 *_fix_count.sql 的对账把「内容已不存在」的行也算成不一致。
+	  view_count 不归互动模块管，保持原值。
+	-->
 	<update id="deleteShortVideoByIds" parameterType="Long">
-		update learning_short_video set del_flag = '2', update_time = sysdate() where video_id in
+		update learning_short_video
+		   set del_flag = '2', like_count = 0, favorite_count = 0, comment_count = 0, update_time = sysdate()
+		 where video_id in
 		<foreach collection="array" item="videoId" open="(" separator="," close=")">
  			#{videoId}
         </foreach>
         and del_flag = '0'
+	</update>
+
+	<!--
+	  级联清理：挂在被删视频上的点赞收藏（learning_interaction）与评论（learning_comment）。
+	  两张表都在 learning-interation 模块，本模块只依赖 ruoyi-common，反向注入会形成循环依赖，
+	  所以按 CategoryMapper.countPostByCategoryId 的先例直接写纯 SQL。
+	  learning_interaction 没有 del_flag（取消点赞本就是硬删除），这里同样是硬删除；
+	  learning_comment 与内容表一致走软删除。
+	  target_type 必须带上：三种目标的 ID 各自独立编号，只按 target_id 过滤会串到别的类型上。
+	-->
+	<delete id="deleteInteractionByVideoIds" parameterType="Long">
+		delete from learning_interaction where target_type = '3' and target_id in
+		<foreach collection="array" item="videoId" open="(" separator="," close=")">
+			#{videoId}
+		</foreach>
+	</delete>
+
+	<!-- where 带 del_flag = '0'：重复执行不会反复改写已删评论的 update_time -->
+	<update id="softDeleteCommentByVideoIds" parameterType="Long">
+		update learning_comment set del_flag = '2', update_time = sysdate()
+		 where target_type = '3' and target_id in
+		<foreach collection="array" item="videoId" open="(" separator="," close=")">
+			#{videoId}
+		</foreach>
+		and del_flag = '0'
 	</update>
 
 </mapper>

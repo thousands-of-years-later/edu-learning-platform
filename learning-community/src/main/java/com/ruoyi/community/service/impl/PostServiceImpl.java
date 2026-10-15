@@ -106,7 +106,11 @@ public class PostServiceImpl implements IPostService
     }
 
     /**
-     * 批量逻辑删除帖子
+     * 批量逻辑删除帖子，并级联清理挂在它上面的点赞收藏与评论
+     *
+     * 先删内容、后清子表：删除语句把 del_flag='2' 与计数清零写在同一句，帖子先落删除态后，
+     * 并发的点赞/评论会被 existsPost 的 del_flag='0' 拦住，或让 updateCount 影响 0 行而回滚。
+     * 反过来先清子表的话，中间窗口里提交的互动会永远留在库里。
      *
      * @param ids 需要删除的帖子ID串（逗号分隔）
      * @param currentUserId 当前登录用户ID
@@ -136,7 +140,12 @@ public class PostServiceImpl implements IPostService
                 throw new ServiceException(String.format("帖子[%s]不是本人发布，不能删除", post.getPostTitle()));
             }
         }
-        return postMapper.deletePostByIds(postIds);
+        // 1、软删帖子并清零三个计数（同一句 SQL）
+        int rows = postMapper.deletePostByIds(postIds);
+        // 2、清掉挂在帖子上的点赞收藏（硬删除）与评论（软删除）
+        postMapper.deleteInteractionByPostIds(postIds);
+        postMapper.softDeleteCommentByPostIds(postIds);
+        return rows;
     }
 
     /**

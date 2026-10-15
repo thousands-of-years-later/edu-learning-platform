@@ -55,10 +55,33 @@ public interface PostMapper
     public int updatePostAudit(Post post);
 
     /**
-     * 批量逻辑删除帖子
+     * 批量逻辑删除帖子，并清零 like_count / favorite_count / comment_count
      *
      * @param postIds 需要删除的帖子ID数组
      * @return 结果
      */
     public int deletePostByIds(Long[] postIds);
+
+    /**
+     * 删除指向这些帖子的点赞收藏（级联清理，硬删除）
+     *
+     * learning_interaction 在 learning-interation 模块，按 CategoryMapper.countPostByCategoryId
+     * 的先例直接写纯 SQL；该表没有 del_flag（取消点赞即硬删除），这里同样是硬删除。
+     * target_type 必须带上：三种目标的 ID 各自独立编号，只按 target_id 过滤会串到别的类型上。
+     *
+     * @param postIds 被删除的帖子ID数组
+     * @return 结果
+     */
+    public int deleteInteractionByPostIds(Long[] postIds);
+
+    /**
+     * 逻辑删除指向这些帖子的评论（级联清理）
+     *
+     * 同上走纯 SQL。learning_comment 与内容表一致用 del_flag 软删除，
+     * where 带 del_flag = '0'，重复执行不会反复改写 update_time。
+     *
+     * @param postIds 被删除的帖子ID数组
+     * @return 结果
+     */
+    public int softDeleteCommentByPostIds(Long[] postIds);
 }

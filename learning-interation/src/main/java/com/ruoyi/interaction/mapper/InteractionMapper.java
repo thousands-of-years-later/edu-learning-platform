@@ -9,7 +9,10 @@ import com.ruoyi.interaction.domain.Interaction;
  *
  * 目标存在性校验与计数更新都直接写 SQL，不反向依赖 learning-community /
  * learning-course / learning-video，避免模块循环依赖
- * （与删分类时的 CategoryCascadeMapper 同一思路）。
+ * （与删分类时的 CategoryMapper.countPostByCategoryId 同一思路）。
+ *
+ * 反向也一样：三个内容模块删除内容时，直接在本模块 Mapper 里写纯 SQL 级联清理
+ * learning_interaction / learning_comment，不走服务注入。
  *
  * @author edu
  */

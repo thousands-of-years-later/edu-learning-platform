@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.interaction.mapper.NotificationMapper">
+
+	<resultMap type="Notification" id="NotificationResult">
+		<id     property="notificationId" column="notification_id"  />
+		<result property="userId"         column="user_id"          />
+		<result property="fromUserId"     column="from_user_id"     />
+		<result property="type"           column="type"             />
+		<result property="targetType"     column="target_type"      />
+		<result property="targetId"       column="target_id"        />
+		<result property="content"        column="content"          />
+		<result property="isRead"         column="is_read"          />
+		<result property="readTime"       column="read_time"        />
+		<result property="createTime"     column="create_time"      />
+		<result property="fromUserName"   column="from_user_name"   />
+		<result property="fromUserAvatar" column="from_user_avatar" />
+	</resultMap>
+
+	<insert id="insertNotification" parameterType="Notification">
+		insert into learning_notification (user_id, from_user_id, type, target_type, target_id, content, is_read, create_time)
+		values (#{userId}, #{fromUserId}, #{type}, #{targetType}, #{targetId}, #{content}, '0', sysdate())
+	</insert>
+
+	<!--
+	  列表【不 join sys_user】，触发者昵称/头像用标量子查询取
+	  （与 FollowMapper.xml / CommentMapper.xml 一致：join 之后客户端传 orderByColumn
+	   让 PageHelper 追加 order by <列名> 会撞上 Column 'xxx' ambiguous 1052）。
+	-->
+	<sql id="selectNotificationVo">
+		select n.notification_id, n.user_id, n.from_user_id, n.type, n.target_type,
+		       n.target_id, n.content, n.is_read, n.read_time, n.create_time,
+		       (select u.user_name from sys_user u where u.user_id = n.from_user_id) as from_user_name,
+		       (select u.avatar    from sys_user u where u.user_id = n.from_user_id) as from_user_avatar
+		  from learning_notification n
+	</sql>
+
+	<!--
+	  order by create_time desc, notification_id desc：create_time 只到秒，
+	  同一秒产生的通知并列时翻页会不稳定，补自增主键做第二排序键
+	  （idx_user_time 的列序 + InnoDB 隐式主键刚好覆盖这个次序）。
+	-->
+	<select id="selectMyList" resultMap="NotificationResult">
+		<include refid="selectNotificationVo"/>
+		where n.user_id = #{userId}
+		<if test="isRead != null and isRead != ''">
+			and n.is_read = #{isRead}
+		</if>
+		order by n.create_time desc, n.notification_id desc
+	</select>
+
+	<select id="countUnread" resultType="int">
+		select count(*) from learning_notification where user_id = #{userId} and is_read = '0'
+	</select>
+
+	<!-- CAS：user_id 与 is_read='0' 都写进 where，别人的通知、已读的通知都改不动 -->
+	<update id="markRead">
+		update learning_notification
+		   set is_read = '1', read_time = sysdate()
+		 where notification_id = #{notificationId} and user_id = #{userId} and is_read = '0'
+	</update>
+
+	<update id="markReadAll">
+		update learning_notification
+		   set is_read = '1', read_time = sysdate()
+		 where user_id = #{userId} and is_read = '0'
+	</update>
+
+	<!--
+	  ${table} / ${idColumn} 由服务层从常量映射而来（learning_post+post_id /
+	  learning_short_video+video_id），不接受外部输入，拼接安全。
+	  del_flag / status 与 existsPost / existsVideo 的校验保持一致：并发下目标刚被
+	  删除或下架时返回 null，调用方据此不产生通知（不给不可见的内容发通知）。
+	-->
+	<select id="selectTargetOwner" resultType="java.lang.Long">
+		select user_id from ${table}
+		 where ${idColumn} = #{targetId} and del_flag = '0' and status = '0'
+	</select>
+</mapper>

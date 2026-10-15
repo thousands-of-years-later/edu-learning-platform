@@ -11,6 +11,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.interaction.domain.Comment;
 import com.ruoyi.interaction.mapper.CommentMapper;
 import com.ruoyi.interaction.service.ICommentService;
+import com.ruoyi.interaction.service.INotificationService;
 
 /**
  * 评论 服务层实现
@@ -36,6 +37,9 @@ public class CommentServiceImpl implements ICommentService
 {
     @Autowired
     private CommentMapper commentMapper;
+
+    @Autowired
+    private INotificationService notificationService;
 
     @Override
     @Transactional
@@ -86,6 +90,10 @@ public class CommentServiceImpl implements ICommentService
         {
             throw new ServiceException("内容不存在或已被删除");
         }
+
+        // 评论成功才通知内容归属人（课程无归属人、自评自论由通知服务内部跳过）。
+        // 与评论插入同一个事务：通知写失败一并回滚
+        notificationService.notifyComment(userId, targetType, targetId, text);
 
         Map<String, Object> result = new HashMap<String, Object>();
         result.put("commentId", comment.getCommentId());

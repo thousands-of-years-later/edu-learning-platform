@@ -11,6 +11,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.interaction.domain.Interaction;
 import com.ruoyi.interaction.mapper.InteractionMapper;
 import com.ruoyi.interaction.service.IInteractionService;
+import com.ruoyi.interaction.service.INotificationService;
 
 /**
  * 点赞收藏 服务层实现
@@ -36,6 +37,9 @@ public class InteractionServiceImpl implements IInteractionService
 
     @Autowired
     private InteractionMapper interactionMapper;
+
+    @Autowired
+    private INotificationService notificationService;
 
     @Override
     @Transactional
@@ -86,6 +90,15 @@ public class InteractionServiceImpl implements IInteractionService
             int deleted = interactionMapper.deleteOne(entity);
             active = false;
             delta = deleted > 0 ? -1 : 0;
+        }
+
+        if (active)
+        {
+            // 新增点赞/收藏才通知内容归属人（课程无归属人、自赞自藏由通知服务内部跳过）。
+            // 刻意放在 try/catch 【外面】：通知插入若报重复键之类的异常，不能被上面的
+            // catch 当成「已点过、这次是取消」吞掉。
+            // 取消不通知、也不删历史通知；与本次点赞同事务，写失败一并回滚
+            notificationService.notifyInteraction(userId, targetType, targetId, type);
         }
 
         if (delta != 0)

@@ -30,6 +30,14 @@
             <version>${ruoyi.version}</version>
         </dependency>
 
+        <!-- 依赖互动模块：关注成功后给被关注者写一条通知（INotificationService）。
+             learning-interation 只依赖 ruoyi-common，不反向依赖本模块，无循环 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>learning-interation</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+
     </dependencies>
 
 </project>

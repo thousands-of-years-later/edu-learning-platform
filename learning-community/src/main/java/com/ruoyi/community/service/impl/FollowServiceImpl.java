@@ -12,6 +12,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.community.domain.Follow;
 import com.ruoyi.community.mapper.FollowMapper;
 import com.ruoyi.community.service.IFollowService;
+import com.ruoyi.interaction.service.INotificationService;
 
 /**
  * 用户关注 服务层实现
@@ -42,6 +43,9 @@ public class FollowServiceImpl implements IFollowService
     @Autowired
     private FollowMapper followMapper;
 
+    @Autowired
+    private INotificationService notificationService;
+
     @Override
     @Transactional
     public Map<String, Object> addFollow(Long userId, Long targetUserId)
@@ -67,9 +71,11 @@ public class FollowServiceImpl implements IFollowService
         Follow follow = new Follow();
         follow.setUserId(userId);
         follow.setFollowUserId(targetUserId);
+        boolean created = false;
         try
         {
             followMapper.insertFollow(follow);
+            created = true;
         }
         catch (DuplicateKeyException e)
         {
@@ -78,6 +84,13 @@ public class FollowServiceImpl implements IFollowService
             // 那种情况下关注会静默失效却回报成功。
             // 在事务里捕获 DuplicateKeyException 是安全的（回滚标记只在异常穿过代理边界时才打），
             // 与 InteractionServiceImpl.toggle 的做法相同。
+        }
+
+        if (created)
+        {
+            // 只有真正新增关注才通知被关注者；重复关注是幂等重放，不该反复打扰对方。
+            // 取消关注不通知、也不删历史通知（MVP 取舍）。与本次关注同事务
+            notificationService.notifyFollow(userId, targetUserId);
         }
 
         Map<String, Object> result = new HashMap<String, Object>();

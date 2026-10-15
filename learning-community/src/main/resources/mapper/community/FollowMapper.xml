@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.community.mapper.FollowMapper">
+
+	<resultMap type="Follow" id="FollowResult">
+		<id     property="followId"     column="follow_id"      />
+		<result property="userId"       column="user_id"        />
+		<result property="followUserId" column="follow_user_id" />
+		<result property="createTime"   column="create_time"    />
+		<result property="userName"     column="user_name"      />
+		<result property="avatar"       column="avatar"         />
+	</resultMap>
+
+	<!--
+	  普通 insert，不是 insert ignore：ignore 会把「字段超长、非空违反」这类真错误
+	  也吞成 warning 并返回 0 行，调用方就没法区分「已经关注过」和「插入失败」。
+	  重复关注由唯一索引 uk_user_follow 正常报出来，服务层捕获 DuplicateKeyException 按幂等处理。
+	  不需要 useGeneratedKeys 回填 follow_id：接口响应里用不到新行的ID
+	  （与 InteractionMapper.insertOne 同一写法）。
+	-->
+	<insert id="insertFollow" parameterType="Follow">
+		insert into learning_follow (user_id, follow_user_id, create_time)
+		values (#{userId}, #{followUserId}, sysdate())
+	</insert>
+
+	<!-- 取消关注 = 硬删除（本表没有 del_flag）：删不存在的行也返回成功，接口的幂等由此而来 -->
+	<delete id="deleteFollow">
+		delete from learning_follow
+		 where user_id = #{userId} and follow_user_id = #{followUserId}
+	</delete>
+
+	<select id="selectFollowedUserIds" resultType="java.lang.Long">
+		select follow_user_id from learning_follow
+		 where user_id = #{userId} and follow_user_id in
+		<foreach collection="targetUserIds" item="targetUserId" open="(" separator="," close=")">
+			#{targetUserId}
+		</foreach>
+	</select>
+
+	<!-- 粉丝数：count(*) 就是唯一真相，本表没有也不需要任何计数列 -->
+	<select id="countFans" resultType="int">
+		select count(*) from learning_follow where follow_user_id = #{userId}
+	</select>
+
+	<!-- 关注数 -->
+	<select id="countFollowing" resultType="int">
+		select count(*) from learning_follow where user_id = #{userId}
+	</select>
+
+	<!--
+	  可关注 = 账号存在 + 未停用 + 未删除：
+	  sys_user.status='0' 是正常（1停用），del_flag='0' 是存在（2删除）。
+	  与 ApiTokenMapper.selectUserByToken 对账号状态的判断保持一致 ——
+	  少了这一层，被停用的账号也能被关注，而对方连登录都做不到。
+	-->
+	<select id="existsUser" resultType="int">
+		select count(*) from sys_user where user_id = #{userId} and status = '0' and del_flag = '0'
+	</select>
+
+	<!--
+	  列表查询【不 join sys_user】，展示用户的昵称/头像用标量子查询取。
+	  原因（与 CommentMapper.xml / PostMapper.xml / ShortVideoMapper.xml 一致）：
+	  sys_user 也有 user_id / create_time / status 等同名列，一旦 join，
+	  客户端传 orderByColumn 让 PageHelper 追加 order by <列名> 时就会出现
+	  「Column 'xxx' in order clause is ambiguous」1052 错误；单表 FROM 则任何列都不会歧义。
+	  昵称/头像子查询【不带】status / del_flag 过滤：账号被停用或逻辑删除后历史关注关系照旧展示。
+	  order by create_time desc, follow_id desc：create_time 只精确到秒，
+	  同一秒内产生的多条关系会并列，翻页时排序不稳定（同一行可能重复出现或漏掉）；
+	  补一个自增主键做第二排序键，结果就唯一确定了（与 CommentMapper 用主键兜底同一思路）。
+	  两个列表的「展示用户」恰好相反，子查询没法和 FROM 一起抽成公共片段，因此两条 SQL 各写各的。
+	-->
+
+	<!-- 我关注的人：展示用户是被关注方（follow_user_id） -->
+	<select id="selectFollowingList" resultMap="FollowResult">
+		select f.follow_id, f.user_id, f.follow_user_id, f.create_time,
+		       (select u.user_name from sys_user u where u.user_id = f.follow_user_id) as user_name,
+		       (select u.avatar    from sys_user u where u.user_id = f.follow_user_id) as avatar
+		  from learning_follow f
+		 where f.user_id = #{userId}
+		 order by f.create_time desc, f.follow_id desc
+	</select>
+
+	<!-- 我的粉丝：展示用户是关注方（user_id） -->
+	<select id="selectFansList" resultMap="FollowResult">
+		select f.follow_id, f.user_id, f.follow_user_id, f.create_time,
+		       (select u.user_name from sys_user u where u.user_id = f.user_id) as user_name,
+		       (select u.avatar    from sys_user u where u.user_id = f.user_id) as avatar
+		  from learning_follow f
+		 where f.follow_user_id = #{userId}
+		 order by f.create_time desc, f.follow_id desc
+	</select>
+
+</mapper>

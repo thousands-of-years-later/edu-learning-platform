@@ -149,6 +149,19 @@ public class ServletUtils
         }
 
         String uri = request.getRequestURI();
+        // /api/** 全是给小程序、H5 这类客户端用的接口，它们不会渲染登录页：
+        // 一旦返回 302 或一整页 HTML，客户端只会解析失败，所以这里必须走 JSON 分支。
+        // （Shiro 的过滤器、若依的错误页都按 isAjaxRequest 决定返回 JSON 还是跳页面）
+        // 判断前先去掉 context-path，否则部署到 /xxx 下时匹配不上。
+        String contextPath = request.getContextPath();
+        if (StringUtils.isNotEmpty(contextPath) && uri.startsWith(contextPath))
+        {
+            uri = uri.substring(contextPath.length());
+        }
+        if (uri.startsWith("/api/"))
+        {
+            return true;
+        }
         if (StringUtils.inStringIgnoreCase(uri, ".json", ".xml"))
         {
             return true;

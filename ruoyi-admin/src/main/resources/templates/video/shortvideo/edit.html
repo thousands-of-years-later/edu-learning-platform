@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+	<th:block th:include="include :: header('修改短视频')" />
+	<th:block th:include="include :: bootstrap-fileinput-css" />
+</head>
+<body class="white-bg">
+	<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+		<form class="form-horizontal m" id="form-shortvideo-edit" th:object="${shortVideo}">
+			<input name="videoId" th:value="*{videoId}" type="hidden">
+			<div class="form-group">
+				<label class="col-sm-3 control-label is-required">视频标题：</label>
+				<div class="col-sm-8">
+					<input class="form-control" type="text" name="videoTitle" id="videoTitle" th:value="*{videoTitle}" required>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">视频文件：</label>
+				<div class="col-sm-8">
+					<!-- 存上传接口返回的相对路径（/profile/...）。不重新上传就保留原值 -->
+					<input type="hidden" id="videoUrl" name="videoUrl" th:value="*{videoUrl}"/>
+					<div class="file-loading">
+						<input id="videoFile" name="file" type="file">
+					</div>
+					<span class="help-block" th:if="*{videoUrl != null and videoUrl != ''}">
+						<i class="fa fa-info-circle"></i> 已上传，不重新选择则保留原视频
+					</span>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">封面图片：</label>
+				<div class="col-sm-8">
+					<input type="hidden" id="coverUrl" name="coverUrl" th:value="*{coverUrl}"/>
+					<div class="file-loading">
+						<input id="coverFile" name="file" type="file">
+					</div>
+					<div th:if="*{coverUrl != null and coverUrl != ''}" style="margin-top:6px;">
+						<img th:src="@{*{coverUrl}}" style="width:60px;height:40px;object-fit:cover;" alt="封面"/>
+					</div>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">视频简介：</label>
+				<div class="col-sm-8">
+					<textarea id="intro" name="intro" class="form-control" th:text="*{intro}"></textarea>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">时长(秒)：</label>
+				<div class="col-sm-8">
+					<input class="form-control" type="text" name="duration" id="duration" th:value="*{duration}">
+				</div>
+			</div>
+			<div class="form-group">
+				<!-- 点赞/收藏没有输入框：这两列由「点赞收藏」模块维护，后台新增/编辑不写它们 -->
+				<label class="col-sm-3 control-label">播放/评论：</label>
+				<div class="col-sm-2">
+					<input class="form-control" type="text" name="viewCount" id="viewCount" th:value="*{viewCount}">
+				</div>
+				<div class="col-sm-2">
+					<input class="form-control" type="text" name="commentCount" id="commentCount" th:value="*{commentCount}">
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">状态：</label>
+				<div class="col-sm-8">
+				    <div class="radio-box" th:each="dict : ${@dict.getType('sys_video_status')}">
+						<input type="radio" th:id="${dict.dictCode}" name="status" th:value="${dict.dictValue}" th:checked="${dict.dictValue == shortVideo.status}">
+						<label th:for="${dict.dictCode}" th:text="${dict.dictLabel}"></label>
+					</div>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">备注：</label>
+				<div class="col-sm-8">
+					<textarea id="remark" name="remark" class="form-control" th:text="*{remark}"></textarea>
+				</div>
+			</div>
+		</form>
+	</div>
+	<th:block th:include="include :: footer" />
+	<th:block th:include="include :: bootstrap-fileinput-js" />
+	<script type="text/javascript">
+		var prefix = ctx + "video/shortvideo";
+
+		$("#videoFile").fileinput({
+            uploadUrl: ctx + 'common/upload',
+            maxFileCount: 1,
+            autoReplace: true,
+            allowedFileExtensions: ['mp4', 'mov', 'm4v'],
+            showPreview: false
+        }).on('fileuploaded', function (event, data, previewId, index) {
+        	var rsp = data.response;
+            if (rsp.code == 0) {
+            	$("#videoUrl").val(rsp.fileName);
+            } else {
+            	$.modal.alertError(rsp.msg);
+            }
+        });
+
+		$("#coverFile").fileinput({
+            uploadUrl: ctx + 'common/upload',
+            maxFileCount: 1,
+            autoReplace: true,
+            allowedFileExtensions: ['jpg', 'jpeg', 'png'],
+            showPreview: true
+        }).on('fileuploaded', function (event, data, previewId, index) {
+        	var rsp = data.response;
+            if (rsp.code == 0) {
+            	$("#coverUrl").val(rsp.fileName);
+            } else {
+            	$.modal.alertError(rsp.msg);
+            }
+        });
+
+		$("#form-shortvideo-edit").validate({
+			onkeyup: false,
+			rules:{
+				videoTitle:{
+					remote: {
+		                url: ctx + "video/shortvideo/checkVideoTitleUnique",
+		                type: "post",
+		                dataType: "json",
+		                data: {
+		                	"videoId" : function() {
+		                        return $("input[name='videoId']").val();
+		                    },
+		                	"videoTitle" : function() {
+		                        return $.common.trim($("#videoTitle").val());
+		                    }
+		                }
+		            }
+				},
+				duration:{ digits:true },
+				viewCount:{ digits:true },
+				commentCount:{ digits:true }
+			},
+			messages: {
+		        "videoTitle": {
+		            remote: "视频标题已经存在"
+		        }
+		    },
+		    focusCleanup: true
+		});
+
+		function submitHandler() {
+	        if ($.validate.form()) {
+	        	$.operate.save(prefix + "/edit", $('#form-shortvideo-edit').serialize());
+	        }
+	    }
+	</script>
+</body>
+</html>

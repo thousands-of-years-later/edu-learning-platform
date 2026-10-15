@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.ruoyi</groupId>
+        <artifactId>ruoyi</artifactId>
+        <version>4.8.3</version>
+    </parent>
+
+    <artifactId>learning-api</artifactId>
+
+    <description>
+        学习平台-API 模块：/api/v1/** 的 Token 认证（令牌表 + 过滤器 + 放行配置）
+    </description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+
+        <!-- 通用工具：AjaxResult、ServiceException、StringUtils/DateUtils、ServletUtils、
+             ApiContext，以及 MyBatis / Spring 注解（都由 ruoyi-common 传递进来） -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-common</artifactId>
+        </dependency>
+
+    </dependencies>
+
+</project>

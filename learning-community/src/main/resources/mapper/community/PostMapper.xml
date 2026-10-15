@@ -85,8 +85,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  			<if test="categoryId != null">category_id,</if>
  			<if test="userId != null">user_id,</if>
  			<if test="content != null">content,</if>
- 			<if test="likeCount != null">like_count,</if>
- 			<if test="favoriteCount != null">favorite_count,</if>
  			<if test="commentCount != null">comment_count,</if>
  			<if test="status != null and status != ''">status,</if>
  			<if test="remark != null and remark != ''">remark,</if>
@@ -97,8 +95,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  			<if test="categoryId != null">#{categoryId},</if>
  			<if test="userId != null">#{userId},</if>
  			<if test="content != null">#{content},</if>
- 			<if test="likeCount != null">#{likeCount},</if>
- 			<if test="favoriteCount != null">#{favoriteCount},</if>
  			<if test="commentCount != null">#{commentCount},</if>
  			<if test="status != null and status != ''">#{status},</if>
  			<if test="remark != null and remark != ''">#{remark},</if>
@@ -117,8 +113,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  			<!-- 正文用 != null：草稿允许把正文清空 -->
  			<if test="content != null">content = #{content},</if>
  			<!-- 三个计数用 != null：非管理员传 null，就不会改动计数 -->
- 			<if test="likeCount != null">like_count = #{likeCount},</if>
- 			<if test="favoriteCount != null">favorite_count = #{favoriteCount},</if>
  			<if test="commentCount != null">comment_count = #{commentCount},</if>
  			<if test="status != null and status != ''">status = #{status},</if>
  			<if test="remark != null">remark = #{remark},</if>

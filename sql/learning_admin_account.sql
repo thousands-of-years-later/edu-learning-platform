@@ -33,12 +33,17 @@ SET NAMES utf8mb4;
 --    sys_role_menu 主键为 (role_id, menu_id)，insert ignore 保证可重复执行。
 -- ----------------------------
 
+-- 注意：这里【不再】从 common 复制 —— common 是业务只读角色（见
+-- sql/learning_fix_role_permissions.sql），拿它当基准会让 admin 权限不足。
+-- 直接把全部菜单授予 admin。
 insert ignore into sys_role_menu (role_id, menu_id)
-select (select role_id from sys_role where role_key = 'admin'  limit 1),
-       rm.menu_id
-  from sys_role_menu rm
- where rm.role_id = (select role_id from sys_role where role_key = 'common' limit 1)
-   and (select role_id from sys_role where role_key = 'admin' limit 1) is not null;
+select (select role_id from sys_role where role_key = 'admin' limit 1),
+       m.menu_id
+  from sys_menu m
+ where (select role_id from sys_role where role_key = 'admin' limit 1) is not null;
+
+-- 管理员必须是「全部数据」范围，否则 user_id != 1 的账号看不到全部用户
+update sys_role set data_scope = '1' where role_key = 'admin';
 
 -- ----------------------------
 -- 2、新建管理员账号

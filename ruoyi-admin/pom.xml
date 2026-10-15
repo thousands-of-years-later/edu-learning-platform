@@ -67,6 +67,27 @@
             <version>${ruoyi.version}</version>
         </dependency>
 
+        <!-- 学习平台-互动模块（点赞收藏）-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>learning-interation</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+
+        <!-- 学习平台-短视频模块-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>learning-video</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+
+        <!-- 学习平台-API 模块（/api/v1/** 的 Token 认证：令牌表 + 过滤器 + 放行配置）-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>learning-api</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>

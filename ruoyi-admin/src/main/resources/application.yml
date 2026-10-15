@@ -13,6 +13,22 @@ ruoyi:
   # 获取ip地址开关
   addressEnabled: false
 
+# 文件存储配置
+# enabled=false 时完全退回本地存储（ruoyi.profile），行为与改造前一致
+# 密钥一律走环境变量，不要写进本文件
+file:
+  oss:
+    # 开关：默认 false 走本地 D:/ruoyi/uploadPath；密钥确认可用后设为 true 即切到 OSS
+    enabled: ${OSS_ENABLED:false}
+    # 地域节点：**不要带 https://**，访问前缀是按 https://{bucket}.{endpoint} 拼出来的
+    endpoint: ${OSS_ENDPOINT:oss-cn-shanghai.aliyuncs.com}
+    bucketName: ${OSS_BUCKET:zhinengguanggaopingtai}
+    accessKeyId: ${OSS_ACCESS_KEY_ID:}
+    accessKeySecret: ${OSS_ACCESS_KEY_SECRET:}
+    # Bucket 公共读时的访问前缀；留空则按 https://{bucket}.{endpoint} 自动推导
+    # 当前配置的推导结果：https://zhinengguanggaopingtai.oss-cn-shanghai.aliyuncs.com
+    urlPrefix: ${OSS_URL_PREFIX:}
+
 # 开发环境配置
 server:
   # 服务器的HTTP端口，默认为80
@@ -126,6 +142,13 @@ shiro:
   rememberMe:
     # 是否开启记住我
     enabled: true
+
+# API Token 配置（/api/v1/** 用，令牌存 learning_api_token 表，见 sql/learning_api_token.sql）
+api:
+  token:
+    # Token 有效期（天）。后台会话是 30 分钟，小程序不能动不动弹登录，所以给 30 天；
+    # 改这里只影响【新签发】的 Token，已发出的按自己那行的 expire_time 走
+    expireDays: 30
 
 # Springdoc配置
 springdoc:

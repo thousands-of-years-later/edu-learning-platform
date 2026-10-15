@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.api.mapper.ApiTokenMapper">
+
+	<!-- 主键由数据库生成，回填 tokenId（全局已开 useGeneratedKeys，这里显式声明更清楚） -->
+	<insert id="insertToken" parameterType="ApiToken" useGeneratedKeys="true" keyProperty="tokenId">
+		insert into learning_api_token (token, user_id, login_ip, expire_time, create_time)
+		values (#{token}, #{userId}, #{loginIp}, #{expireTime}, #{createTime})
+	</insert>
+
+	<!--
+	  校验 Token 时就把「已过期 / 账号已停用 / 账号已删除」一起挡在 SQL 里：
+	  1) 少一次查询，也避免应用层漏判某个状态位；
+	  2) 账号被停用或删除后，之前签发的 Token 立刻失效
+	     （否则"封号"只封掉了登录入口，手里有 Token 的人照样能用）。
+	  这里【故意不区分】"Token 不存在"和"Token 已过期"，统一返回查不到，
+	  免得给探测者留下"这个 Token 存在过"的信息。
+
+	  注意：本项目的 mybatis-config.xml 没有开启 mapUnderscoreToCamelCase，
+	  所以下划线列名必须显式 as 成驼峰属性名。
+	-->
+	<select id="selectUserByToken" resultType="com.ruoyi.common.core.api.ApiUser">
+		select u.user_id     as userId,
+		       u.login_name  as loginName,
+		       u.user_name   as userName
+		  from learning_api_token t
+		  join sys_user u on u.user_id = t.user_id
+		 where t.token = #{token}
+		   and t.expire_time &gt; now()
+		   and u.status = '0'
+		   and u.del_flag = '0'
+	</select>
+
+	<!-- 退出登录：只删这一个 Token，同一账号在别的设备上的登录不受影响 -->
+	<delete id="deleteToken">
+		delete from learning_api_token where token = #{token}
+	</delete>
+
+	<!-- 清理该用户已过期的 Token，避免表随时间无限膨胀（在签发时顺手做，省一个定时任务） -->
+	<delete id="deleteExpiredByUserId">
+		delete from learning_api_token where user_id = #{userId} and expire_time &lt;= now()
+	</delete>
+
+</mapper>

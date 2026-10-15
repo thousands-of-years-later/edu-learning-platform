@@ -82,7 +82,9 @@ public class CommonController
             String filePath = RuoYiConfig.getUploadPath();
             // 上传并返回新文件名称
             String fileName = FileUploadUtils.upload(filePath, file);
-            String url = serverConfig.getUrl() + fileName;
+            // OSS 模式下 FileUploadUtils 返回的是完整 URL（https://bucket.oss-.../upload/...），
+            // 再拼一次域名会得到 http://hosthttps://... 这种坏地址，所以这里要判断一下
+            String url = fileName.startsWith("http") ? fileName : serverConfig.getUrl() + fileName;
             AjaxResult ajax = AjaxResult.success();
             ajax.put("url", url);
             ajax.put("fileName", fileName);
@@ -115,7 +117,8 @@ public class CommonController
             {
                 // 上传并返回新文件名称
                 String fileName = FileUploadUtils.upload(filePath, file);
-                String url = serverConfig.getUrl() + fileName;
+                // 同 uploadFile：OSS 模式返回的已是完整 URL，不要再拼域名
+                String url = fileName.startsWith("http") ? fileName : serverConfig.getUrl() + fileName;
                 urls.add(url);
                 fileNames.add(fileName);
                 newFileNames.add(FileUtils.getName(fileName));

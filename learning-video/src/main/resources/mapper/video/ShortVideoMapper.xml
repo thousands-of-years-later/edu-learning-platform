@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.video.mapper.ShortVideoMapper">
+
+	<resultMap type="ShortVideo" id="ShortVideoResult">
+		<id     property="videoId"       column="video_id"       />
+		<result property="videoTitle"    column="video_title"    />
+		<result property="userId"        column="user_id"        />
+		<result property="videoUrl"      column="video_url"      />
+		<result property="coverUrl"      column="cover_url"      />
+		<result property="intro"         column="intro"          />
+		<result property="duration"      column="duration"       />
+		<result property="viewCount"     column="view_count"     />
+		<result property="likeCount"     column="like_count"     />
+		<result property="favoriteCount" column="favorite_count" />
+		<result property="commentCount"  column="comment_count"  />
+		<result property="status"        column="status"         />
+		<result property="delFlag"       column="del_flag"       />
+		<result property="userName"      column="user_name"      />
+		<result property="createBy"      column="create_by"      />
+		<result property="createTime"    column="create_time"    />
+		<result property="updateBy"      column="update_by"      />
+		<result property="updateTime"    column="update_time"    />
+		<result property="remark"        column="remark"         />
+	</resultMap>
+
+	<!--
+	  列表查询【不 join sys_user】，上传者登录名用标量子查询取。
+	  原因（与 PostMapper.xml 一致）：sys_user 也有 user_id/status/create_time 等同名列，
+	  一旦 join，bootstrap-table 点列头排序（sortName -> PageHelper 追加 order by <列名>）
+	  就会出现「Column 'xxx' in order clause is ambiguous」1052 错误；单表 FROM 则任何列都不会歧义。
+	-->
+	<sql id="selectShortVideoVo">
+		select v.video_id, v.video_title, v.user_id, v.video_url, v.cover_url, v.intro,
+		       v.duration, v.view_count, v.like_count, v.favorite_count, v.comment_count,
+		       v.status, v.del_flag,
+		       v.create_by, v.create_time, v.update_by, v.update_time, v.remark,
+		       (select u.user_name from sys_user u where u.user_id = v.user_id) as user_name
+		  from learning_short_video v
+	</sql>
+
+	<select id="selectShortVideoList" parameterType="ShortVideo" resultMap="ShortVideoResult">
+	    <include refid="selectShortVideoVo"/>
+		<where>
+			v.del_flag = '0'
+			<if test="videoTitle != null and videoTitle != ''">
+				AND v.video_title like concat('%', #{videoTitle}, '%')
+			</if>
+			<if test="status != null and status != ''">
+				AND v.status = #{status}
+			</if>
+		</where>
+		order by v.video_id desc
+	</select>
+
+	<select id="selectShortVideoById" parameterType="Long" resultMap="ShortVideoResult">
+		<include refid="selectShortVideoVo"/>
+		where v.video_id = #{videoId} and v.del_flag = '0'
+	</select>
+
+	<select id="checkVideoTitleUnique" parameterType="ShortVideo" resultMap="ShortVideoResult">
+		<include refid="selectShortVideoVo"/>
+		where v.video_title = #{videoTitle} and v.del_flag = '0' limit 1
+	</select>
+
+	<insert id="insertShortVideo" parameterType="ShortVideo" useGeneratedKeys="true" keyProperty="videoId">
+ 		insert into learning_short_video(
+ 			<if test="videoTitle != null and videoTitle != ''">video_title,</if>
+ 			<if test="userId != null">user_id,</if>
+ 			<if test="videoUrl != null">video_url,</if>
+ 			<if test="coverUrl != null">cover_url,</if>
+ 			<if test="intro != null">intro,</if>
+ 			<if test="duration != null">duration,</if>
+ 			<if test="viewCount != null">view_count,</if>
+ 			<if test="commentCount != null">comment_count,</if>
+ 			<if test="status != null and status != ''">status,</if>
+ 			<if test="remark != null and remark != ''">remark,</if>
+ 			<if test="createBy != null and createBy != ''">create_by,</if>
+ 			create_time
+ 		)values(
+ 			<if test="videoTitle != null and videoTitle != ''">#{videoTitle},</if>
+ 			<if test="userId != null">#{userId},</if>
+ 			<if test="videoUrl != null">#{videoUrl},</if>
+ 			<if test="coverUrl != null">#{coverUrl},</if>
+ 			<if test="intro != null">#{intro},</if>
+ 			<if test="duration != null">#{duration},</if>
+ 			<if test="viewCount != null">#{viewCount},</if>
+ 			<if test="commentCount != null">#{commentCount},</if>
+ 			<if test="status != null and status != ''">#{status},</if>
+ 			<if test="remark != null and remark != ''">#{remark},</if>
+ 			<if test="createBy != null and createBy != ''">#{createBy},</if>
+ 			sysdate()
+ 		)
+	</insert>
+
+	<update id="updateShortVideo" parameterType="ShortVideo">
+ 		update learning_short_video
+ 		<set>
+ 			<if test="videoTitle != null and videoTitle != ''">video_title = #{videoTitle},</if>
+ 			<!-- 视频/封面/简介用 != null：编辑时允许把封面或简介清空 -->
+ 			<if test="videoUrl != null">video_url = #{videoUrl},</if>
+ 			<if test="coverUrl != null">cover_url = #{coverUrl},</if>
+ 			<if test="intro != null">intro = #{intro},</if>
+ 			<if test="duration != null">duration = #{duration},</if>
+ 			<if test="viewCount != null">view_count = #{viewCount},</if>
+ 			<if test="commentCount != null">comment_count = #{commentCount},</if>
+ 			<if test="status != null and status != ''">status = #{status},</if>
+ 			<if test="remark != null">remark = #{remark},</if>
+ 			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+ 			update_time = sysdate()
+ 		</set>
+ 		where video_id = #{videoId} and del_flag = '0'
+	</update>
+
+	<update id="deleteShortVideoByIds" parameterType="Long">
+		update learning_short_video set del_flag = '2', update_time = sysdate() where video_id in
+		<foreach collection="array" item="videoId" open="(" separator="," close=")">
+ 			#{videoId}
+        </foreach>
+        and del_flag = '0'
+	</update>
+
+</mapper>

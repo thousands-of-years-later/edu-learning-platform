@@ -303,6 +303,11 @@ public class ShiroConfig
         // 手机号登录注册接口（不走验证码）
         filterChainDefinitionMap.put("/api/login", "anon");
         filterChainDefinitionMap.put("/api/register", "anon");
+        // Token 认证接口：/api/v1/** 的鉴权交给 ApiTokenFilter（learning-api 模块），
+        // Shiro 这层只放行。只有这一行是新加的，且只影响 /api/v1 前缀 ——
+        // 后台的菜单/角色/@RequiresPermissions/Cookie 会话登录一个字都没动，
+        // 老的 /api/login、/api/register、/api/interaction 也照旧走会话（见下面 /** 那条）。
+        filterChainDefinitionMap.put("/api/v1/**", "anon");
         // 系统权限列表
         // filterChainDefinitionMap.putAll(SpringUtils.getBean(IMenuService.class).selectPermsAll());
 

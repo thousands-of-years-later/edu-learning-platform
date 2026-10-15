@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.util.Objects;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.web.multipart.MultipartFile;
+import com.ruoyi.common.config.OssConfig;
 import com.ruoyi.common.config.RuoYiConfig;
 import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.exception.file.FileNameLengthLimitExceededException;
@@ -137,6 +138,15 @@ public class FileUploadUtils
 
         String fileName = useCustomNaming ? uuidFilename(file) : extractFilename(file);
 
+        // ===== 阿里云 OSS 分支（开关：file.oss.enabled）=====
+        // 大小 / 扩展名 / 文件名长度校验都在上面的 assertAllowed 里做完了，
+        // 这里只把「落盘位置」从本地磁盘换成 OSS，校验逻辑一行不动。
+        // 返回完整 URL（本地模式仍是 /profile/... 相对路径），前端两种都能直接用。
+        if (OssConfig.isEnabled())
+        {
+            return AliyunOssUtils.upload(file, "upload/" + fileName);
+        }
+        // ===== 以下为原有本地存储逻辑，未改动 =====
         String absPath = getAbsoluteFile(baseDir, fileName).getAbsolutePath();
         file.transferTo(Paths.get(absPath));
         return getPathFileName(baseDir, fileName);

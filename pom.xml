@@ -206,6 +206,8 @@
         <module>learning-course</module>
         <module>learning-interation</module>
         <module>learning-user</module>
+    <module>learning-video</module>
+        <module>learning-api</module>
     </modules>
     <packaging>pom</packaging>
 

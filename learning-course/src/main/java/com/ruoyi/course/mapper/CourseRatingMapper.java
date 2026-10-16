@@ -49,4 +49,13 @@ public interface CourseRatingMapper
      */
     public int updateCourseRatingStats(@Param("courseId") Long courseId, @Param("countDelta") int countDelta,
             @Param("scoreDelta") int scoreDelta);
+
+    /**
+     * 删除某几门课程下的全部评分（级联清理，硬删除）
+     *
+     * 评分表没有 del_flag：取消评分本就是删行，与 learning_interaction 同一语义。
+     * 课程被逻辑删除时这些评分必须一起清掉，否则会留下「课程已删、评分还在」的孤儿数据，
+     * 也会让 learning_course_rating_fix_count.sql 把已删课程的评分重新算回冗余列。
+     */
+    public int deleteRatingByCourseIds(Long[] courseIds);
 }

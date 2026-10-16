@@ -12,6 +12,7 @@ import com.ruoyi.course.domain.Course;
 import com.ruoyi.course.domain.CourseRating;
 import com.ruoyi.course.mapper.CourseChapterMapper;
 import com.ruoyi.course.mapper.CourseMapper;
+import com.ruoyi.course.mapper.CourseRatingMapper;
 import com.ruoyi.course.mapper.CourseVideoMapper;
 import com.ruoyi.course.service.ICourseService;
 
@@ -31,6 +32,9 @@ public class CourseServiceImpl implements ICourseService
 
     @Autowired
     private CourseVideoMapper courseVideoMapper;
+
+    @Autowired
+    private CourseRatingMapper courseRatingMapper;
 
     @Override
     public List<Course> selectCourseList(Course course)
@@ -132,12 +136,15 @@ public class CourseServiceImpl implements ICourseService
                 throw new ServiceException(String.format("课程ID[%s]不存在或已被删除", courseId));
             }
         }
-        // 1、软删课程并清零三个计数（同一句 SQL）
+        // 1、软删课程并清零计数（点赞/收藏/评论 + 评分两列，同一句 SQL）
         int rows = courseMapper.deleteCourseByIds(courseIds);
         // 2、清掉挂在课程上的点赞收藏（硬删除）与评论（软删除）
         courseMapper.deleteInteractionByCourseIds(courseIds);
         courseMapper.softDeleteCommentByCourseIds(courseIds);
-        // 3、原有的课程内级联：课程视频与章节
+        // 3、清掉挂在课程上的评分（硬删除）：评分表没有 del_flag，课程删了评分就没有意义，
+        //    留着会成为孤儿数据；同一事务里删干净，课程行的评分冗余列也在第 1 步一并清零
+        courseRatingMapper.deleteRatingByCourseIds(courseIds);
+        // 4、原有的课程内级联：课程视频与章节
         courseVideoMapper.deleteVideoByCourseIds(courseIds);
         courseChapterMapper.deleteChapterByCourseIds(courseIds);
         return rows;

@@ -63,7 +63,10 @@ public class InteractionServiceImpl implements IInteractionService
         }
         if (!targetExists(targetType, targetId))
         {
-            throw new ServiceException("内容不存在或已被删除");
+            // 这一句覆盖两种情况：目标不存在，或目标存在但当前不可互动
+            // （帖子草稿 / 已下架、课程与短视频停用都会被拦）。
+            // 文案刻意不区分两者 —— 区分等于给出「这个 id 存在但还没发布」的探测口子。
+            throw new ServiceException("内容不存在或当前不可互动");
         }
 
         Interaction entity = new Interaction();

@@ -77,4 +77,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 where course_id = #{courseId} and del_flag = '0'
 	</update>
 
+	<!--
+	  级联清理：课程被逻辑删除时，挂在它上面的评分一起硬删除
+	  （与 CourseMapper.deleteInteractionByCourseIds 同一思路，只是同模块内不必绕 SQL）。
+	  评分表没有 del_flag，所以是 delete 而不是软删。
+	-->
+	<delete id="deleteRatingByCourseIds" parameterType="Long">
+		delete from learning_course_rating where course_id in
+		<foreach collection="array" item="courseId" open="(" separator="," close=")">
+			#{courseId}
+		</foreach>
+	</delete>
+
 </mapper>

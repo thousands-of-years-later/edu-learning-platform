@@ -31,7 +31,7 @@ public class GlobalExceptionHandler
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
-     * 权限校验异常（ajax请求返回json，redirect请求跳转页面）
+     * 权限校验异常（ajax / 写请求返回 json，其余跳错误页）
      */
     @ExceptionHandler(AuthorizationException.class)
     public Object handleAuthorizationException(AuthorizationException e, HttpServletRequest request)
@@ -46,7 +46,7 @@ public class GlobalExceptionHandler
         {
             return AjaxResult.error("权限不足");
         }
-        if (ServletUtils.isAjaxRequest(request))
+        if (isJsonRequest(request))
         {
             return AjaxResult.error(PermissionUtils.getMsg(e.getMessage()));
         }
@@ -97,7 +97,7 @@ public class GlobalExceptionHandler
     public Object handleServiceException(ServiceException e, HttpServletRequest request)
     {
         log.error(e.getMessage(), e);
-        if (ServletUtils.isAjaxRequest(request))
+        if (isJsonRequest(request))
         {
             return AjaxResult.error(e.getMessage());
         }
@@ -153,5 +153,24 @@ public class GlobalExceptionHandler
     public AjaxResult handleDemoModeException(DemoModeException e)
     {
         return AjaxResult.error("演示模式，不允许操作");
+    }
+
+    /**
+     * 是否按 JSON 返回错误
+     *
+     * 除 ajax 请求外，写方法（POST / PUT / DELETE / PATCH）也一律按 JSON 返回：
+     * 这类请求只可能来自程序（页面 ajax、小程序、脚本、联调工具），
+     * 给它们返回一页 HTML，调用方只会解析失败；
+     * GET 保持原来的「跳错误页」行为，人点链接看到页面才是对的。
+     */
+    private boolean isJsonRequest(HttpServletRequest request)
+    {
+        if (ServletUtils.isAjaxRequest(request))
+        {
+            return true;
+        }
+        String method = request.getMethod();
+        return "POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method)
+                || "DELETE".equalsIgnoreCase(method) || "PATCH".equalsIgnoreCase(method);
     }
 }

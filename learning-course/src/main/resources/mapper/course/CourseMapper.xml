@@ -127,15 +127,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	</update>
 
 	<!--
-	  逻辑删除课程，并在同一句里清零三个计数列。
-	  这三列由 learning-interation 维护（点赞收藏 / 评论），内容一删它们的真实值就是 0，
-	  留着旧值会让 *_fix_count.sql 的对账把「内容已不存在」的行也算成不一致。
+	  逻辑删除课程，并在同一句里清零计数列。
+	  like_count / favorite_count / comment_count 由 learning-interation 维护（点赞收藏 / 评论），
 	  rating_count / rating_score 由评分模块维护（见 learning_course_rating.sql），
-	  本次不做评分级联，因此【不清零】，否则 learning_course_rating_fix_count.sql 反而会报不一致。
+	  内容一删它们的真实值就是 0，留着旧值会让 *_fix_count.sql 的对账把「内容已不存在」的行也算成不一致。
+	  评分的两列在这里一起清零的原因：服务层已在同一事务里把该课程的评分行硬删除
+	  （CourseRatingMapper.deleteRatingByCourseIds），删完还留旧统计必然对不上。
 	-->
 	<update id="deleteCourseByIds" parameterType="Long">
 		update learning_course
-		   set del_flag = '2', like_count = 0, favorite_count = 0, comment_count = 0, update_time = sysdate()
+		   set del_flag = '2', like_count = 0, favorite_count = 0, comment_count = 0,
+		       rating_count = 0, rating_score = 0, update_time = sysdate()
 		 where course_id in
 		<foreach collection="array" item="courseId" open="(" separator="," close=")">
  			#{courseId}

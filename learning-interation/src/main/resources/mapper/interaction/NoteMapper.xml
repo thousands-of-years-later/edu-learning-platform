@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.interaction.mapper.NoteMapper">
+
+	<resultMap type="Note" id="NoteResult">
+		<id     property="noteId"        column="note_id"         />
+		<result property="userId"        column="user_id"         />
+		<result property="targetType"    column="target_type"     />
+		<result property="targetId"      column="target_id"       />
+		<result property="noteTitle"     column="note_title"      />
+		<result property="noteContent"   column="note_content"    />
+		<result property="progress"      column="progress"        />
+		<result property="delFlag"       column="del_flag"        />
+		<result property="createTime"    column="create_time"     />
+		<result property="updateTime"    column="update_time"     />
+		<result property="sourceTitle"   column="source_title"    />
+		<result property="courseId"      column="course_id"       />
+		<result property="sourceDelFlag" column="source_del_flag" />
+		<!-- sourceDeleted 是纯内存字段（本表没有这一列），由 NoteServiceImpl 由 sourceDelFlag 换算，这里不映射 -->
+	</resultMap>
+
+	<!--
+	  单表 FROM（learning_note n），来源信息全部用标量子查询取，不 join 内容表：
+	  1) join 后 PageHelper 客户端排序字段会撞上同名列（1052 ambiguous），单表则不会；
+	  2) learning-interation 只依赖 ruoyi-common，反向依赖 learning-course / learning-community
+	     会形成循环依赖（与 CommentMapper / InteractionMapper 同一理由）。
+	  target_type 用 case 分流：post 取帖子标题；video 取「课程名 · 小节名」，顺带带出 course_id
+	  （客户端跳课程视频页要用），并把「小节已删 / 课程已删」折算成一个 source_del_flag。
+	  来源行整行不存在时子查询返回 null，服务层把 null 也当成「来源已删除」。
+	-->
+	<sql id="selectNoteVo">
+		select n.note_id, n.user_id, n.target_type, n.target_id, n.note_title, n.note_content,
+		       n.progress, n.del_flag, n.create_time, n.update_time,
+		       case n.target_type
+		         when 'post' then (select p.post_title from learning_post p where p.post_id = n.target_id)
+		         when 'video' then (select concat(c.course_name, ' · ', v.video_title)
+		                              from learning_course_video v
+		                              join learning_course c on c.course_id = v.course_id
+		                             where v.video_id = n.target_id)
+		       end as source_title,
+		       case n.target_type
+		         when 'video' then (select v.course_id from learning_course_video v where v.video_id = n.target_id)
+		       end as course_id,
+		       case n.target_type
+		         when 'post' then (select p.del_flag from learning_post p where p.post_id = n.target_id)
+		         when 'video' then (select if(v.del_flag = '0' and c.del_flag = '0', '0', '2')
+		                              from learning_course_video v
+		                              join learning_course c on c.course_id = v.course_id
+		                             where v.video_id = n.target_id)
+		       end as source_del_flag
+		  from learning_note n
+	</sql>
+
+	<!--
+	  列表只查自己的笔记（user_id 写死在 where，不接受前端传）。
+	  order by update_time desc：产品要求「最近编辑在前」（改过的笔记会顶到最前）；
+	  update_time 只精确到秒，同秒的用 note_id desc 兜底，保证分页顺序稳定。
+	  可选：targetType（全部/文章/视频）、targetId（某个小节/文章下我的笔记）、keyword（标题或正文模糊）。
+	-->
+	<select id="selectNoteList" resultMap="NoteResult">
+		<include refid="selectNoteVo"/>
+		where n.user_id = #{userId} and n.del_flag = '0'
+		<if test="targetType != null and targetType != ''">
+			and n.target_type = #{targetType}
+		</if>
+		<if test="targetId != null">
+			and n.target_id = #{targetId}
+		</if>
+		<if test="keyword != null and keyword != ''">
+			and (n.note_title like concat('%', #{keyword}, '%')
+			     or n.note_content like concat('%', #{keyword}, '%'))
+		</if>
+		order by n.update_time desc, n.note_id desc
+	</select>
+
+	<!-- 详情：不带 user_id，作者判定由服务层做（要区分「不存在」和「不是我的」，都不能泄露给调用方） -->
+	<select id="selectNoteById" resultMap="NoteResult">
+		<include refid="selectNoteVo"/>
+		where n.note_id = #{noteId} and n.del_flag = '0'
+	</select>
+
+	<!-- create_time / update_time 都写 sysdate()：列表按 update_time 倒序，新笔记不能排到已删行后面 -->
+	<insert id="insertNote" parameterType="Note" useGeneratedKeys="true" keyProperty="noteId">
+		insert into learning_note (user_id, target_type, target_id, note_title, note_content,
+		                           progress, del_flag, create_time, update_time)
+		values (#{userId}, #{targetType}, #{targetId}, #{noteTitle}, #{noteContent},
+		        #{progress}, '0', sysdate(), sysdate())
+	</insert>
+
+	<!--
+	  CAS 修改：note_id + user_id + del_flag = '0' 全进 where，
+	  别人的笔记改不到、删掉的笔记不会再被改活。
+	  只改标题与正文：progress 记录的是「记笔记那一刻」的位置，事后改正文不该动它。
+	-->
+	<update id="updateNote" parameterType="Note">
+		update learning_note
+		   set note_title = #{noteTitle}, note_content = #{noteContent}, update_time = sysdate()
+		 where note_id = #{noteId} and user_id = #{userId} and del_flag = '0'
+	</update>
+
+	<!-- CAS 逻辑删除：并发双击时只有一次能影响 1 行，调用方据此决定是否报错 -->
+	<update id="softDeleteById">
+		update learning_note set del_flag = '2', update_time = sysdate()
+		 where note_id = #{noteId} and user_id = #{userId} and del_flag = '0'
+	</update>
+
+	<!--
+	  可记笔记 = 未逻辑删除 + 已发布：帖子 status='0' 才是已发布（1草稿 2已下架），
+	  少了 status 这一层，草稿帖也能被记笔记（与 CommentMapper.existsPost 同一口径）。
+	-->
+	<select id="existsPost" resultType="int">
+		select count(*) from learning_post where post_id = #{targetId} and del_flag = '0' and status = '0'
+	</select>
+
+	<!--
+	  课程小节可记笔记 = 小节未删 + 所属课程未删且状态正常（停用的课程不该再产生新笔记）。
+	  注意 target_id 是 learning_course_video.video_id，不是 learning_short_video 的。
+	-->
+	<select id="existsCourseVideo" resultType="int">
+		select count(*) from learning_course_video v
+		  join learning_course c on c.course_id = v.course_id
+		 where v.video_id = #{targetId} and v.del_flag = '0' and c.del_flag = '0' and c.status = '0'
+	</select>
+
+</mapper>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.user.mapper.CheckinMapper">
+
+	<resultMap type="CheckinRecord" id="CheckinRecordResult">
+		<id     property="checkinId"      column="checkin_id"      />
+		<result property="userId"         column="user_id"         />
+		<result property="signDate"       column="sign_date"       />
+		<result property="points"         column="points"          />
+		<result property="continuousDays" column="continuous_days" />
+		<result property="createTime"     column="create_time"     />
+	</resultMap>
+
+	<sql id="selectCheckinVo">
+		select c.checkin_id, c.user_id, c.sign_date, c.points, c.continuous_days, c.create_time
+		  from learning_checkin c
+	</sql>
+
+	<!--
+	  最近一次签到：连续天数唯一的依据（昨天签过就把昨天那行的 continuous_days + 1）。
+	  走 uk_checkin_user_date (user_id, sign_date) 的反向扫描拿最后一条，不需要额外索引。
+	-->
+	<select id="selectLastByUser" resultMap="CheckinRecordResult">
+		<include refid="selectCheckinVo"/>
+		 where c.user_id = #{userId}
+		 order by c.sign_date desc
+		 limit 1
+	</select>
+
+	<!-- 我的签到记录（最近签到列表）：按日期倒序；分页由 PageHelper 驱动 -->
+	<select id="selectRecordsByUser" resultMap="CheckinRecordResult">
+		<include refid="selectCheckinVo"/>
+		 where c.user_id = #{userId}
+		 order by c.sign_date desc
+	</select>
+
+	<!--
+	  月历：只回本月签到的【日期字符串】，前端自己画点。
+	  sign_date 是 DATE 类型，与 'yyyy-MM-dd' 字符串比较时 MySQL 会做等价换算，
+	  并且能走 uk_checkin_user_date 的 (user_id, sign_date) 范围扫描。
+	-->
+	<select id="selectSignDatesInRange" resultType="java.lang.String">
+		select c.sign_date from learning_checkin c
+		 where c.user_id = #{userId}
+		   and c.sign_date &gt;= #{begin}
+		   and c.sign_date &lt;= #{end}
+		 order by c.sign_date
+	</select>
+
+	<select id="countByUser" resultType="int">
+		select count(*) from learning_checkin where user_id = #{userId}
+	</select>
+
+	<select id="existsByUserAndDate" resultType="int">
+		select count(*) from learning_checkin where user_id = #{userId} and sign_date = #{signDate}
+	</select>
+
+	<!--
+	  唯一索引 uk_checkin_user_date 是「一天只能签一次」的最后防线：
+	  并发双击时第二条会抛 DuplicateKeyException，服务层据此回滚整笔事务
+	  （不会出现「签到记录没写进去但积分加了」的半截状态）。
+	-->
+	<insert id="insertRecord" parameterType="CheckinRecord" useGeneratedKeys="true" keyProperty="checkinId">
+		insert into learning_checkin (user_id, sign_date, points, continuous_days, create_time)
+		values (#{userId}, #{signDate}, #{points}, #{continuousDays}, sysdate())
+	</insert>
+
+</mapper>

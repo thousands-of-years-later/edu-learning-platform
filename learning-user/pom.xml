@@ -12,9 +12,19 @@
     <artifactId>learning-user</artifactId>
 
     <properties>
-        <maven.compiler.source>23</maven.compiler.source>
-        <maven.compiler.target>23</maven.compiler.target>
+        <!-- 不要在这里写 maven.compiler.*：编译版本统一由父 pom 的 java.version(17) 控制，
+             之前写成 23 会让本模块在 JDK17 下编译失败 -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <dependencies>
+
+        <!-- 通用工具：AjaxResult、ServiceException、ApiContext、StringUtils/Convert -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-common</artifactId>
+        </dependency>
+
+    </dependencies>
 
 </project>

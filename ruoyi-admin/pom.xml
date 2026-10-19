@@ -88,6 +88,13 @@
             <version>${ruoyi.version}</version>
         </dependency>
 
+        <!-- 学习平台-用户模块（签到、积分账户）-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>learning-user</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>

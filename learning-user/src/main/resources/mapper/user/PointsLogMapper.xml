@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.user.mapper.PointsLogMapper">
+
+	<!-- 只增不改：流水是审计数据，没有 update / delete 语句 -->
+	<insert id="insertLog" parameterType="PointsLog" useGeneratedKeys="true" keyProperty="logId">
+		insert into learning_points_log (user_id, change_amount, balance, type, ref_id, remark, create_time)
+		values (#{userId}, #{changeAmount}, #{balance}, #{type}, #{refId}, #{remark}, sysdate())
+	</insert>
+
+</mapper>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.user.mapper.PointsAccountMapper">
+
+	<resultMap type="PointsAccount" id="PointsAccountResult">
+		<id     property="userId"      column="user_id"      />
+		<result property="balance"     column="balance"      />
+		<result property="totalEarned" column="total_earned" />
+		<result property="createTime"  column="create_time"  />
+		<result property="updateTime"  column="update_time"  />
+	</resultMap>
+
+	<sql id="selectAccountVo">
+		select user_id, balance, total_earned, create_time, update_time from learning_points_account
+	</sql>
+
+	<select id="selectByUser" resultMap="PointsAccountResult">
+		<include refid="selectAccountVo"/>
+		 where user_id = #{userId}
+	</select>
+
+	<select id="selectBalance" resultType="java.lang.Integer">
+		select balance from learning_points_account where user_id = #{userId}
+	</select>
+
+	<!--
+	  加积分：一条语句完成「懒创建 + 原子累加」，并发安全（不做先查再算再写）。
+	  on duplicate key update 里的 balance 指的是【已存在的行】，不会把余额重置成入参。
+	-->
+	<insert id="increasePoints">
+		insert into learning_points_account (user_id, balance, total_earned, create_time, update_time)
+		values (#{userId}, #{points}, #{points}, sysdate(), sysdate())
+		on duplicate key update balance      = balance + #{points},
+		                        total_earned = total_earned + #{points},
+		                        update_time  = sysdate()
+	</insert>
+
+	<!-- 查询类接口用：账户不存在时补一条余额 0，避免前端拿到空对象 -->
+	<insert id="insertAccountIfAbsent">
+		insert ignore into learning_points_account (user_id, balance, total_earned, create_time, update_time)
+		values (#{userId}, 0, 0, sysdate(), sysdate())
+	</insert>
+
+</mapper>

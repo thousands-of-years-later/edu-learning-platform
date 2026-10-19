@@ -39,9 +39,11 @@ public class ApiV1PointsController extends BaseController
     /**
      * 我的积分账户（余额 + 免广告权益状态）
      *
-     * adFree 由服务端按到期时间算好，客户端不要用本地时间自己判断（手机时间可以随便改）。
+     * adFree 由服务端按到期时间算好，客户端不要用本地时间自己判断（手机时间可以随便改）；
+     * 「免广告权益剩余 X 小时」也直接用 adFreeRemainMinutes，别拿 adFreeExpireTime 本地减。
      *
-     * @return {balance, adFree, adFreeExpireTime}（无权益时 adFreeExpireTime 为 null）
+     * @return {balance, adFree, adFreeExpireTime, adFreeRemainMinutes}
+     *         （无权益时 adFreeExpireTime 为 null、adFreeRemainMinutes 为 0）
      */
     @GetMapping("/account")
     public AjaxResult account()
@@ -68,7 +70,8 @@ public class ApiV1PointsController extends BaseController
      * 兑换免广告（权益叠加：没过期就从原到期时间往后加，过期了从此刻开始算）
      *
      * @param tier 档位（1 = 10 积分/30 分钟，2 = 30 积分/2 小时，3 = 100 积分/24 小时）
-     * @return {balance:兑换后余额, adFree:true, adFreeExpireTime:新的到期时间, cost, label}
+     * @return {balance:兑换后余额, adFree:true, adFreeExpireTime:新的到期时间,
+     *          adFreeRemainMinutes:兑换后的剩余分钟（含叠加）, cost, label}
      *         积分不足 → code=500, msg="积分不足"（余额与权益都不变）
      */
     @PostMapping("/exchange")

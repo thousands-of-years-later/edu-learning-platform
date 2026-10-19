@@ -80,6 +80,7 @@ public class PointsServiceImpl implements IPointsService
         result.put("balance", account == null ? 0 : account.getBalance());
         result.put("adFree", true);
         result.put("adFreeExpireTime", format(account == null ? null : account.getAdFreeExpireTime()));
+        result.put("adFreeRemainMinutes", remainMinutes(account == null ? null : account.getAdFreeExpireTime()));
         return result;
     }
 
@@ -101,6 +102,9 @@ public class PointsServiceImpl implements IPointsService
         result.put("balance", account == null ? 0 : account.getBalance());
         result.put("adFree", adFree);
         result.put("adFreeExpireTime", format(expireTime));
+        // 服务端算好的剩余分钟：前端直接显示"剩余 X 分钟/小时"，
+        // 不要用手机本地时间减到期时间（手机时间可以随便改）
+        result.put("adFreeRemainMinutes", adFree ? remainMinutes(expireTime) : 0);
         return result;
     }
 
@@ -116,5 +120,25 @@ public class PointsServiceImpl implements IPointsService
     private String format(Date time)
     {
         return time == null ? null : new SimpleDateFormat(TIME_PATTERN).format(time);
+    }
+
+    /**
+     * 权益剩余分钟数（向上取整）
+     *
+     * 向上取整是为了避免"还剩 30 秒却显示 0 分钟"的错位：剩 1 秒也返回 1，剩 30 分整返回 30。
+     * 已过期 / 从未兑换返回 0。用服务端时间算，客户端不要自己拿手机时间减。
+     */
+    private int remainMinutes(Date expireTime)
+    {
+        if (expireTime == null)
+        {
+            return 0;
+        }
+        long millis = expireTime.getTime() - System.currentTimeMillis();
+        if (millis <= 0)
+        {
+            return 0;
+        }
+        return (int) ((millis + 59_999) / 60_000);
     }
 }

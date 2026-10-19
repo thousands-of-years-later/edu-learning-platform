@@ -29,7 +29,7 @@ public interface IPointsService
      *
      * @param userId 用户ID
      * @param tier   档位（1/2/3）
-     * @return {balance, adFreeExpireTime, adFree, label, cost}
+     * @return {balance, adFreeExpireTime, adFreeRemainMinutes, adFree, label, cost}
      */
     public Map<String, Object> exchange(Long userId, Integer tier);
 
@@ -37,7 +37,9 @@ public interface IPointsService
      * 我的积分账户（任务中心"当前无免广告权益"那块 + 余额）
      *
      * @param userId 用户ID
-     * @return {balance, adFree, adFreeExpireTime}
+     * @return {balance, adFree, adFreeExpireTime, adFreeRemainMinutes}
+     *         adFreeRemainMinutes 是服务端算好的剩余分钟（向上取整），前端直接显示，
+     *         不要用手机本地时间减 adFreeExpireTime（手机时间可以随便改）
      */
     public Map<String, Object> account(Long userId);
 }

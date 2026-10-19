@@ -5,15 +5,18 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 <mapper namespace="com.ruoyi.user.mapper.PointsAccountMapper">
 
 	<resultMap type="PointsAccount" id="PointsAccountResult">
-		<id     property="userId"      column="user_id"      />
-		<result property="balance"     column="balance"      />
-		<result property="totalEarned" column="total_earned" />
-		<result property="createTime"  column="create_time"  />
-		<result property="updateTime"  column="update_time"  />
+		<id     property="userId"           column="user_id"            />
+		<result property="balance"          column="balance"            />
+		<result property="totalEarned"      column="total_earned"       />
+		<result property="adFreeExpireTime" column="ad_free_expire_time" />
+		<result property="createTime"       column="create_time"        />
+		<result property="updateTime"       column="update_time"        />
+		<!-- adFree 是纯内存字段（本表没有这一列），由 PointsServiceImpl 按到期时间算，这里不映射 -->
 	</resultMap>
 
 	<sql id="selectAccountVo">
-		select user_id, balance, total_earned, create_time, update_time from learning_points_account
+		select user_id, balance, total_earned, ad_free_expire_time, create_time, update_time
+		  from learning_points_account
 	</sql>
 
 	<select id="selectByUser" resultMap="PointsAccountResult">
@@ -42,5 +45,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		insert ignore into learning_points_account (user_id, balance, total_earned, create_time, update_time)
 		values (#{userId}, 0, 0, sysdate(), sysdate())
 	</insert>
+
+	<!--
+	  兑换免广告：一条 UPDATE 同时完成「扣积分」和「叠加延长权益」。
+	  - where 的 balance >= #{cost} 是防超兑的闸门：余额不够影响 0 行，服务层据此报"积分不足"，
+	    永远不会把余额扣成负数；并发双击时行锁让第二条看到扣完后的余额，同样影响 0 行。
+	  - set 的 greatest(ifnull(到期时间, 现在), 现在) + 时长 就是叠加：
+	    权益没过期就从原到期时间往后加，已过期或从未有过就从此刻开始算。
+	-->
+	<update id="exchangeAdFree">
+		update learning_points_account
+		   set balance = balance - #{cost},
+		       ad_free_expire_time = date_add(greatest(ifnull(ad_free_expire_time, sysdate()), sysdate()),
+		                                      interval #{minutes} minute),
+		       update_time = sysdate()
+		 where user_id = #{userId}
+		   and balance &gt;= #{cost}
+	</update>
 
 </mapper>

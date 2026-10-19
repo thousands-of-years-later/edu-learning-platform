@@ -38,4 +38,19 @@ public interface PointsAccountMapper
      * 账户不存在时建一条余额 0 的记录（查询类接口用，保证后续读到的不是 null）
      */
     public int insertAccountIfAbsent(@Param("userId") Long userId);
+
+    /**
+     * 兑换免广告：一条 UPDATE 同时完成「扣积分」与「叠加延长权益」
+     *
+     * where 里的 balance >= cost 是防超兑的闸门：余额不够就影响 0 行，调用方据此报「积分不足」，
+     * 绝不会扣成负数；并发双击时数据库行锁会让第二条看到扣完后的余额，同样影响 0 行。
+     * set 里的 greatest(原到期时间, 现在) + 时长 就是叠加：没过期从原到期时间往后加，
+     * 已过期或从未有过则从此刻开始算。
+     *
+     * @param userId  用户ID
+     * @param cost    消耗积分
+     * @param minutes 本次增加的免广告时长（分钟）
+     * @return 影响行数（1 = 成功，0 = 余额不足或账户不存在）
+     */
+    public int exchangeAdFree(@Param("userId") Long userId, @Param("cost") int cost, @Param("minutes") int minutes);
 }

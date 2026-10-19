@@ -9,11 +9,13 @@
 --
 -- 三个表的职责
 --   learning_checkin         一天一条签到记录（唯一索引兜底「一天只能签一次」）
---   learning_points_account  积分账户（余额 + 累计获得），一个用户一行，懒创建
---   learning_points_log      积分流水（只增不改），签到 +N / 以后兑换 -N 都记一条
+--   learning_points_account  积分账户（余额 + 累计获得 + 免广告权益到期时间），一个用户一行，懒创建
+--   learning_points_log      积分流水（只增不改），签到 +N / 兑换 -N 都记一条
 --
--- 【免广告权益不在这三张表里】：按约定它属于另一个板块，本模块只维护余额；
--- 兑换模块以后从同一个 balance 扣分，并写一条 type='exchange' 的流水。
+-- 【免广告权益挂在账户行上（ad_free_expire_time），不单独建表】：
+--   兑换要同时「扣积分」和「延长权益」，放同一行才能用一条 UPDATE 原子完成
+--   （where balance >= cost 防超兑；greatest(原到期时间, 现在) + 时长 实现叠加）。
+--   兑换记录也不单独建表，记在 learning_points_log（type='exchange'，remark 写档位）。
 --
 -- 执行方式：
 --   mysql --default-character-set=utf8mb4 -h43.142.9.214 -P3306 -uedu_dev_03 -p learning_platform < sql/learning_checkin.sql
@@ -42,13 +44,14 @@ create table if not exists learning_checkin (
 -- 2、积分账户（余额）
 -- ----------------------------
 create table if not exists learning_points_account (
-  user_id      bigint   not null                    comment '用户ID（sys_user.user_id），一个用户一行',
-  balance      int      not null default 0          comment '积分余额（页面上的"我的积分/总积分"，兑换会扣减）',
-  total_earned int      not null default 0          comment '历史累计获得（只增，备查用，不参与展示口径）',
-  create_time  datetime default null                comment '创建时间',
-  update_time  datetime default null                comment '更新时间',
+  user_id             bigint   not null             comment '用户ID（sys_user.user_id），一个用户一行',
+  balance             int      not null default 0   comment '积分余额（页面上的"我的积分/总积分"，兑换会扣减）',
+  total_earned        int      not null default 0   comment '历史累计获得（只增，备查用，不参与展示口径）',
+  ad_free_expire_time datetime default null         comment '免广告权益到期时间（null 或已过去 = 无权益；兑换叠加后往后延）',
+  create_time         datetime default null         comment '创建时间',
+  update_time         datetime default null         comment '更新时间',
   primary key (user_id)
-) engine = innodb default charset = utf8mb4 comment = '积分账户（余额）';
+) engine = innodb default charset = utf8mb4 comment = '积分账户（余额 + 免广告权益）';
 
 -- ----------------------------
 -- 3、积分流水（只增不改）
@@ -67,6 +70,18 @@ create table if not exists learning_points_log (
 ) engine = innodb auto_increment = 1 default charset = utf8mb4 comment = '积分流水';
 
 -- ----------------------------
+-- 4、兼容已建过表的库：补 ad_free_expire_time 列（幂等）
+--    新库在第 2 步的 create table 里已经带上这一列，这里是给先建过表的库补；
+--    MySQL 没有 add column if not exists，用 information_schema 判断 + 动态 DDL。
+-- ----------------------------
+set @ddl = if((select count(*) from information_schema.columns
+                where table_schema = database() and table_name = 'learning_points_account'
+                  and column_name = 'ad_free_expire_time') = 0,
+              'alter table learning_points_account add column ad_free_expire_time datetime default null comment ''免广告权益到期时间（null 或已过去 = 无权益）'' after total_earned',
+              'do 0');
+prepare s from @ddl; execute s; deallocate prepare s;
+
+-- ----------------------------
 -- 自检
 -- ----------------------------
 select table_name, table_comment from information_schema.tables
@@ -76,6 +91,11 @@ select table_name, table_comment from information_schema.tables
 -- 唯一索引存在性（期望 1 行：uk_checkin_user_date）
 select index_name, non_unique from information_schema.statistics
  where table_schema = database() and table_name = 'learning_checkin' and non_unique = 0;
+
+-- 积分账户表的列（期望能看到 ad_free_expire_time）
+select column_name, column_type, column_comment from information_schema.columns
+ where table_schema = database() and table_name = 'learning_points_account'
+ order by ordinal_position;
 
 select (select count(*) from learning_checkin) as 签到记录,
        (select count(*) from learning_points_account) as 积分账户,

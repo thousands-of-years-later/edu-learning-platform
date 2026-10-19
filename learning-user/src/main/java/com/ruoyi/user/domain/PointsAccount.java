@@ -32,6 +32,13 @@ public class PointsAccount implements Serializable
     /** 历史累计获得（只增，备查） */
     private Integer totalEarned;
 
+    /** 免广告权益到期时间（null 或已过去 = 当前无权益）；兑换叠加后往后延 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private Date adFreeExpireTime;
+
+    /** 当前是否享有免广告权益（表里没有这一列，由服务层按到期时间算好） */
+    private Boolean adFree;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date createTime;
 
@@ -66,6 +73,26 @@ public class PointsAccount implements Serializable
     public void setTotalEarned(Integer totalEarned)
     {
         this.totalEarned = totalEarned;
+    }
+
+    public Date getAdFreeExpireTime()
+    {
+        return adFreeExpireTime;
+    }
+
+    public void setAdFreeExpireTime(Date adFreeExpireTime)
+    {
+        this.adFreeExpireTime = adFreeExpireTime;
+    }
+
+    public Boolean getAdFree()
+    {
+        return adFree;
+    }
+
+    public void setAdFree(Boolean adFree)
+    {
+        this.adFree = adFree;
     }
 
     public Date getCreateTime()

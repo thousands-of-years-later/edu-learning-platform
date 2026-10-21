@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.user.mapper.UserProfileMapper">
+
+	<resultMap type="UserProfile" id="UserProfileResult">
+		<result property="userId"   column="user_id"   />
+		<result property="userName" column="user_name" />
+		<result property="avatar"   column="avatar"    />
+		<result property="sex"      column="sex"       />
+		<result property="bio"      column="bio"       />
+		<!-- sexLabel 是纯内存字段（由 UserProfile.sexLabelOf 换算），这里不映射 -->
+	</resultMap>
+
+	<!--
+	  主表是 sys_user，扩展表 left join：没填过简介的用户 bio 为 null，但资料照样能查出来。
+	  del_flag = '0' 兜底：逻辑删除的用户查不到（令牌过滤器那边也会校验状态，这里只是双保险）。
+	  单用户查询，没有客户端排序参数，不存在 PageHelper 追加 order by 造成的 1052 歧义问题。
+	-->
+	<select id="selectProfile" resultMap="UserProfileResult">
+		select u.user_id, u.user_name, u.avatar, u.sex, p.bio
+		  from sys_user u
+		  left join learning_user_profile p on p.user_id = u.user_id
+		 where u.user_id = #{userId} and u.del_flag = '0'
+	</select>
+
+	<!--
+	  昵称/头像/性别都在 sys_user 上（后台用户管理看到的是同一份数据）。
+	  avatar 允许 null（清空头像），必须显式给 jdbcType，否则 MyBatis 传 null 会报错。
+	  update_time 一起更新，后台用户列表能看出资料被改过。
+	-->
+	<update id="updateUserBasic">
+		update sys_user
+		   set user_name = #{userName},
+		       avatar    = #{avatar,jdbcType=VARCHAR},
+		       sex       = #{sex},
+		       update_time = sysdate()
+		 where user_id = #{userId} and del_flag = '0'
+	</update>
+
+	<!--
+	  简介 upsert：老用户第一次保存时补一行，之后再保存走 update 分支。
+	  bio 传 null = 清空（同样显式 jdbcType）。
+	-->
+	<update id="upsertBio">
+		insert into learning_user_profile (user_id, bio, create_time, update_time)
+		values (#{userId}, #{bio,jdbcType=VARCHAR}, sysdate(), sysdate())
+		on duplicate key update bio = #{bio,jdbcType=VARCHAR},
+		                        update_time = sysdate()
+	</update>
+
+</mapper>

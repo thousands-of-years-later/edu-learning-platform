@@ -53,11 +53,12 @@ public interface IWatchHistoryService
     public int remove(Long userId, Long historyId);
 
     /**
-     * 清空我的全部历史
+     * 按类型清空我的历史（前端三个 tab 各自清空自己那一类，不做"清空全部"）
      *
-     * @return 实际删除的行数（0 = 本来就没历史，不算错误）
+     * @param targetType 必填：shortVideo / course / post
+     * @return 实际删除的行数（0 = 这一类本来就没历史，不算错误）
      */
-    public int clear(Long userId);
+    public int clear(Long userId, String targetType);
 
     /**
      * 校验列表过滤参数（必须在 PageHelper 的 startPage() 之前调用）

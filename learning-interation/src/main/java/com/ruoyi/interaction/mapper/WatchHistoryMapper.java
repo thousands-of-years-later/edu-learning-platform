@@ -54,9 +54,11 @@ public interface WatchHistoryMapper
     public int deleteById(@Param("historyId") Long historyId, @Param("userId") Long userId);
 
     /**
-     * 清空我的全部历史
+     * 按类型清空我的历史（前端是三个 tab，各自清自己那一类）
+     *
+     * 不提供"清空全部"：前端少传一个类型参数就会把三类历史一起清掉，风险太大。
      */
-    public int deleteAll(@Param("userId") Long userId);
+    public int deleteByType(@Param("userId") Long userId, @Param("targetType") String targetType);
 
     /**
      * 短视频是否存在且可看（未删 + 状态正常）

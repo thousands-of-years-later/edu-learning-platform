@@ -168,10 +168,16 @@ public class WatchHistoryServiceImpl implements IWatchHistoryService
     }
 
     @Override
-    public int clear(Long userId)
+    public int clear(Long userId, String targetType)
     {
         checkUser(userId);
-        return watchHistoryMapper.deleteAll(userId);
+        // 按类型清空：前端是三个 tab，各自清自己那一类。
+        // 类型必须显式传 —— 不传就清全部太危险（前端少传一个参数就会把三类历史一起清掉）
+        if (StringUtils.isEmpty(StringUtils.trim(targetType)))
+        {
+            throw new ServiceException("请指定要清空的内容类型");
+        }
+        return watchHistoryMapper.deleteByType(userId, checkTargetType(targetType));
     }
 
     @Override

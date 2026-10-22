@@ -140,14 +140,18 @@ public class ApiV1WatchHistoryController extends BaseController
     }
 
     /**
-     * 清空我的观看历史（设计稿右上角「清空」）
+     * 按类型清空我的观看历史（设计稿右上角「清空」）
      *
+     * 前端是「短视频 / 课程 / 文章」三个 tab，各自清空自己那一类，**不做清空全部**。
+     * targetType 必填：少传一个参数就把三类历史一起清掉太危险，所以不提供"不传=清全部"的用法。
+     *
+     * @param targetType shortVideo / course / post
      * @return {msg, code, count: 实际删除的条数}
      */
     @PostMapping("/clear")
-    public AjaxResult clear()
+    public AjaxResult clear(String targetType)
     {
-        int count = watchHistoryService.clear(ApiContext.getUserId());
+        int count = watchHistoryService.clear(ApiContext.getUserId(), targetType);
         return AjaxResult.success("已清空").put("count", count);
     }
 }

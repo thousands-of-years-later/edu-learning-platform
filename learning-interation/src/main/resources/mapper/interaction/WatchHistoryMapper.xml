@@ -93,8 +93,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		delete from learning_watch_history where history_id = #{historyId} and user_id = #{userId}
 	</delete>
 
-	<delete id="deleteAll">
-		delete from learning_watch_history where user_id = #{userId}
+	<!-- 按类型清空（三个 tab 各自清自己那一类），user_id 进 where 保证只删自己的 -->
+	<delete id="deleteByType">
+		delete from learning_watch_history where user_id = #{userId} and target_type = #{targetType}
 	</delete>
 
 	<!--

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.interaction.mapper.WatchHistoryMapper">
+
+	<resultMap type="WatchHistory" id="WatchHistoryResult">
+		<id     property="historyId"    column="history_id"     />
+		<result property="userId"       column="user_id"        />
+		<result property="targetType"   column="target_type"    />
+		<result property="targetId"     column="target_id"      />
+		<result property="videoId"      column="video_id"       />
+		<result property="position"     column="position"       />
+		<result property="duration"     column="duration"       />
+		<result property="lastViewTime" column="last_view_time" />
+		<result property="createTime"   column="create_time"    />
+		<result property="title"        column="title"          />
+		<result property="coverUrl"     column="cover_url"      />
+		<result property="subtitle"     column="subtitle"       />
+		<result property="sourceDelFlag" column="source_del_flag" />
+		<!-- sourceDeleted 是纯内存字段（由服务层换算），这里不映射 -->
+	</resultMap>
+
+	<!--
+	  列表查询：单表 FROM（learning_watch_history），标题/封面/小节标题全部用标量子查询，
+	  不 join 内容表 —— 避免 PageHelper 客户端排序字段撞同名列（1052），也避免模块循环依赖。
+	  target_type 用 case 分流：三种内容分别取各自的标题/封面；文章没有封面列，取出来就是 null。
+	-->
+	<sql id="selectHistoryVo">
+		select h.history_id, h.user_id, h.target_type, h.target_id, h.video_id,
+		       h.position, h.duration, h.last_view_time, h.create_time,
+		       case h.target_type
+		         when 'shortVideo' then (select v.video_title from learning_short_video v where v.video_id = h.target_id)
+		         when 'course' then (select c.course_name from learning_course c where c.course_id = h.target_id)
+		         when 'post' then (select p.post_title from learning_post p where p.post_id = h.target_id)
+		       end as title,
+		       case h.target_type
+		         when 'shortVideo' then (select v.cover_url from learning_short_video v where v.video_id = h.target_id)
+		         when 'course' then (select c.cover_url from learning_course c where c.course_id = h.target_id)
+		       end as cover_url,
+		       case h.target_type
+		         when 'course' then (select v.video_title from learning_course_video v where v.video_id = h.video_id)
+		       end as subtitle,
+		       case h.target_type
+		         when 'shortVideo' then (select v.del_flag from learning_short_video v where v.video_id = h.target_id)
+		         when 'course' then (select c.del_flag from learning_course c where c.course_id = h.target_id)
+		         when 'post' then (select p.del_flag from learning_post p where p.post_id = h.target_id)
+		       end as source_del_flag
+		  from learning_watch_history h
+	</sql>
+
+	<!-- 列表：按最近观看时间倒序；同一时间戳用 history_id 兜底，保证分页顺序稳定 -->
+	<select id="selectList" resultMap="WatchHistoryResult">
+		<include refid="selectHistoryVo"/>
+		where h.user_id = #{userId}
+		<if test="targetType != null and targetType != ''">
+			and h.target_type = #{targetType}
+		</if>
+		order by h.last_view_time desc, h.history_id desc
+	</select>
+
+	<!-- 断点续播用：只查进度字段即可，不必带标题封面 -->
+	<select id="selectOne" resultMap="WatchHistoryResult">
+		select h.history_id, h.user_id, h.target_type, h.target_id, h.video_id,
+		       h.position, h.duration, h.last_view_time, h.create_time
+		  from learning_watch_history h
+		 where h.user_id = #{userId} and h.target_type = #{targetType} and h.target_id = #{targetId}
+	</select>
+
+	<!-- 首次观看：last_view_time / create_time 都写 sysdate() -->
+	<insert id="insertHistory" parameterType="WatchHistory" useGeneratedKeys="true" keyProperty="historyId">
+		insert into learning_watch_history (user_id, target_type, target_id, video_id,
+		                                    position, duration, last_view_time, create_time)
+		values (#{userId}, #{targetType}, #{targetId}, #{videoId,jdbcType=BIGINT},
+		        #{position,jdbcType=INTEGER}, #{duration,jdbcType=INTEGER}, sysdate(), sysdate())
+	</insert>
+
+	<!--
+	  重看：进度【跟随最新】直接覆盖（不取 max），只刷新最近观看时间，create_time 保持不变。
+	  video_id 也一起更新 —— 课程里换了一个小节看，续播要跳到新小节。
+	-->
+	<update id="updateHistory" parameterType="WatchHistory">
+		update learning_watch_history
+		   set video_id       = #{videoId,jdbcType=BIGINT},
+		       position       = #{position,jdbcType=INTEGER},
+		       duration       = #{duration,jdbcType=INTEGER},
+		       last_view_time = sysdate()
+		 where user_id = #{userId} and target_type = #{targetType} and target_id = #{targetId}
+	</update>
+
+	<!-- 删除/清空都把 user_id 写进 where：只能动自己的 -->
+	<delete id="deleteById">
+		delete from learning_watch_history where history_id = #{historyId} and user_id = #{userId}
+	</delete>
+
+	<delete id="deleteAll">
+		delete from learning_watch_history where user_id = #{userId}
+	</delete>
+
+	<!--
+	  可看性校验（与点赞收藏/笔记同一口径）：
+	  未逻辑删除 + 状态正常；少了 status 这一层，草稿/下架的帖子、停用的课程也能看历史。
+	-->
+	<select id="countShortVideo" resultType="int">
+		select count(*) from learning_short_video
+		 where video_id = #{targetId} and del_flag = '0' and status = '0'
+	</select>
+
+	<select id="countCourse" resultType="int">
+		select count(*) from learning_course
+		 where course_id = #{targetId} and del_flag = '0' and status = '0'
+	</select>
+
+	<select id="countPost" resultType="int">
+		select count(*) from learning_post
+		 where post_id = #{targetId} and del_flag = '0' and status = '0'
+	</select>
+
+	<select id="countCourseVideoOfCourse" resultType="int">
+		select count(*) from learning_course_video
+		 where video_id = #{videoId} and course_id = #{courseId} and del_flag = '0'
+	</select>
+
+	<select id="selectShortVideoDuration" resultType="java.lang.Integer">
+		select duration from learning_short_video where video_id = #{targetId}
+	</select>
+
+	<!-- 播放数：只有短视频表有 view_count 列，首次观看时 +1 -->
+	<update id="increaseShortVideoViewCount">
+		update learning_short_video set view_count = view_count + 1
+		 where video_id = #{targetId} and del_flag = '0'
+	</update>
+
+</mapper>

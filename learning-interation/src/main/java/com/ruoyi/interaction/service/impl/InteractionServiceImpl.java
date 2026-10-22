@@ -8,8 +8,11 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.interaction.domain.Interaction;
+import com.ruoyi.interaction.domain.MyInteraction;
 import com.ruoyi.interaction.mapper.InteractionMapper;
+import com.ruoyi.interaction.mapper.MyInteractionMapper;
 import com.ruoyi.interaction.service.IInteractionService;
 import com.ruoyi.interaction.service.INotificationService;
 
@@ -37,6 +40,9 @@ public class InteractionServiceImpl implements IInteractionService
 
     @Autowired
     private InteractionMapper interactionMapper;
+
+    @Autowired
+    private MyInteractionMapper myInteractionMapper;
 
     @Autowired
     private INotificationService notificationService;
@@ -149,6 +155,53 @@ public class InteractionServiceImpl implements IInteractionService
             throw new ServiceException("参数不合法");
         }
         return interactionMapper.countByTarget(targetType, targetId, type);
+    }
+
+    @Override
+    public List<MyInteraction> myLikes(Long userId, String targetType)
+    {
+        return myList(userId, Interaction.TYPE_LIKE, targetType);
+    }
+
+    @Override
+    public List<MyInteraction> myFavorites(Long userId, String targetType)
+    {
+        return myList(userId, Interaction.TYPE_FAVORITE, targetType);
+    }
+
+    @Override
+    public void checkQuery(String targetType)
+    {
+        String type = StringUtils.trim(targetType);
+        if (StringUtils.isNotEmpty(type) && !MyInteraction.isValidTargetType(type))
+        {
+            throw new ServiceException("内容类型不合法（只支持 post / course / shortVideo）");
+        }
+    }
+
+    /**
+     * 我的点赞 / 我的收藏共用查询
+     *
+     * targetType 为空 = 查全部（不传 tab 过滤）；不传或传错都不静默当"全部"，
+     * 传错直接报错，否则前端 tab 会看到全部数据还以为过滤失效。
+     */
+    private List<MyInteraction> myList(Long userId, String actionType, String targetType)
+    {
+        if (userId == null)
+        {
+            throw new ServiceException("请先登录");
+        }
+        String type = StringUtils.trim(targetType);
+        String dbTargetType = null;
+        if (StringUtils.isNotEmpty(type))
+        {
+            if (!MyInteraction.isValidTargetType(type))
+            {
+                throw new ServiceException("内容类型不合法（只支持 post / course / shortVideo）");
+            }
+            dbTargetType = MyInteraction.toDbTargetType(type);
+        }
+        return myInteractionMapper.selectMyList(userId, actionType, dbTargetType);
     }
 
     /** 目标是否存在（未逻辑删除） */

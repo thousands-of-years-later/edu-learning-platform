@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.interaction.mapper.MyInteractionMapper">
+
+	<resultMap type="MyInteraction" id="MyInteractionResult">
+		<id     property="interactionId" column="interaction_id" />
+		<result property="targetType"    column="target_type"    />
+		<result property="targetId"      column="target_id"      />
+		<result property="title"         column="title"          />
+		<result property="coverUrl"      column="cover_url"      />
+		<result property="author"        column="author"         />
+		<result property="createTime"    column="create_time"    />
+	</resultMap>
+
+	<!--
+	  「我的点赞/收藏」：单表 FROM learning_interaction，
+	  标题/封面/作者按 target_type 分流用标量子查询取（不 join 内容表，避免 1052 与循环依赖）。
+	    title  ：帖子标题 / 课程名 / 视频标题
+	    cover  ：只有课程、短视频有封面；文章（帖子表没有封面列）恒为 null
+	    author ：文章的帖子作者、短视频的上传者；课程没有"作者"概念，为 null
+	  只返回内容仍可见（未删 + 状态正常）的条目，保证列表里的每一条都能点开。
+	-->
+	<select id="selectMyList" resultMap="MyInteractionResult">
+		select i.id as interaction_id, i.target_id, i.create_time,
+		       case i.target_type
+		         when '1' then 'post'
+		         when '2' then 'course'
+		         when '3' then 'shortVideo'
+		       end as target_type,
+		       case i.target_type
+		         when '1' then (select p.post_title from learning_post p where p.post_id = i.target_id)
+		         when '2' then (select c.course_name from learning_course c where c.course_id = i.target_id)
+		         when '3' then (select v.video_title from learning_short_video v where v.video_id = i.target_id)
+		       end as title,
+		       case i.target_type
+		         when '2' then (select c.cover_url from learning_course c where c.course_id = i.target_id)
+		         when '3' then (select v.cover_url from learning_short_video v where v.video_id = i.target_id)
+		       end as cover_url,
+		       case i.target_type
+		         when '1' then (select u.user_name from learning_post p
+		                          join sys_user u on u.user_id = p.user_id
+		                         where p.post_id = i.target_id)
+		         when '3' then (select u.user_name from learning_short_video v
+		                          join sys_user u on u.user_id = v.user_id
+		                         where v.video_id = i.target_id)
+		       end as author
+		  from learning_interaction i
+		 where i.user_id = #{userId}
+		   and i.type = #{actionType}
+		<if test="targetType != null and targetType != ''">
+		   and i.target_type = #{targetType}
+		</if>
+		   and (case i.target_type
+		          when '1' then (select count(*) from learning_post p
+		                          where p.post_id = i.target_id and p.del_flag = '0' and p.status = '0')
+		          when '2' then (select count(*) from learning_course c
+		                          where c.course_id = i.target_id and c.del_flag = '0' and c.status = '0')
+		          when '3' then (select count(*) from learning_short_video v
+		                          where v.video_id = i.target_id and v.del_flag = '0' and v.status = '0')
+		        end) &gt; 0
+		 order by i.create_time desc, i.id desc
+	</select>
+
+</mapper>

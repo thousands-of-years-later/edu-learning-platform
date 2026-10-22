@@ -1,5 +1,6 @@
 package com.ruoyi.interaction.controller;
 
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,7 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ruoyi.common.core.api.ApiContext;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.interaction.domain.MyInteraction;
 import com.ruoyi.interaction.service.IInteractionService;
 
 /**
@@ -89,5 +92,35 @@ public class ApiV1InteractionController extends BaseController
         AjaxResult ajax = AjaxResult.success();
         ajax.put("count", interactionService.count(targetType, targetId, type));
         return ajax;
+    }
+
+    /**
+     * 我的点赞（设计稿 23_我的点赞）
+     *
+     * @param targetType 可选过滤：post（文章）/ course（课程）/ shortVideo（短视频）；不传 = 全部
+     * @return {total, rows:[{interactionId, targetType, targetId, title, coverUrl, author, createTime}]}
+     *         文章没有封面（coverUrl 为 null），显示标题 + 作者；课程/短视频显示封面 + 标题
+     */
+    @GetMapping("/myLikes")
+    public TableDataInfo myLikes(String targetType)
+    {
+        // 校验放在 startPage() 之前：PageHelper 的分页参数挂在 ThreadLocal 上，
+        // 非法参数若在之后抛出，分页参数会残留到本线程的下一条查询
+        interactionService.checkQuery(targetType);
+        startPage();
+        List<MyInteraction> list = interactionService.myLikes(ApiContext.getUserId(), targetType);
+        return getDataTable(list);
+    }
+
+    /**
+     * 我的收藏（设计稿 22_我的收藏），参数与返回同 /myLikes
+     */
+    @GetMapping("/myFavorites")
+    public TableDataInfo myFavorites(String targetType)
+    {
+        interactionService.checkQuery(targetType);
+        startPage();
+        List<MyInteraction> list = interactionService.myFavorites(ApiContext.getUserId(), targetType);
+        return getDataTable(list);
     }
 }

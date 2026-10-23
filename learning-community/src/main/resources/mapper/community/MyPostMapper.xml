@@ -4,58 +4,49 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ruoyi.community.mapper.MyPostMapper">
 
-	<resultMap type="Post" id="PostResult">
-		<id     property="postId"         column="post_id"         />
-		<result property="postTitle"      column="post_title"      />
-		<result property="categoryId"     column="category_id"     />
-		<result property="userId"         column="user_id"         />
-		<result property="content"        column="content"         />
-		<result property="likeCount"      column="like_count"      />
-		<result property="favoriteCount"  column="favorite_count"  />
-		<result property="commentCount"   column="comment_count"   />
-		<result property="status"         column="status"          />
-		<result property="isFeatured"     column="is_featured"     />
-		<result property="createTime"     column="create_time"     />
-		<result property="updateTime"     column="update_time"     />
-		<result property="categoryName"   column="category_name"   />
-		<result property="userName"       column="user_name"       />
+	<resultMap type="PostSummary" id="PostSummaryResult">
+		<id     property="postId"        column="post_id"        />
+		<result property="postTitle"     column="post_title"     />
+		<result property="likeCount"     column="like_count"     />
+		<result property="favoriteCount" column="favorite_count" />
+	</resultMap>
+
+	<resultMap type="PostDetail" id="PostDetailResult">
+		<id     property="postId"       column="post_id"       />
+		<result property="postTitle"    column="post_title"    />
+		<result property="content"      column="content"       />
+		<result property="userId"       column="user_id"       />
+		<result property="userName"     column="user_name"     />
+		<result property="avatar"       column="avatar"        />
+		<result property="categoryName" column="category_name" />
+		<result property="createTime"   column="create_time"   />
+		<result property="likeCount"    column="like_count"    />
+		<result property="commentCount" column="comment_count" />
 	</resultMap>
 
 	<!--
-	  列表：刻意【不查 content】——
-	  正文是 longtext，一页 10 条把正文全捞出来纯属浪费带宽；
-	  列表只需要标题、点赞、收藏、时间。
-	  分类名/作者名用标量子查询取，不 join（避免客户端排序字段撞同名列 1052）。
+	  我的文章列表：只查设计稿上要显示的四列（标题、点赞、收藏、主键）。
+	  不查 content（longtext，列表用不到）、不查状态/分类/作者（列表不显示）。
 	-->
-	<sql id="selectMyPostListVo">
-		select p.post_id, p.post_title, p.category_id, p.user_id,
-		       p.like_count, p.favorite_count, p.comment_count, p.status,
-		       p.create_time, p.update_time,
-		       (select c.category_name from learning_category c where c.category_id = p.category_id) as category_name,
-		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name
+	<select id="selectMyPublishedList" resultMap="PostSummaryResult">
+		select p.post_id, p.post_title, p.like_count, p.favorite_count
 		  from learning_post p
-	</sql>
-
-	<!-- 详情：带正文（Markdown 原文，由前端渲染）与审核相关字段 -->
-	<sql id="selectMyPostDetailVo">
-		select p.post_id, p.post_title, p.category_id, p.user_id, p.content,
-		       p.like_count, p.favorite_count, p.comment_count, p.status, p.is_featured,
-		       p.create_time, p.update_time,
-		       (select c.category_name from learning_category c where c.category_id = p.category_id) as category_name,
-		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name
-		  from learning_post p
-	</sql>
-
-	<!-- 我的已发布文章：只 status='0'，按发布时间倒序 -->
-	<select id="selectMyPublishedList" resultMap="PostResult">
-		<include refid="selectMyPostListVo"/>
 		 where p.user_id = #{userId} and p.del_flag = '0' and p.status = '0'
 		 order by p.create_time desc, p.post_id desc
 	</select>
 
-	<!-- 文章详情：只认已发布；草稿/待审核/已下架/已删除一律查不到 -->
-	<select id="selectPublishedById" resultMap="PostResult">
-		<include refid="selectMyPostDetailVo"/>
+	<!--
+	  文章详情：标题 + 正文 + 作者（昵称/头像）+ 分类标签 + 时间 + 点赞数 + 评论数。
+	  作者昵称/头像、分类名用标量子查询取，不 join（避免客户端排序字段撞同名列 1052）。
+	  只认已发布：草稿/待审核/已下架/已删除一律查不到。
+	-->
+	<select id="selectPublishedById" resultMap="PostDetailResult">
+		select p.post_id, p.post_title, p.content, p.user_id,
+		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name,
+		       (select u.avatar    from sys_user u where u.user_id = p.user_id) as avatar,
+		       (select c.category_name from learning_category c where c.category_id = p.category_id) as category_name,
+		       p.create_time, p.like_count, p.comment_count
+		  from learning_post p
 		 where p.post_id = #{postId} and p.del_flag = '0' and p.status = '0'
 	</select>
 

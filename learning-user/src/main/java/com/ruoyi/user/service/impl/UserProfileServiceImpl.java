@@ -9,6 +9,7 @@ import com.ruoyi.common.config.OssConfig;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.user.domain.UserProfile;
+import com.ruoyi.user.mapper.UserHomeMapper;
 import com.ruoyi.user.mapper.UserProfileMapper;
 import com.ruoyi.user.service.IUserProfileService;
 
@@ -29,6 +30,12 @@ public class UserProfileServiceImpl implements IUserProfileService
 {
     @Autowired
     private UserProfileMapper userProfileMapper;
+
+    @Autowired
+    private UserHomeMapper userHomeMapper;
+
+    /** 「我的主页」顶部粉丝头像预览取几个（设计稿是 4 个） */
+    private static final int FAN_PREVIEW_SIZE = 4;
 
     @Override
     public Map<String, Object> profile(Long userId)
@@ -61,6 +68,27 @@ public class UserProfileServiceImpl implements IUserProfileService
         userProfileMapper.upsertBio(userId, bioText);
 
         return profile(userId);
+    }
+
+    @Override
+    public Map<String, Object> home(Long userId)
+    {
+        checkUser(userId);
+        UserProfile profile = userProfileMapper.selectProfile(userId);
+        if (profile == null)
+        {
+            throw new ServiceException("用户不存在或已被删除");
+        }
+        // 资料字段直接复用 toResult（与 /user/profile 返回结构完全一致）
+        Map<String, Object> result = toResult(profile);
+        result.put("followCount", userHomeMapper.countFollowing(userId));
+        result.put("fansCount", userHomeMapper.countFans(userId));
+        // sum 在没有帖子时返回 null，统一给 0
+        Integer received = userHomeMapper.sumPostLikes(userId);
+        result.put("likeReceivedCount", received == null ? 0 : received);
+        // 最近关注我的几个人（头像为空时前端用昵称首字兜底）
+        result.put("fanPreview", userHomeMapper.selectFanPreview(userId, FAN_PREVIEW_SIZE));
+        return result;
     }
 
     private Map<String, Object> toResult(UserProfile profile)

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.user.mapper.UserHomeMapper">
+
+	<resultMap type="FanBrief" id="FanBriefResult">
+		<id     property="userId"   column="user_id"   />
+		<result property="userName" column="user_name" />
+		<result property="avatar"   column="avatar"    />
+	</resultMap>
+
+	<select id="countFans" resultType="int">
+		select count(*) from learning_follow where follow_user_id = #{userId}
+	</select>
+
+	<select id="countFollowing" resultType="int">
+		select count(*) from learning_follow where user_id = #{userId}
+	</select>
+
+	<!--
+	  获赞总数 = 我发的帖子 like_count 之和。
+	  口径（产品确认）：只算帖子、不算短视频；所有状态都算，只排除已删除。
+	  like_count 是互动模块维护的冗余计数，直接 sum 即可，不用数关联表。
+	-->
+	<select id="sumPostLikes" resultType="java.lang.Integer">
+		select sum(like_count) from learning_post where user_id = #{userId} and del_flag = '0'
+	</select>
+
+	<!--
+	  最近关注我的人：按关注时间倒序取 limit 个。
+	  昵称/头像用标量子查询取，不 join sys_user —— 与模块内其他 Mapper 保持一致
+	  （join 后客户端排序列名容易撞上同名列 1052）。
+	-->
+	<select id="selectFanPreview" resultMap="FanBriefResult">
+		select f.user_id,
+		       (select u.user_name from sys_user u where u.user_id = f.user_id) as user_name,
+		       (select u.avatar from sys_user u where u.user_id = f.user_id) as avatar
+		  from learning_follow f
+		 where f.follow_user_id = #{userId}
+		 order by f.create_time desc, f.follow_id desc
+		 limit #{limit}
+	</select>
+
+</mapper>

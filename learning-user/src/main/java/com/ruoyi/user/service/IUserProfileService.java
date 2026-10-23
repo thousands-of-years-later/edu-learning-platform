@@ -38,4 +38,19 @@ public interface IUserProfileService
      * @return 保存后的资料（与 profile 同结构，前端可以直接刷新，不用再查一次）
      */
     public Map<String, Object> updateProfile(Long userId, String userName, String avatar, String sex, String bio);
+
+    /**
+     * 我的主页首屏聚合数据（设计稿 18_我的主页）
+     *
+     * 一次请求把这一屏要的都返回，前端不用连着调三个接口：
+     * 资料（昵称/头像/性别文案/简介） + 关注数 + 粉丝数 + 获赞数 + 粉丝头像预览。
+     *
+     * 获赞口径（产品确认）：只算「我发的帖子」的点赞数之和（不含短视频，不限状态，只排除已删除）。
+     *
+     * @param userId 用户ID
+     * @return {userId, userName, avatar, sex, sexLabel, bio,
+     *          followCount, fansCount, likeReceivedCount,
+     *          fanPreview:[{userId, userName, avatar}]}
+     */
+    public Map<String, Object> home(Long userId);
 }

@@ -48,6 +48,26 @@ public class ApiV1UserProfileController extends BaseController
     }
 
     /**
+     * 我的主页首屏数据（设计稿 18_我的主页）
+     *
+     * 一次返回：资料（昵称/头像/性别文案/简介）+ 关注数 + 粉丝数 + 获赞数 + 粉丝头像预览，
+     * 一个请求就能铺满首屏（不然前端要连着调 profile / follow/count / follow/fans 三个）。
+     *
+     * 获赞口径：只算我发的帖子的点赞数之和（不含短视频），不限帖子状态、只排除已删除。
+     *
+     * @return {userId, userName, avatar, sex, sexLabel, bio,
+     *          followCount, fansCount, likeReceivedCount,
+     *          fanPreview:[{userId, userName, avatar}]}
+     */
+    @GetMapping("/home")
+    public AjaxResult home()
+    {
+        AjaxResult ajax = AjaxResult.success();
+        ajax.putAll(userProfileService.home(ApiContext.getUserId()));
+        return ajax;
+    }
+
+    /**
      * 保存我的资料
      *
      * @param userName 昵称（1~20 字，去首尾空格）

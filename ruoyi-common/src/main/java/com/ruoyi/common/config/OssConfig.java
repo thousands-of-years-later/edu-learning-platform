@@ -38,8 +38,8 @@ public class OssConfig
     private static String urlPrefix;
 
     /**
-     * 配置是否齐备。开了开关但缺配置，启动即失败（见 AliyunOssUtils 的校验），
-     * 不允许跑到运行期才发现。
+     * 配置是否齐备。开了开关但缺配置，应用仍可启动，
+     * 首次上传时由 AliyunOssUtils 抛出明确错误（不静默回落本地）。
      */
     public static boolean isReady()
     {
@@ -69,6 +69,38 @@ public class OssConfig
             return urlPrefix.endsWith("/") ? urlPrefix.substring(0, urlPrefix.length() - 1) : urlPrefix;
         }
         return "https://" + bucketName + "." + endpoint;
+    }
+
+    /** bucket 直连前缀（配置了 CDN 时，历史直连地址仍需被识别） */
+    private static String resolveDirectUrlPrefix()
+    {
+        if (bucketName == null || bucketName.isEmpty() || endpoint == null || endpoint.isEmpty())
+        {
+            return null;
+        }
+        return "https://" + bucketName + "." + endpoint;
+    }
+
+    /**
+     * 是否是本系统 OSS 上已有对象的地址。
+     *
+     * 与 enabled 无关：开关只决定新上传写到哪里，不决定历史地址是否合法。
+     * 同时认 urlPrefix（可能是 CDN）和 bucket 直连前缀，不限制对象路径
+     * （历史数据里存在 /edu/short/... 这类非 /upload/ 的对象）。
+     */
+    public static boolean isOssUrl(String url)
+    {
+        if (url == null || url.isEmpty())
+        {
+            return false;
+        }
+        if (urlPrefix != null && !urlPrefix.isEmpty()
+                && url.startsWith(resolveUrlPrefix() + "/"))
+        {
+            return true;
+        }
+        String direct = resolveDirectUrlPrefix();
+        return direct != null && url.startsWith(direct + "/");
     }
 
     public static boolean isEnabled()

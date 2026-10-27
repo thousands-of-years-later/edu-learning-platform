@@ -153,8 +153,9 @@ public class UserProfileServiceImpl implements IUserProfileService
     /**
      * 头像：空 = 清空；否则必须是上传接口返回的地址
      *
-     * 开了 OSS 只认 OSS 前缀（上传接口返回的就是这个）；
-     * 没开 OSS 只认 /profile/ 路径（本地存储）。
+     * 本地历史头像可能是 /profile/... 或 http(s)://host/profile/...；
+     * OSS 历史头像可能是 urlPrefix（CDN）或 bucket 直连域名。
+     * 开关只决定新上传写到哪里，不能决定历史地址是否合法。
      */
     private String checkAvatar(String avatar)
     {
@@ -167,9 +168,7 @@ public class UserProfileServiceImpl implements IUserProfileService
         {
             throw new ServiceException("头像地址过长");
         }
-        boolean allowed = OssConfig.isEnabled()
-                ? url.startsWith(OssConfig.resolveUrlPrefix() + "/")
-                : url.contains("/profile/");
+        boolean allowed = url.contains("/profile/") || OssConfig.isOssUrl(url);
         if (!allowed)
         {
             throw new ServiceException("头像地址必须是上传接口返回的地址，请重新上传");

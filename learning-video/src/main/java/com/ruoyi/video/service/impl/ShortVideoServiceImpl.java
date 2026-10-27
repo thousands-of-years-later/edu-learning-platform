@@ -163,7 +163,8 @@ public class ShortVideoServiceImpl implements IShortVideoService
      *
      * 页面上那句「请先上传视频文件」只是前端提示，绕过表单直接 POST 就能塞外链甚至脚本；
      * 而 cover_url 会在列表页被拼进 &lt;img src='...'&gt;，所以必须从源头卡住：
-     * 只接受本地上传产物 /profile/...，或打开 OSS 之后的上传前缀。
+     * 只接受本地上传产物 /profile/...，或本系统 OSS 的地址（与开关状态无关，
+     * 这样关闭 OSS 后历史 OSS 数据仍能保存）。
      *
      * @param label    字段中文名，用于提示
      * @param url      待校验的地址
@@ -183,7 +184,8 @@ public class ShortVideoServiceImpl implements IShortVideoService
         {
             return;
         }
-        if (OssConfig.isEnabled() && url.startsWith(OssConfig.resolveUrlPrefix() + "/"))
+        // 开关只决定新上传写到哪里；历史 OSS 数据在关闭开关后也必须能保存
+        if (OssConfig.isOssUrl(url))
         {
             return;
         }

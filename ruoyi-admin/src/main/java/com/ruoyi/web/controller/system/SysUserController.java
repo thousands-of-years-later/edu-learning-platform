@@ -34,6 +34,7 @@ import com.ruoyi.system.service.ISysDeptService;
 import com.ruoyi.system.service.ISysPostService;
 import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
+import com.ruoyi.web.service.UserPasswordChangeService;
 
 /**
  * 用户信息
@@ -60,6 +61,9 @@ public class SysUserController extends BaseController
 
     @Autowired
     private SysPasswordService passwordService;
+
+    @Autowired
+    private UserPasswordChangeService userPasswordChangeService;
 
     @RequiresPermissions("system:user:view")
     @GetMapping()
@@ -230,7 +234,8 @@ public class SysUserController extends BaseController
         userService.checkUserDataScope(user.getUserId());
         user.setSalt(ShiroUtils.randomSalt());
         user.setPassword(passwordService.encryptPassword(user.getLoginName(), user.getPassword(), user.getSalt()));
-        if (userService.resetUserPwd(user) > 0)
+        // 改密成功同时吊销目标用户的全部 APP Token（后台 Shiro 会话不受影响）
+        if (userPasswordChangeService.resetUserPwdAndRevokeTokens(user))
         {
             if (ShiroUtils.getUserId().longValue() == user.getUserId().longValue())
             {

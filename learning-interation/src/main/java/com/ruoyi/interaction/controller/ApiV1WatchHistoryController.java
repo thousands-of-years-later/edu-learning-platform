@@ -47,7 +47,7 @@ public class ApiV1WatchHistoryController extends BaseController
      * @param position   视频：看到第几秒（文章不用传）
      * @param duration   视频：总时长（短视频以内容表为准，课程小节用这个值）
      * @return {historyId, targetType, targetId, videoId, position, duration,
-     *          firstTime: 是否首次观看（短视频首次会 +1 播放数）}
+     *          firstTime: 是否首次观看（短视频首次 +1 播放数，文章首次 +1 阅读数）}
      */
     @PostMapping("/report")
     public AjaxResult report(String targetType, Long targetId, Long videoId, Integer position, Integer duration)

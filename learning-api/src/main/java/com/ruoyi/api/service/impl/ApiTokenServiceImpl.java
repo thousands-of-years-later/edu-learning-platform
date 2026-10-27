@@ -77,4 +77,14 @@ public class ApiTokenServiceImpl implements IApiTokenService
             apiTokenMapper.deleteToken(token);
         }
     }
+
+    @Override
+    public void revokeAll(Long userId)
+    {
+        if (userId != null)
+        {
+            // 删除 0 行也是成功：用户可能本来就没有 Token
+            apiTokenMapper.deleteByUserId(userId);
+        }
+    }
 }

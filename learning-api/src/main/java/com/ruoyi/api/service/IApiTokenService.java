@@ -33,4 +33,11 @@ public interface IApiTokenService
      * @param token 访问令牌，为空时什么都不做
      */
     public void revoke(String token);
+
+    /**
+     * 吊销某个用户的全部 Token（修改/重置密码后强制所有设备重新登录）
+     *
+     * @param userId 用户ID，为空时什么都不做
+     */
+    public void revokeAll(Long userId);
 }

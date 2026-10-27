@@ -43,4 +43,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		delete from learning_api_token where user_id = #{userId} and expire_time &lt;= now()
 	</delete>
 
+	<!-- 改密后吊销该用户全部 Token（含当前设备）；删除 0 行也是成功 -->
+	<delete id="deleteByUserId">
+		delete from learning_api_token where user_id = #{userId}
+	</delete>
+
 </mapper>

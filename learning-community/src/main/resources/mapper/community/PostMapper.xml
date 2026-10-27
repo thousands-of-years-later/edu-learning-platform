@@ -144,9 +144,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	</update>
 
 	<!--
-	  逻辑删除帖子，并在同一句里清零三个计数列。
+	  逻辑删除帖子，并在同一句里清零点赞/收藏/评论三个计数列。
 	  这三列由 learning-interation 维护（点赞收藏 / 评论），内容一删它们的真实值就是 0，
 	  留着旧值会让 *_fix_count.sql 的对账把「内容已不存在」的行也算成不一致。
+	  view_count 是累计阅读数，不归互动/评论模块管，删除时保留（与短视频一致）。
 	-->
 	<update id="deletePostByIds" parameterType="Long">
 		update learning_post

@@ -292,6 +292,9 @@ public class ShiroConfig
         filterChainDefinitionMap.put("/js/**", "anon");
         filterChainDefinitionMap.put("/ruoyi/**", "anon");
         filterChainDefinitionMap.put("/captcha/captchaImage**", "anon");
+        // 上传的图片等静态资源（头像、轮播图、封面）匿名可访问：
+        // 移动端用 Token 认证、没有会话 Cookie，若走 /** 的会话校验会 302 登录页导致图片加载失败
+        filterChainDefinitionMap.put("/profile/**", "anon");
         // 匿名访问不鉴权注解列表
         permitAllUrl.getUrls().forEach(url -> filterChainDefinitionMap.put(url, "anon"));
         // 退出 logout地址，shiro去清除session

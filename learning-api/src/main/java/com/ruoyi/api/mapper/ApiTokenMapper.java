@@ -48,4 +48,12 @@ public interface ApiTokenMapper
      * @return 影响行数
      */
     public int deleteExpiredByUserId(@Param("userId") Long userId);
+
+    /**
+     * 删除某个用户的全部 Token（修改/重置密码后强制重新登录）
+     *
+     * @param userId 用户ID
+     * @return 影响行数（用户没有 Token 时返回 0）
+     */
+    public int deleteByUserId(@Param("userId") Long userId);
 }

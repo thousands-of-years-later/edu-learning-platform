@@ -22,7 +22,8 @@ import com.ruoyi.interaction.service.IWatchHistoryService;
  *   2) 课程按【课程】粒度：一门课一行，videoId 记上次看的小节；上报的小节必须属于该课程，
  *      否则"点了 A 课却把 B 课的小节写进历史"，续播会跳到别的课里去；
  *   3) 写入是「先 insert，撞唯一索引再 update」：一条内容只留一行，并发上报也安全；
- *   4) 文章没有进度：position / duration / videoId 一律存 null，只留"看过 + 时间"。
+ *   4) 文章没有进度：position / duration / videoId 一律存 null，只留"看过 + 时间"；
+ *      文章首次上报会 +1 阅读数（learning_post.view_count），与短视频播放数同一口径。
  *
  * @author edu
  */
@@ -101,10 +102,17 @@ public class WatchHistoryServiceImpl implements IWatchHistoryService
             watchHistoryMapper.updateHistory(history);
         }
 
-        // 短视频首次观看 → 播放数 +1（只有短视频表有 view_count 列）
-        if (firstTime && WatchHistory.TARGET_SHORT_VIDEO.equals(type))
+        // 首次观看 → 内容计数 +1：短视频记播放数，文章记阅读数（课程表没有 view_count 列）
+        if (firstTime)
         {
-            watchHistoryMapper.increaseShortVideoViewCount(targetId);
+            if (WatchHistory.TARGET_SHORT_VIDEO.equals(type))
+            {
+                watchHistoryMapper.increaseShortVideoViewCount(targetId);
+            }
+            else if (WatchHistory.TARGET_POST.equals(type))
+            {
+                watchHistoryMapper.increasePostViewCount(targetId);
+            }
         }
 
         WatchHistory saved = watchHistoryMapper.selectOne(userId, type, targetId);

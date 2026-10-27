@@ -140,7 +140,7 @@ public class PostServiceImpl implements IPostService
                 throw new ServiceException(String.format("帖子[%s]不是本人发布，不能删除", post.getPostTitle()));
             }
         }
-        // 1、软删帖子并清零三个计数（同一句 SQL）
+        // 1、软删帖子并清零点赞/收藏/评论三个计数（同一句 SQL；阅读数 view_count 保留）
         int rows = postMapper.deletePostByIds(postIds);
         // 2、清掉挂在帖子上的点赞收藏（硬删除）与评论（软删除）
         postMapper.deleteInteractionByPostIds(postIds);

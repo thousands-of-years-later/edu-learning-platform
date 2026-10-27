@@ -24,6 +24,7 @@ import com.ruoyi.common.utils.file.FileUtils;
 import com.ruoyi.common.utils.file.MimeTypeUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
 import com.ruoyi.system.service.ISysUserService;
+import com.ruoyi.web.service.UserPasswordChangeService;
 
 /**
  * 个人信息 业务处理
@@ -43,6 +44,9 @@ public class SysProfileController extends BaseController
     
     @Autowired
     private SysPasswordService passwordService;
+
+    @Autowired
+    private UserPasswordChangeService userPasswordChangeService;
 
     /**
      * 个人信息
@@ -78,20 +82,25 @@ public class SysProfileController extends BaseController
     @ResponseBody
     public AjaxResult resetPwd(String oldPassword, String newPassword)
     {
-        SysUser user = getSysUser();
-        if (!passwordService.matches(user, oldPassword))
+        SysUser current = getSysUser();
+        if (!passwordService.matches(current, oldPassword))
         {
             return error("修改密码失败，旧密码错误");
         }
-        if (passwordService.matches(user, newPassword))
+        if (passwordService.matches(current, newPassword))
         {
             return error("新密码不能与旧密码相同");
         }
-        user.setSalt(ShiroUtils.randomSalt());
-        user.setPassword(passwordService.encryptPassword(user.getLoginName(), newPassword, user.getSalt()));
-        if (userService.resetUserPwd(user) > 0)
+        // 不要直接改会话里的 principal：事务回滚时会把新哈希留在会话里，
+        // 导致 checkPassword / 锁屏解锁拿错误密码也能通过。改密成功后再刷新身份。
+        SysUser update = new SysUser();
+        update.setUserId(current.getUserId());
+        update.setLoginName(current.getLoginName());
+        update.setSalt(ShiroUtils.randomSalt());
+        update.setPassword(passwordService.encryptPassword(current.getLoginName(), newPassword, update.getSalt()));
+        if (userPasswordChangeService.resetUserPwdAndRevokeTokens(update))
         {
-            setSysUser(userService.selectUserById(user.getUserId()));
+            setSysUser(userService.selectUserById(update.getUserId()));
             return success();
         }
         return error("修改密码异常，请联系管理员");

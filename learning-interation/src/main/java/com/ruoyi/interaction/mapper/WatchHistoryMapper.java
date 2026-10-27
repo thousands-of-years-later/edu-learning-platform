@@ -86,7 +86,12 @@ public interface WatchHistoryMapper
     public Integer selectShortVideoDuration(@Param("targetId") Long targetId);
 
     /**
-     * 短视频播放数 +1（只有短视频表有 view_count；首次记录时调用）
+     * 短视频播放数 +1（首次观看时调用）
      */
     public int increaseShortVideoViewCount(@Param("targetId") Long targetId);
+
+    /**
+     * 文章阅读数 +1（首次阅读时调用，与短视频播放数同一口径）
+     */
+    public int increasePostViewCount(@Param("targetId") Long targetId);
 }

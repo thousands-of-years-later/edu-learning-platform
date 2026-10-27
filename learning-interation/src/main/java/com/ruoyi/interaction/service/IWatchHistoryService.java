@@ -20,6 +20,8 @@ public interface IWatchHistoryService
     /**
      * 上报观看（首次插入，之后每次覆盖进度与时间）
      *
+     * 首次上报（firstTime=true）会累加内容计数：短视频 +1 播放数，文章 +1 阅读数。
+     *
      * @param userId     用户ID
      * @param targetType shortVideo / course / post
      * @param targetId   短视频ID / 课程ID / 帖子ID

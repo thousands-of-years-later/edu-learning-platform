@@ -5,7 +5,9 @@
 -- 1. 帖子是社区模块的内容主体，挂在社区类别（learning_category.category_type = 'article'）下。
 --    正文是 Markdown 原文（文字 + 图片，无视频），图片以 ![](/profile/...) 相对路径内联，
 --    由 EasyMDE 的图片上传钩子调用 /common/upload 得到。
--- 2. 点赞、收藏、评论与 course 保持一致：只做三个计数列，不建「每个用户一条记录」的关联表。
+-- 2. 点赞、收藏、评论与 course 保持一致：只做三个冗余计数列（由互动/评论模块维护），
+--    不建「每个用户一条记录」的关联表；阅读数 view_count 由观看历史维护
+--    （首次阅读 +1，与短视频播放数同一口径）。
 -- 3. 软删除（del_flag：0代表存在 2代表删除），与 learning_category / learning_course 一致。
 -- 4. 外键一律为逻辑外键，不加物理 FK：
 --    learning_post.category_id -> learning_category.category_id
@@ -35,6 +37,7 @@ create table if not exists learning_post (
   like_count     int(11)      default 0               comment '点赞数',
   favorite_count int(11)      default 0               comment '收藏数',
   comment_count  int(11)      default 0               comment '评论数',
+  view_count     int(11)      not null default 0      comment '阅读数（首次阅读时 +1，由观看历史维护）',
   status         char(1)      default '1'             comment '状态（0已发布 1草稿 2已下架）',
   del_flag       char(1)      default '0'             comment '删除标志（0代表存在 2代表删除）',
   create_by      varchar(64)  default ''              comment '创建者',
@@ -47,6 +50,10 @@ create table if not exists learning_post (
   key idx_post_user (user_id, del_flag),
   key idx_post_status (status, del_flag)
 ) engine=innodb auto_increment=100 comment = '学习平台社区帖子表';
+
+-- 注意：create table if not exists 不会给已存在的库补列。
+--       老环境请额外执行 sql/learning_post_view_count.sql 增加 view_count
+--       （该脚本幂等，且必须在新版应用部署前执行）。
 
 -- 关于唯一索引：帖子标题是用户生成内容，不做唯一约束（两个用户可以取同名标题），
 -- 因此这里既不建唯一索引，应用层也不做 checkPostTitleUnique。

@@ -3,11 +3,16 @@ package com.ruoyi.course.controller;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.ruoyi.common.core.controller.BaseController;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.course.domain.Course;
+import com.ruoyi.course.domain.CourseDetail;
 import com.ruoyi.course.service.ICourseService;
 
 /**
@@ -59,5 +64,33 @@ public class ApiV1CourseController extends BaseController
         startPage();
         List<Course> list = courseService.selectCourseList(course);
         return getDataTable(list);
+    }
+
+    /**
+     * 课程详情：课程本体（简介、封面等）+ 章节（每章带自己的课程视频）+ 无章节的课程视频
+     *
+     * 只返回未删除且状态正常的课程，停用 / 删除与不存在一样返回错误，避免探测。
+     * 视频来自 learning_course_video（课程内的课时视频），不是短视频模块。
+     * 章节与视频均按 order_num 升序；章节下没有视频时该章的 videos 为空数组。
+     *
+     * @param courseId 课程ID
+     * @return {code:0, data:{course:{...}, chapters:[{...,videos:[...]}], videos:[...]}}
+     */
+    @GetMapping("/{courseId}")
+    public AjaxResult detail(@PathVariable("courseId") String courseId)
+    {
+        // 路径参数用 String 接、手动转 Long：非法 ID 也要返回 JSON，
+        // 交给 Spring 做 Long 绑定会抛类型转换异常、走到 HTML 错误页
+        Long id = Convert.toLong(courseId);
+        if (StringUtils.isNull(id))
+        {
+            return AjaxResult.error("课程ID不合法");
+        }
+        CourseDetail detail = courseService.selectCourseDetail(id);
+        if (StringUtils.isNull(detail))
+        {
+            return AjaxResult.error("课程不存在或已下架");
+        }
+        return AjaxResult.success(detail);
     }
 }

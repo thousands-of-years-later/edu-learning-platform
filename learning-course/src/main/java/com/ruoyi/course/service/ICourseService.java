@@ -2,6 +2,7 @@ package com.ruoyi.course.service;
 
 import java.util.List;
 import com.ruoyi.course.domain.Course;
+import com.ruoyi.course.domain.CourseDetail;
 
 /**
  * 课程信息 服务层
@@ -37,6 +38,18 @@ public interface ICourseService
      * @return 课程信息
      */
     public Course selectCourseById(Long courseId);
+
+    /**
+     * 查询客户端课程详情：课程本体 + 章节（每章带自己的视频）+ 无章节的课程视频
+     *
+     * 只返回未删除且状态正常的课程；课程不存在、已删除或已停用时返回 null。
+     * 视频只取 learning_course_video（课程内的课时视频），与短视频模块无关。
+     * 章节、视频均按 order_num 升序；章节下没有视频时 videos 为空数组而不是 null。
+     *
+     * @param courseId 课程ID
+     * @return 课程详情；课程不可见时返回 null
+     */
+    public CourseDetail selectCourseDetail(Long courseId);
 
     /**
      * 校验课程名称是否唯一

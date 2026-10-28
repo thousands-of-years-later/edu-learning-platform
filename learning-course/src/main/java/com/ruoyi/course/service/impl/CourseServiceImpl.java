@@ -1,6 +1,9 @@
 package com.ruoyi.course.service.impl;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,7 +12,10 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.course.domain.Course;
+import com.ruoyi.course.domain.CourseChapter;
+import com.ruoyi.course.domain.CourseDetail;
 import com.ruoyi.course.domain.CourseRating;
+import com.ruoyi.course.domain.CourseVideo;
 import com.ruoyi.course.mapper.CourseChapterMapper;
 import com.ruoyi.course.mapper.CourseMapper;
 import com.ruoyi.course.mapper.CourseRatingMapper;
@@ -72,6 +78,58 @@ public class CourseServiceImpl implements ICourseService
     public Course selectCourseById(Long courseId)
     {
         return courseMapper.selectCourseById(courseId);
+    }
+
+    @Override
+    public CourseDetail selectCourseDetail(Long courseId)
+    {
+        Course course = courseMapper.selectCourseById(courseId);
+        // selectCourseById 只排除已删除；停用课程对客户端同样不可见（与列表强制 status='0' 一致）
+        if (StringUtils.isNull(course) || !UserConstants.NORMAL.equals(course.getStatus()))
+        {
+            return null;
+        }
+        // 平均分口径与列表一致，避免同一课程在列表和详情里显示不同的分数
+        long ratingCount = course.getRatingCount() == null ? 0L : course.getRatingCount().longValue();
+        long ratingScore = course.getRatingScore() == null ? 0L : course.getRatingScore().longValue();
+        course.setAvgScore(CourseRating.avgScore(ratingCount, ratingScore));
+
+        CourseChapter chapterQuery = new CourseChapter();
+        chapterQuery.setCourseId(courseId);
+        List<CourseChapter> chapters = courseChapterMapper.selectChapterList(chapterQuery);
+
+        // chapterId -> 章节；顺便把每章的视频列表初始化成空数组，客户端不用处理 null
+        Map<Long, CourseChapter> chapterMap = new LinkedHashMap<>();
+        for (CourseChapter chapter : chapters)
+        {
+            chapter.setVideos(new ArrayList<>());
+            chapterMap.put(chapter.getChapterId(), chapter);
+        }
+
+        CourseVideo videoQuery = new CourseVideo();
+        videoQuery.setCourseId(courseId);
+        List<CourseVideo> allVideos = courseVideoMapper.selectVideoList(videoQuery);
+
+        // 挂章节的视频归到章节下；chapterId 为空（或章节已不存在）的视频留在课程级列表，不丢内容
+        List<CourseVideo> courseVideos = new ArrayList<>();
+        for (CourseVideo video : allVideos)
+        {
+            CourseChapter chapter = video.getChapterId() == null ? null : chapterMap.get(video.getChapterId());
+            if (chapter == null)
+            {
+                courseVideos.add(video);
+            }
+            else
+            {
+                chapter.getVideos().add(video);
+            }
+        }
+
+        CourseDetail detail = new CourseDetail();
+        detail.setCourse(course);
+        detail.setChapters(chapters);
+        detail.setVideos(courseVideos);
+        return detail;
     }
 
     @Override

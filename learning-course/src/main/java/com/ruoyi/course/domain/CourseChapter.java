@@ -1,8 +1,10 @@
 package com.ruoyi.course.domain;
 
+import java.util.List;
 import jakarta.validation.constraints.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.annotation.Excel.ColumnType;
 import com.ruoyi.common.core.domain.BaseEntity;
@@ -41,6 +43,10 @@ public class CourseChapter extends BaseEntity
 
     /** 删除标志（0代表存在 2代表删除） */
     private String delFlag;
+
+    /** 章节下的课程视频（非本表列，客户端课程详情时填充；后台章节列表不返回该字段） */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<CourseVideo> videos;
 
     public Long getChapterId()
     {
@@ -103,6 +109,16 @@ public class CourseChapter extends BaseEntity
     public void setDelFlag(String delFlag)
     {
         this.delFlag = delFlag;
+    }
+
+    public List<CourseVideo> getVideos()
+    {
+        return videos;
+    }
+
+    public void setVideos(List<CourseVideo> videos)
+    {
+        this.videos = videos;
     }
 
     @Override

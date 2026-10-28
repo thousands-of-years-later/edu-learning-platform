@@ -10,7 +10,7 @@ import com.ruoyi.community.domain.PostSummary;
  * 客户端「文章列表 / 我的文章 / 文章详情」查询
  *
  * 与后台 PostMapper 分开：
- *   后台列表的可见性靠 ownerId 做"越权隔离"，客户端要的是【严格按作者 + 只含已发布】，
+ *   后台列表的可见性靠 ownerId 做"越权隔离"，客户端要的是【严格按作者】，
  *   混用会互相牵制。写操作仍复用 PostServiceImpl（它已经带作者校验与级联清理）。
  *
  * 返回的是精简 DTO（PostSummary / PostListSummary / PostDetail），不是 Post 实体：
@@ -21,15 +21,16 @@ import com.ruoyi.community.domain.PostSummary;
 public interface MyPostMapper
 {
     /**
-     * 我的已发布文章（设计稿 18_我的主页「我的文章」）
+     * 我的文章（设计稿 18_我的主页「我的文章」）
      *
-     * "已发布"是查询条件（status='0'），不作为展示字段返回。
+     * 返回自己的全部未删除文章（含草稿、待审核、已驳回、已下架），
+     * 客户端据 status 展示「审核中 / 已驳回」等状态。
      * 按发布时间倒序，post_id 兜底保证分页稳定。
      *
      * @param userId 我的用户ID
-     * @return 只含 postId / postTitle / likeCount / favoriteCount
+     * @return postId / postTitle / status / auditRemark / likeCount / favoriteCount
      */
-    public List<PostSummary> selectMyPublishedList(@Param("userId") Long userId);
+    public List<PostSummary> selectMyList(@Param("userId") Long userId);
 
     /**
      * 已发布文章列表（社区首页 / 分类页）
@@ -46,10 +47,12 @@ public interface MyPostMapper
     /**
      * 文章详情（设计稿 16_文章详情）
      *
-     * 只返回已发布且未删除的文章；草稿/待审核/已下架的返回 null，
-     * 由服务层统一报"文章不存在或已下架"（不给客户端探测非公开文章的机会）。
+     * 已发布且未删除的文章所有人可见；作者还可以看到自己的草稿/待审核/已驳回/已下架文章。
+     * 其他用户查非公开文章返回 null，由控制器统一报"文章不存在或已下架"
+     * （不给客户端探测非公开文章的机会）。
      *
      * @param postId 文章ID
+     * @param viewerId 当前登录用户ID（只用于判断是否作者本人）
      */
-    public PostDetail selectPublishedById(@Param("postId") Long postId);
+    public PostDetail selectVisibleById(@Param("postId") Long postId, @Param("viewerId") Long viewerId);
 }

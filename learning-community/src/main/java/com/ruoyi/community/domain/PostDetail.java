@@ -13,7 +13,9 @@ import com.fasterxml.jackson.annotation.JsonFormat;
  *   正文（Markdown 原文，前端渲染）
  *   底部：点赞数、评论数（收藏按钮没有数字，收藏状态由 /interaction/status 单独查）
  *
- * 不返回 delFlag / auditRemark / ownerId / sortBy / status 这些内部字段。
+ * 不返回 delFlag / ownerId / sortBy 这些内部字段。
+ * status 始终返回（公开文章为 0）；auditRemark 仅作者可见，
+ * 其他读者看到的已发布文章里 auditRemark 一律为 null。
  * 话题标签（#Android #Kotlin #Compose）暂时没有：库里没有任何话题表，等做话题页时再补。
  *
  * @author edu
@@ -25,6 +27,12 @@ public class PostDetail implements Serializable
     private Long postId;
 
     private String postTitle;
+
+    /** 状态（0已发布 1草稿 2已下架 3待审核 4已驳回）；作者查看自己的文章时用于展示审核状态 */
+    private String status;
+
+    /** 最近一次审核备注（仅作者可见；被驳回时展示原因） */
+    private String auditRemark;
 
     /** 正文（Markdown 原文） */
     private String content;
@@ -67,6 +75,26 @@ public class PostDetail implements Serializable
     public void setPostTitle(String postTitle)
     {
         this.postTitle = postTitle;
+    }
+
+    public String getStatus()
+    {
+        return status;
+    }
+
+    public void setStatus(String status)
+    {
+        this.status = status;
+    }
+
+    public String getAuditRemark()
+    {
+        return auditRemark;
+    }
+
+    public void setAuditRemark(String auditRemark)
+    {
+        this.auditRemark = auditRemark;
     }
 
     public String getContent()

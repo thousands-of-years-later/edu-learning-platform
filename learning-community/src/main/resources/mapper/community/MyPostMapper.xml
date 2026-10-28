@@ -7,6 +7,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	<resultMap type="PostSummary" id="PostSummaryResult">
 		<id     property="postId"        column="post_id"        />
 		<result property="postTitle"     column="post_title"     />
+		<result property="status"        column="status"         />
+		<result property="auditRemark"   column="audit_remark"   />
 		<result property="likeCount"     column="like_count"     />
 		<result property="favoriteCount" column="favorite_count" />
 	</resultMap>
@@ -26,6 +28,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	<resultMap type="PostDetail" id="PostDetailResult">
 		<id     property="postId"       column="post_id"       />
 		<result property="postTitle"    column="post_title"    />
+		<result property="status"       column="status"        />
+		<result property="auditRemark"  column="audit_remark"  />
 		<result property="content"      column="content"       />
 		<result property="userId"       column="user_id"       />
 		<result property="userName"     column="user_name"     />
@@ -37,13 +41,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	</resultMap>
 
 	<!--
-	  我的文章列表：只查设计稿上要显示的四列（标题、点赞、收藏、主键）。
-	  不查 content（longtext，列表用不到）、不查状态/分类/作者（列表不显示）。
+	  我的文章列表：返回自己的全部未删除文章（含待审核/已驳回）。
+	  客户端据 status 展示审核状态，据 audit_remark 展示驳回原因。
+	  不查 content（longtext，列表用不到）、不查分类/作者（列表不显示）。
 	-->
-	<select id="selectMyPublishedList" resultMap="PostSummaryResult">
-		select p.post_id, p.post_title, p.like_count, p.favorite_count
+	<select id="selectMyList" resultMap="PostSummaryResult">
+		select p.post_id, p.post_title, p.status, p.audit_remark,
+		       p.like_count, p.favorite_count
 		  from learning_post p
-		 where p.user_id = #{userId} and p.del_flag = '0' and p.status = '0'
+		 where p.user_id = #{userId} and p.del_flag = '0'
 		 order by p.create_time desc, p.post_id desc
 	</select>
 
@@ -55,7 +61,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
 	  作者资料、评论数用标量子查询，不 join：
 	    - 避免 PageHelper 追加排序时撞 sys_user / learning_comment 的同名列（1052）；
-	    - 与详情 selectPublishedById 的写法一致。
+	    - 与详情 selectVisibleById 的写法一致。
 	  评论数取 learning_comment 的 count(*)：平台约定接口返回的评论数以 count(*) 为准，
 	  learning_post.comment_count 只供后台列表展示（见 sql/learning_comment.sql）。
 	  头像用 nullif(trim(...)) 把老数据的空串归一成 null（与用户资料接口一致）。
@@ -79,18 +85,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	</select>
 
 	<!--
-	  文章详情：标题 + 正文 + 作者（昵称/头像）+ 分类标签 + 时间 + 点赞数 + 评论数。
+	  文章详情：标题 + 状态 + 正文 + 作者（昵称/头像）+ 分类标签 + 时间 + 点赞数 + 评论数。
 	  作者昵称/头像、分类名用标量子查询取，不 join（避免客户端排序字段撞同名列 1052）。
-	  只认已发布：草稿/待审核/已下架/已删除一律查不到。
+	  可见性：已发布所有人可见；作者本人还能看到自己的草稿/待审核/已驳回/已下架。
+	  audit_remark 只对作者返回，避免把管理员对已发布文章的备注暴露给普通读者。
 	-->
-	<select id="selectPublishedById" resultMap="PostDetailResult">
-		select p.post_id, p.post_title, p.content, p.user_id,
+	<select id="selectVisibleById" resultMap="PostDetailResult">
+		select p.post_id, p.post_title, p.status,
+		       (case when p.user_id = #{viewerId} then p.audit_remark else null end) as audit_remark,
+		       p.content, p.user_id,
 		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name,
 		       (select u.avatar    from sys_user u where u.user_id = p.user_id) as avatar,
 		       (select c.category_name from learning_category c where c.category_id = p.category_id) as category_name,
 		       p.create_time, p.like_count, p.comment_count
 		  from learning_post p
-		 where p.post_id = #{postId} and p.del_flag = '0' and p.status = '0'
+		 where p.post_id = #{postId} and p.del_flag = '0'
+		   and (p.status = '0' or p.user_id = #{viewerId})
 	</select>
 
 </mapper>

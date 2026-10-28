@@ -33,15 +33,20 @@ import com.ruoyi.course.service.ICategoryService;
  *
  * 五个接口：
  *   /add     发布文章（普通用户提交后落「3 待审核」，管理员审核通过才公开）
- *   /list    已发布文章列表（社区首页 / 分类页，可按 categoryId 筛选）
+ *   /list    已发布文章列表（社区首页 / 分类页；可按 categoryId / featured / sortBy 筛选排序）
  *   /myList  我的文章（设计稿 18_我的主页；含待审核/已驳回，返回 status）
  *   /info    文章详情（设计稿 16_文章详情；已发布所有人可见，作者可看自己的全部状态）
  *   /remove  删除自己的文章（复用后台服务层：作者校验 + 级联清理互动/评论）
  *
  * 返回字段按设计稿裁剪过：
- *   /list    标题 + 作者（昵称/头像）+ 阅读数 + 评论数 + 点赞数 + 收藏数；
+ *   /list    标题 + 作者（昵称/头像）+ 精华标志 + 发布时间 + 阅读数 + 评论数 + 点赞数 + 收藏数；
  *   /myList  标题 + 状态 + 审核备注 + 点赞数 + 收藏数；
- *   /info    标题 + 状态 + 作者（昵称/头像）+ 时间 + 分类标签 + 正文 + 点赞数 + 评论数。
+ *   /info    标题 + 状态 + 作者（昵称/头像）+ 时间 + 分类标签 + 正文 + 阅读数 + 点赞数 + 评论数。
+ *
+ * 分类页的三种文章列表共用 /list，靠参数区分（返回结构完全一致）：
+ *   精华文章（按时间） featured=1&sortBy=createTime
+ *   全部文章（按点赞） sortBy=likeCount
+ *   全部文章（按时间） sortBy=createTime（缺省）
  *
  * 为什么另起控制器而不是改 PostController：后台那套是「页面 + 权限注解 + 会话」，
  * 客户端是「Token + 只碰自己的数据」，混在一起容易把后台权限模型带进来。
@@ -99,23 +104,47 @@ public class ApiV1PostController extends BaseController
     }
 
     /**
-     * 已发布文章列表（分页，按发布时间倒序；可按社区类别筛选）
+     * 已发布文章列表（分页；可按社区类别、精华、排序方式筛选）
      *
      * categoryId 不传 = 全部分类（社区信息流）；传了只返回该分类的文章。
      * 类别ID全局唯一，传成课程类别只会查不到数据，不会串到课程内容。
      *
-     * @param categoryId 类别ID（可选）；分页参数 pageNum / pageSize
-     * @return {code:0, rows:[{postId, postTitle, userName, avatar, viewCount,
-     *         likeCount, favoriteCount, commentCount}], total}
+     * 分类页三种取法：
+     *   · 精华文章（按时间）：featured=1 或 true，sortBy=createTime
+     *   · 全部文章（按点赞）：sortBy=likeCount
+     *   · 全部文章（按时间）：sortBy=createTime（缺省，不传 sortBy 即可）
+     * 三种取法返回结构一致，都带 createTime（发布时间）、likeCount（点赞数）、
+     * viewCount（阅读数）；isFeatured 用于在列表里标精华。
+     *
+     * @param categoryId 类别ID（可选）
+     * @param featured 是否只看精华文章：true/1 只看精华；不传/false 返回全部
+     * @param sortBy 排序方式：createTime（缺省）/ likeCount
+     *        分页参数：pageNum / pageSize
+     * @return {code:0, rows:[{postId, postTitle, userName, avatar, isFeatured,
+     *         createTime, viewCount, likeCount, favoriteCount, commentCount}], total}
      */
     @GetMapping("/list")
-    public TableDataInfo list(Long categoryId)
+    public Object list(Long categoryId, Boolean featured, String sortBy)
     {
+        // 校验必须在 startPage() 之前：PageHelper 的分页参数挂在 ThreadLocal 上，
+        // 校验失败若发生在 startPage() 之后且没有查询消费它，参数会残留到本线程的下一条查询。
+        String sort = StringUtils.trim(sortBy);
+        if (StringUtils.isEmpty(sort))
+        {
+            sort = Post.SORT_BY_DEFAULT;
+        }
+        else if (!Post.isValidSortBy(sort))
+        {
+            // /api/v1 只服务程序客户端，GET 校验失败也必须返回 JSON（不能抛 ServiceException）
+            return AjaxResult.error("排序方式不合法，只支持 createTime、likeCount");
+        }
+
         // 不用 BaseController.startPage()：它会读取请求里的 orderByColumn / isAsc 交给 PageHelper，
         // PageHelper 会用客户端排序替换 Mapper 里固定的 ORDER BY。这里只取分页参数。
         PageDomain page = TableSupport.buildPageRequest();
         PageHelper.startPage(page.getPageNum(), page.getPageSize()).setReasonable(page.getReasonable());
-        List<PostListSummary> list = myPostMapper.selectPublishedList(categoryId);
+        List<PostListSummary> list = myPostMapper.selectPublishedList(
+                categoryId, Boolean.TRUE.equals(featured), sort);
         return getDataTable(list);
     }
 
@@ -142,7 +171,7 @@ public class ApiV1PostController extends BaseController
      *
      * @param postId 文章ID
      * @return {code, msg, data:{postId, postTitle, status, auditRemark, content, userId,
-     *          userName, avatar, categoryName, createTime, likeCount, commentCount}}
+     *          userName, avatar, categoryName, createTime, viewCount, likeCount, commentCount}}
      *         点赞/收藏的按钮状态用 /api/v1/interaction/status 查（targetType=1）
      */
     @GetMapping("/info")

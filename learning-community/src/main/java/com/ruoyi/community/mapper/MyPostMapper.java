@@ -35,14 +35,23 @@ public interface MyPostMapper
     /**
      * 已发布文章列表（社区首页 / 分类页）
      *
-     * 只查已发布（status='0'）且未删除（del_flag='0'）的文章，按发布时间倒序，
-     * post_id 兜底保证分页稳定。
+     * 只查已发布（status='0'）且未删除（del_flag='0'）的文章。
+     * 分类页的三种取法共用本方法：
+     *   · 全部文章按时间：sortBy=createTime（缺省）
+     *   · 全部文章按点赞：sortBy=likeCount
+     *   · 精华文章按时间：featured=true + sortBy=createTime
+     * 排序分支在 XML 里走白名单 <choose>，客户端传值不参与 SQL 拼接；
+     * 同一时间/同一点赞数用 post_id 兜底，保证分页不重不漏。
      *
      * @param categoryId 类别ID；为 null 时查全部分类
-     * @return 含 postId / postTitle / userName / avatar / viewCount /
-     *         likeCount / favoriteCount / commentCount
+     * @param featured 是否只看精华文章（true 时过滤 is_featured='1'）
+     * @param sortBy 排序方式：createTime / likeCount（控制层已归一化）
+     * @return 含 postId / postTitle / userName / avatar / isFeatured / createTime /
+     *         viewCount / likeCount / favoriteCount / commentCount
      */
-    public List<PostListSummary> selectPublishedList(@Param("categoryId") Long categoryId);
+    public List<PostListSummary> selectPublishedList(@Param("categoryId") Long categoryId,
+                                                     @Param("featured") Boolean featured,
+                                                     @Param("sortBy") String sortBy);
 
     /**
      * 文章详情（设计稿 16_文章详情）

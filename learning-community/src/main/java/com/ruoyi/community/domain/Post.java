@@ -41,8 +41,14 @@ public class Post extends BaseEntity
     /** 精华标志：否 */
     public static final String FEATURED_NO = "0";
 
-    /** 排序方式：按点赞数（learning_post.like_count，搜索接口用） */
+    /** 排序方式：按点赞数（learning_post.like_count，客户端列表用） */
     public static final String SORT_BY_LIKE_COUNT = "likeCount";
+
+    /** 排序方式：按发布时间（learning_post.create_time，客户端列表缺省值） */
+    public static final String SORT_BY_CREATE_TIME = "createTime";
+
+    /** 客户端列表默认排序 */
+    public static final String SORT_BY_DEFAULT = SORT_BY_CREATE_TIME;
 
     /** 帖子ID */
     @Excel(name = "帖子ID", cellType = ColumnType.NUMERIC)
@@ -280,6 +286,17 @@ public class Post extends BaseEntity
     public void setSortBy(String sortBy)
     {
         this.sortBy = sortBy;
+    }
+
+    /**
+     * 客户端列表支持的排序方式（白名单，避免把前端传值拼进 ORDER BY）
+     *
+     * @param sortBy 排序方式
+     * @return 是否合法
+     */
+    public static boolean isValidSortBy(String sortBy)
+    {
+        return SORT_BY_LIKE_COUNT.equals(sortBy) || SORT_BY_CREATE_TIME.equals(sortBy);
     }
 
     @Override

@@ -13,12 +13,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="favoriteCount" column="favorite_count" />
 	</resultMap>
 
-	<!-- 社区 / 分类列表项：比「我的文章」多作者（昵称/头像）、阅读数、评论数 -->
+	<!-- 社区 / 分类列表项：比「我的文章」多作者（昵称/头像）、精华标志、发布时间、阅读数、评论数 -->
 	<resultMap type="PostListSummary" id="PostListSummaryResult">
 		<id     property="postId"        column="post_id"        />
 		<result property="postTitle"     column="post_title"     />
 		<result property="userName"      column="user_name"      />
 		<result property="avatar"        column="avatar"         />
+		<result property="isFeatured"    column="is_featured"    />
+		<result property="createTime"    column="create_time"    />
 		<result property="viewCount"     column="view_count"     />
 		<result property="likeCount"     column="like_count"     />
 		<result property="favoriteCount" column="favorite_count" />
@@ -36,6 +38,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="avatar"       column="avatar"        />
 		<result property="categoryName" column="category_name" />
 		<result property="createTime"   column="create_time"   />
+		<result property="viewCount"    column="view_count"    />
 		<result property="likeCount"    column="like_count"    />
 		<result property="commentCount" column="comment_count" />
 	</resultMap>
@@ -55,9 +58,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
 	<!--
 	  已发布文章列表（社区首页 / 分类页）：
-	  标题 + 作者（昵称/头像）+ 阅读数 + 评论数 + 点赞数 + 收藏数。
+	  标题 + 作者（昵称/头像）+ 精华标志 + 发布时间 + 阅读数 + 评论数 + 点赞数 + 收藏数。
 	  只认已发布：草稿/待审核/已下架/已驳回/已删除一律不出现。
 	  categoryId 为空 = 全部分类（社区信息流）。
+
+	  分类页的三种取法：
+	    · 全部按时间     categoryId + sortBy=createTime（缺省）
+	    · 全部按点赞     categoryId + sortBy=likeCount
+	    · 精华按时间     categoryId + featured=true + sortBy=createTime
+	  featured 为 true 时只查 is_featured='1'；false/null 不过滤。
 
 	  作者资料、评论数用标量子查询，不 join：
 	    - 避免 PageHelper 追加排序时撞 sys_user / learning_comment 的同名列（1052）；
@@ -66,10 +75,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	  learning_post.comment_count 只供后台列表展示（见 sql/learning_comment.sql）。
 	  头像用 nullif(trim(...)) 把老数据的空串归一成 null（与用户资料接口一致）。
 	  view_count 由 sql/learning_post_view_count.sql 新增，首次阅读时 +1。
-	  create_time 相同时用 post_id 兜底，保证分页翻页不重不漏。
+	  三种排序都始终带出 create_time / like_count / view_count，客户端切换排序不用换解析结构。
+	  排序只走白名单 <choose>，绝不 ${} 拼接。
+	  create_time 只精确到秒、点赞数并列也很常见，每个分支都用 post_id 兜底，
+	  保证分页翻页不重不漏。
 	-->
 	<select id="selectPublishedList" resultMap="PostListSummaryResult">
-		select p.post_id, p.post_title,
+		select p.post_id, p.post_title, p.is_featured, p.create_time,
 		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name,
 		       (select nullif(trim(u.avatar), '') from sys_user u where u.user_id = p.user_id) as avatar,
 		       ifnull(p.view_count, 0) as view_count,
@@ -81,7 +93,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<if test="categoryId != null">
 		   and p.category_id = #{categoryId}
 		</if>
-		 order by p.create_time desc, p.post_id desc
+		<if test="featured != null and featured">
+		   and p.is_featured = '1'
+		</if>
+		 order by
+		<choose>
+			<when test="sortBy == 'likeCount'">p.like_count desc, p.create_time desc, p.post_id desc</when>
+			<otherwise>p.create_time desc, p.post_id desc</otherwise>
+		</choose>
 	</select>
 
 	<!--
@@ -97,7 +116,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name,
 		       (select u.avatar    from sys_user u where u.user_id = p.user_id) as avatar,
 		       (select c.category_name from learning_category c where c.category_id = p.category_id) as category_name,
-		       p.create_time, p.like_count, p.comment_count
+		       p.create_time, p.view_count, p.like_count, p.comment_count
 		  from learning_post p
 		 where p.post_id = #{postId} and p.del_flag = '0'
 		   and (p.status = '0' or p.user_id = #{viewerId})

@@ -11,7 +11,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
  *   大标题
  *   作者行：头像 + 昵称 + 发布时间，右侧「技术分享」这类分类标签
  *   正文（Markdown 原文，前端渲染）
- *   底部：点赞数、评论数（收藏按钮没有数字，收藏状态由 /interaction/status 单独查）
+ *   底部：阅读数、点赞数、评论数（收藏按钮没有数字，收藏状态由 /interaction/status 单独查）
  *
  * 不返回 delFlag / ownerId / sortBy 这些内部字段。
  * status 始终返回（公开文章为 0）；auditRemark 仅作者可见，
@@ -50,6 +50,9 @@ public class PostDetail implements Serializable
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date createTime;
+
+    /** 阅读数（首次阅读时 +1，由观看历史维护） */
+    private Integer viewCount;
 
     /** 点赞数 */
     private Integer likeCount;
@@ -155,6 +158,16 @@ public class PostDetail implements Serializable
     public void setCreateTime(Date createTime)
     {
         this.createTime = createTime;
+    }
+
+    public Integer getViewCount()
+    {
+        return viewCount;
+    }
+
+    public void setViewCount(Integer viewCount)
+    {
+        this.viewCount = viewCount;
     }
 
     public Integer getLikeCount()

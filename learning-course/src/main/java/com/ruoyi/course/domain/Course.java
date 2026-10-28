@@ -62,6 +62,9 @@ public class Course extends BaseEntity
     @Excel(name = "评论数", cellType = ColumnType.NUMERIC)
     private Integer commentCount;
 
+    /** 阅读数（首次观看时 +1，由观看历史维护；客户端列表展示用，不进后台导出） */
+    private Integer viewCount;
+
     /** 评分人数（冗余统计，由课程评分模块维护，后台表单不写入） */
     @Excel(name = "评分人数", cellType = ColumnType.NUMERIC)
     private Integer ratingCount;
@@ -173,6 +176,17 @@ public class Course extends BaseEntity
         this.commentCount = commentCount;
     }
 
+    @Min(value = 0, message = "阅读数不能为负数")
+    public Integer getViewCount()
+    {
+        return viewCount;
+    }
+
+    public void setViewCount(Integer viewCount)
+    {
+        this.viewCount = viewCount;
+    }
+
     @Min(value = 0, message = "评分人数不能为负数")
     public Integer getRatingCount()
     {
@@ -265,6 +279,7 @@ public class Course extends BaseEntity
             .append("likeCount", getLikeCount())
             .append("favoriteCount", getFavoriteCount())
             .append("commentCount", getCommentCount())
+            .append("viewCount", getViewCount())
             .append("ratingCount", getRatingCount())
             .append("ratingScore", getRatingScore())
             .append("status", getStatus())

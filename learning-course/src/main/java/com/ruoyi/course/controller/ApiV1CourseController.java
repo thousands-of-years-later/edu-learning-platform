@@ -44,7 +44,9 @@ public class ApiV1CourseController extends BaseController
      * 课程列表（分页）
      *
      * @param course 过滤：courseName（模糊）、categoryId；排序：sortBy（缺省 createTime）
-     * @return {rows: [课程（含 avgScore，无人评分为 null）], total}（分页参数 pageNum / pageSize）
+     * @return {rows: [课程（含 viewCount 阅读数、avgScore 平均分，无人评分为 null）], total}
+     *         三种排序共用同一返回结构，点赞数 likeCount / 日期 createTime 也始终返回
+     *         （分页参数 pageNum / pageSize）
      */
     @GetMapping("/list")
     public TableDataInfo list(Course course)

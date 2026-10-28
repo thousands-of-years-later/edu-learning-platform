@@ -13,6 +13,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="likeCount"     column="like_count"     />
 		<result property="favoriteCount" column="favorite_count" />
 		<result property="commentCount"  column="comment_count"  />
+		<result property="viewCount"     column="view_count"     />
 		<result property="ratingCount"   column="rating_count"   />
 		<result property="ratingScore"   column="rating_score"   />
 		<result property="status"        column="status"         />
@@ -28,7 +29,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	<!-- 类别名称为逻辑外键关联查询，类别被删除时不影响课程本身的读取 -->
 	<sql id="selectCourseVo">
 		select c.course_id, c.course_name, c.category_id, c.cover_url, c.intro,
-		       c.like_count, c.favorite_count, c.comment_count, c.rating_count, c.rating_score,
+		       c.like_count, c.favorite_count, c.comment_count, c.view_count,
+		       c.rating_count, c.rating_score,
 		       c.status, c.del_flag,
 		       c.create_by, c.create_time, c.update_by, c.update_time, c.remark,
 		       cat.category_name
@@ -131,6 +133,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	  like_count / favorite_count / comment_count 由 learning-interation 维护（点赞收藏 / 评论），
 	  rating_count / rating_score 由评分模块维护（见 learning_course_rating.sql），
 	  内容一删它们的真实值就是 0，留着旧值会让 *_fix_count.sql 的对账把「内容已不存在」的行也算成不一致。
+	  view_count 例外：它是累计阅读数（由观看历史维护，见 learning_course_view_count.sql），
+	  不归互动 / 评论模块维护，删除时保留（与 learning_post.view_count 同一口径）。
 	  评分的两列在这里一起清零的原因：服务层已在同一事务里把该课程的评分行硬删除
 	  （CourseRatingMapper.deleteRatingByCourseIds），删完还留旧统计必然对不上。
 	-->

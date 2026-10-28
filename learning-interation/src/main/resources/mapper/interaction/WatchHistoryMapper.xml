@@ -128,13 +128,18 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
 	<!--
 	  播放数 / 阅读数：首次观看时 +1。
-	  短视频写 learning_short_video.view_count，文章写 learning_post.view_count；
-	  课程没有 view_count 列，不记。
+	  短视频写 learning_short_video.view_count，课程写 learning_course.view_count，
+	  文章写 learning_post.view_count。
 	  where 带 del_flag='0'：可看性校验与 +1 之间内容被删时不再累加。
 	-->
 	<update id="increaseShortVideoViewCount">
 		update learning_short_video set view_count = view_count + 1
 		 where video_id = #{targetId} and del_flag = '0'
+	</update>
+
+	<update id="increaseCourseViewCount">
+		update learning_course set view_count = view_count + 1
+		 where course_id = #{targetId} and del_flag = '0'
 	</update>
 
 	<update id="increasePostViewCount">

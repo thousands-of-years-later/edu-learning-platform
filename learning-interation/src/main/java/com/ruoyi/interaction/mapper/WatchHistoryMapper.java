@@ -91,6 +91,11 @@ public interface WatchHistoryMapper
     public int increaseShortVideoViewCount(@Param("targetId") Long targetId);
 
     /**
+     * 课程阅读数 +1（首次观看时调用，与文章/短视频同一口径）
+     */
+    public int increaseCourseViewCount(@Param("targetId") Long targetId);
+
+    /**
      * 文章阅读数 +1（首次阅读时调用，与短视频播放数同一口径）
      */
     public int increasePostViewCount(@Param("targetId") Long targetId);

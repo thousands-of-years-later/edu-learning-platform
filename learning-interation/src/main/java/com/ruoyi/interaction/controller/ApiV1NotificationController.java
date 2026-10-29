@@ -48,17 +48,20 @@ public class ApiV1NotificationController extends BaseController
      * 我的通知列表（分页）
      *
      * @param isRead 读取状态筛选（可选：0未读 1已读，不传 = 全部）
+     * @param type   通知类型（可选）：1点赞 / 2收藏 / 3评论（含回复）/ 4关注；不传 = 全部
+     *               对应设计稿 09_通知页 的四个 tab
      * @return {rows: [Notification], total}（分页参数 pageNum / pageSize）；
      *         rows 里 fromUserName / fromUserAvatar 是触发者的展示信息
      */
     @GetMapping("/list")
-    public TableDataInfo list(String isRead)
+    public TableDataInfo list(String isRead, String type)
     {
         // 校验必须在 startPage() 之前：PageHelper 的分页参数挂在 ThreadLocal 上，
         // 抛异常时若已 startPage()，参数不会被消费、可能泄漏给同线程的下一个请求
         notificationService.checkQuery(isRead);
+        notificationService.checkType(type);
         startPage();
-        List<Notification> list = notificationService.selectMyList(ApiContext.getUserId(), isRead);
+        List<Notification> list = notificationService.selectMyList(ApiContext.getUserId(), isRead, type);
         return getDataTable(list);
     }
 

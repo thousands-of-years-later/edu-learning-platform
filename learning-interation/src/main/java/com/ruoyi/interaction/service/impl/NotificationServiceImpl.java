@@ -4,6 +4,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.interaction.domain.Interaction;
 import com.ruoyi.interaction.domain.Notification;
 import com.ruoyi.interaction.mapper.NotificationMapper;
@@ -36,6 +37,19 @@ public class NotificationServiceImpl implements INotificationService
 {
     @Autowired
     private NotificationMapper notificationMapper;
+
+    /** 客户端「点赞」tab：只查 type=1 */
+    private static final List<String> TAB_LIKE = java.util.Arrays.asList(Notification.TYPE_LIKE);
+
+    /** 客户端「收藏」tab：只查 type=2 */
+    private static final List<String> TAB_FAVORITE = java.util.Arrays.asList(Notification.TYPE_FAVORITE);
+
+    /** 客户端「评论」tab：评论 3 + 回复 5 */
+    private static final List<String> TAB_COMMENT =
+            java.util.Arrays.asList(Notification.TYPE_COMMENT, Notification.TYPE_REPLY);
+
+    /** 客户端「关注」tab：只查 type=4 */
+    private static final List<String> TAB_FOLLOW = java.util.Arrays.asList(Notification.TYPE_FOLLOW);
 
     @Override
     public void notifyInteraction(Long fromUserId, String targetType, Long targetId, String type)
@@ -152,16 +166,66 @@ public class NotificationServiceImpl implements INotificationService
     @Override
     public List<Notification> selectMyList(Long userId, String isRead)
     {
+        // 老的会话接口（/api/notification）不带类型过滤，等价于查全部
+        return selectMyList(userId, isRead, null);
+    }
+
+    @Override
+    public List<Notification> selectMyList(Long userId, String isRead, String type)
+    {
         if (userId == null)
         {
             throw new ServiceException("请先登录");
         }
-        // 这里【只做参数校验，不查库】：控制器是在 startPage() 之后调本方法的，
+        // 这里【只做参数归一，不查库】：控制器是在 startPage() 之后调本方法的，
         // 而 PageHelper 的分页参数挂在 ThreadLocal 上、会被其后第一条查询消费掉，
         // 在这里查一次库分页就会作用在那条查询上、真正的列表反而没有 LIMIT
         // （表现是分页静默失效、一次返回全量，与 CommentServiceImpl.selectCommentList 同一纪律）。
-        // isRead 的合法性校验拆到了 checkQuery()，由控制器在 startPage() 之前调用。
-        return notificationMapper.selectMyList(userId, isRead);
+        // 合法性校验拆到了 checkType()，由控制器在 startPage() 之前调用。
+        return notificationMapper.selectMyList(userId, isRead, tabTypes(StringUtils.trim(type)));
+    }
+
+    @Override
+    public void checkType(String type)
+    {
+        // 空 = 不过滤（老客户端、或前端"全部"场景）
+        String t = StringUtils.trim(type);
+        if (StringUtils.isNotEmpty(t) && tabTypes(t) == null)
+        {
+            throw new ServiceException("通知类型不合法（1点赞 2收藏 3评论 4关注）");
+        }
+    }
+
+    /**
+     * 客户端 tab -> 实际查询的 type 集合
+     *
+     * 空 = null（查全部）；非法 = null（由 checkType 提前报错，这里再返回 null 只会变成"查全部"，
+     * 所以调用方必须先用 checkType 校验过）。
+     * 「评论」tab 展开成 3 + 5：一级评论 3 与回复 5 在客户端是同一类消息。
+     */
+    private List<String> tabTypes(String type)
+    {
+        if (StringUtils.isEmpty(type))
+        {
+            return null;
+        }
+        if (Notification.TYPE_LIKE.equals(type))
+        {
+            return TAB_LIKE;
+        }
+        if (Notification.TYPE_FAVORITE.equals(type))
+        {
+            return TAB_FAVORITE;
+        }
+        if (Notification.TYPE_COMMENT.equals(type))
+        {
+            return TAB_COMMENT;
+        }
+        if (Notification.TYPE_FOLLOW.equals(type))
+        {
+            return TAB_FOLLOW;
+        }
+        return null;
     }
 
     @Override

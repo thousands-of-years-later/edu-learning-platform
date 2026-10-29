@@ -28,8 +28,11 @@ public interface NotificationMapper
      * 我的通知列表（分页由控制器 startPage() 驱动）
      *
      * @param isRead 读取状态筛选（null / 空 = 全部）
+     * @param types  通知类型集合（null / 空 = 全部）；客户端 4 个 tab 用它过滤
      */
-    public List<Notification> selectMyList(@Param("userId") Long userId, @Param("isRead") String isRead);
+    public List<Notification> selectMyList(@Param("userId") Long userId,
+                                           @Param("isRead") String isRead,
+                                           @Param("types") List<String> types);
 
     /** 我的未读数（角标） */
     public int countUnread(@Param("userId") Long userId);

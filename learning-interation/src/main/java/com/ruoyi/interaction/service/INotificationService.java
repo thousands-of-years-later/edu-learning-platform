@@ -63,11 +63,26 @@ public interface INotificationService
     public void checkQuery(String isRead);
 
     /**
+     * 校验列表的 type 筛选参数（客户端 4 个 tab：1点赞 2收藏 3评论 4关注；null / 空 = 全部）
+     *
+     * 与 checkQuery 一样必须在 startPage() 之前调用。
+     * 注释：3（评论）在查询时会展开成 3+5（评论与回复），回复也属于"评论"这一类。
+     */
+    public void checkType(String type);
+
+    /**
      * 我的通知列表（分页由控制器 startPage() 驱动）
      *
      * @param isRead 读取状态筛选（null / 空 = 全部）
      */
     public List<Notification> selectMyList(Long userId, String isRead);
+
+    /**
+     * 我的通知列表（带类型过滤，客户端 4 个 tab 用）
+     *
+     * @param type 1点赞 / 2收藏 / 3评论（含回复）/ 4关注；null / 空 = 全部
+     */
+    public List<Notification> selectMyList(Long userId, String isRead, String type);
 
     /** 我的未读数（角标） */
     public int countUnread(Long userId);

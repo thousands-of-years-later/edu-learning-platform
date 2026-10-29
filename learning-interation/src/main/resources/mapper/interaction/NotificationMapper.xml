@@ -46,6 +46,11 @@
 		<if test="isRead != null and isRead != ''">
 			and n.is_read = #{isRead}
 		</if>
+		<!-- 客户端 4 个 tab 的类型过滤：点赞 1 / 收藏 2 / 评论 3(含回复 5) / 关注 4；不传则查全部 -->
+		<if test="types != null and types.size() > 0">
+			and n.type in
+			<foreach collection="types" item="t" open="(" separator="," close=")">#{t}</foreach>
+		</if>
 		order by n.create_time desc, n.notification_id desc
 	</select>
 

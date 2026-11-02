@@ -101,6 +101,14 @@ public class Notification implements Serializable
     /** 触发者头像（关联 sys_user 查出，非本表列） */
     private String fromUserAvatar;
 
+    /**
+     * 被互动的对象标题（帖子标题 / 短视频标题，查询时按 target_type 现取，非本表列）
+     *
+     * 设计稿 09_通知页 的卡片会显示「（文章标题）收到一个赞」；
+     * 关注类通知 target_type 为空，取不到标题，返回 null（前端显示"XXX 关注了你"）。
+     */
+    private String targetTitle;
+
     public Long getNotificationId()
     {
         return notificationId;
@@ -219,6 +227,16 @@ public class Notification implements Serializable
     public void setFromUserAvatar(String fromUserAvatar)
     {
         this.fromUserAvatar = fromUserAvatar;
+    }
+
+    public String getTargetTitle()
+    {
+        return targetTitle;
+    }
+
+    public void setTargetTitle(String targetTitle)
+    {
+        this.targetTitle = targetTitle;
     }
 
     /** 读取状态是否合法（null / 空 表示「不筛选」，也算合法） */

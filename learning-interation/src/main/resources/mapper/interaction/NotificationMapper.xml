@@ -15,6 +15,7 @@
 		<result property="createTime"     column="create_time"      />
 		<result property="fromUserName"   column="from_user_name"   />
 		<result property="fromUserAvatar" column="from_user_avatar" />
+		<result property="targetTitle"    column="target_title"     />
 	</resultMap>
 
 	<insert id="insertNotification" parameterType="Notification">
@@ -31,7 +32,13 @@
 		select n.notification_id, n.user_id, n.from_user_id, n.type, n.target_type,
 		       n.target_id, n.content, n.is_read, n.read_time, n.create_time,
 		       (select u.user_name from sys_user u where u.user_id = n.from_user_id) as from_user_name,
-		       (select u.avatar    from sys_user u where u.user_id = n.from_user_id) as from_user_avatar
+		       (select u.avatar    from sys_user u where u.user_id = n.from_user_id) as from_user_avatar,
+		       <!-- 设计稿 09_通知页 的卡片要显示「（文章标题）收到一个赞」；
+		            关注类 target_type 为空，取不到标题，返回 null -->
+		       case n.target_type
+		         when '1' then (select p.post_title from learning_post p where p.post_id = n.target_id)
+		         when '3' then (select v.video_title from learning_short_video v where v.video_id = n.target_id)
+		       end as target_title
 		  from learning_notification n
 	</sql>
 

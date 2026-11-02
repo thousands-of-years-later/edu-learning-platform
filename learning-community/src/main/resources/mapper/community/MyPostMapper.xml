@@ -17,6 +17,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	<resultMap type="PostListSummary" id="PostListSummaryResult">
 		<id     property="postId"        column="post_id"        />
 		<result property="postTitle"     column="post_title"     />
+		<result property="contentBrief"  column="content_brief"  />
 		<result property="userName"      column="user_name"      />
 		<result property="avatar"        column="avatar"         />
 		<result property="isFeatured"    column="is_featured"    />
@@ -82,6 +83,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	-->
 	<select id="selectPublishedList" resultMap="PostListSummaryResult">
 		select p.post_id, p.post_title, p.is_featured, p.create_time,
+		       left(p.content, 2000) as content_brief,
 		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name,
 		       (select nullif(trim(u.avatar), '') from sys_user u where u.user_id = p.user_id) as avatar,
 		       ifnull(p.view_count, 0) as view_count,
@@ -99,6 +101,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<!-- 他人主页：只看这个作者的文章（userId 为空 = 全部作者） -->
 		<if test="userId != null">
 		   and p.user_id = #{userId}
+		</if>
+		<!-- 话题页：只看挂了这个话题的文章（topicId 为空 = 不限话题） -->
+		<if test="topicId != null">
+		   and exists (select 1 from learning_post_topic pt
+		                where pt.post_id = p.post_id and pt.topic_id = #{topicId})
 		</if>
 		 order by
 		<choose>

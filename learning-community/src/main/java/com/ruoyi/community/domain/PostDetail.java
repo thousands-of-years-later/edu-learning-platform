@@ -48,6 +48,9 @@ public class PostDetail implements Serializable
     /** 所属分类名（设计稿右上角"技术分享"那个标签） */
     private String categoryName;
 
+    /** 话题标签（设计稿 16_文章详情 标题下方的 #Android #Kotlin #Compose） */
+    private java.util.List<Topic> topics;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date createTime;
 
@@ -148,6 +151,16 @@ public class PostDetail implements Serializable
     public void setCategoryName(String categoryName)
     {
         this.categoryName = categoryName;
+    }
+
+    public java.util.List<Topic> getTopics()
+    {
+        return topics;
+    }
+
+    public void setTopics(java.util.List<Topic> topics)
+    {
+        this.topics = topics;
     }
 
     public Date getCreateTime()

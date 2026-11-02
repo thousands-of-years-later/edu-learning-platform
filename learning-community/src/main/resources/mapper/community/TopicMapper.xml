@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.community.mapper.TopicMapper">
+
+	<resultMap type="Topic" id="TopicResult">
+		<id     property="topicId"   column="topic_id"   />
+		<result property="topicName" column="topic_name" />
+		<result property="topicDesc" column="topic_desc" />
+		<result property="status"    column="status"     />
+		<result property="delFlag"   column="del_flag"   />
+		<result property="createTime" column="create_time" />
+		<result property="postCount" column="post_count" />
+	</resultMap>
+
+	<!--
+	  话题文章数：关联表 + 文章表，只算【已发布且未删除】的文章。
+	  用标量子查询而不是 join + group by：列表分页时 group by 会干扰 PageHelper 的 count 查询，
+	  而且这里数据量很小，子查询足够快。
+	-->
+	<sql id="selectTopicVo">
+		select t.topic_id, t.topic_name, t.topic_desc, t.status, t.del_flag, t.create_time,
+		       (select count(*) from learning_post_topic pt
+		          join learning_post p on p.post_id = pt.post_id and p.del_flag = '0' and p.status = '0'
+		         where pt.topic_id = t.topic_id) as post_count
+		  from learning_topic t
+	</sql>
+
+	<select id="selectTopicList" resultMap="TopicResult">
+		<include refid="selectTopicVo"/>
+		 where t.del_flag = '0' and t.status = '0'
+		<if test="keyword != null and keyword != ''">
+		   and t.topic_name like concat('%', #{keyword}, '%')
+		</if>
+		 order by post_count desc, t.topic_id asc
+	</select>
+
+	<select id="selectTopicById" resultMap="TopicResult">
+		<include refid="selectTopicVo"/>
+		 where t.topic_id = #{topicId} and t.del_flag = '0' and t.status = '0'
+	</select>
+
+	<select id="selectTopicsByPostId" resultMap="TopicResult">
+		select t.topic_id, t.topic_name, t.topic_desc
+		  from learning_post_topic pt
+		  join learning_topic t on t.topic_id = pt.topic_id and t.del_flag = '0' and t.status = '0'
+		 where pt.post_id = #{postId}
+		 order by t.topic_id asc
+	</select>
+
+	<!-- 重复挂同一话题会被唯一索引 uk_post_topic 拒绝，ignore 掉即可（用户重复提交不报错） -->
+	<insert id="insertPostTopics">
+		insert ignore into learning_post_topic (post_id, topic_id, create_time) values
+		<foreach collection="topicIds" item="topicId" separator=",">
+			(#{postId}, #{topicId}, sysdate())
+		</foreach>
+	</insert>
+
+	<select id="countValidTopics" resultType="int">
+		select count(*) from learning_topic
+		 where del_flag = '0' and status = '0'
+		   and topic_id in
+		<foreach collection="topicIds" item="topicId" open="(" separator="," close=")">
+			#{topicId}
+		</foreach>
+	</select>
+
+	<!-- 文章删除时级联清关联（硬删除：关联表本身没有软删语义） -->
+	<delete id="deletePostTopicsByPostIds" parameterType="Long">
+		delete from learning_post_topic where post_id in
+		<foreach collection="array" item="postId" open="(" separator="," close=")">
+			#{postId}
+		</foreach>
+	</delete>
+
+</mapper>

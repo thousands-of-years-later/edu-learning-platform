@@ -9,6 +9,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.community.domain.Post;
 import com.ruoyi.community.mapper.PostMapper;
+import com.ruoyi.community.mapper.TopicMapper;
 import com.ruoyi.community.service.IPostService;
 
 /**
@@ -24,6 +25,10 @@ public class PostServiceImpl implements IPostService
 {
     @Autowired
     private PostMapper postMapper;
+
+    /** 话题关联：文章删除时级联清掉（见 deletePostByIds 第 3 步） */
+    @Autowired
+    private TopicMapper topicMapper;
 
     /**
      * 查询帖子列表
@@ -145,6 +150,8 @@ public class PostServiceImpl implements IPostService
         // 2、清掉挂在帖子上的点赞收藏（硬删除）与评论（软删除）
         postMapper.deleteInteractionByPostIds(postIds);
         postMapper.softDeleteCommentByPostIds(postIds);
+        // 3、清掉话题关联（硬删除）：不清会留下指向已删文章的孤儿关联
+        topicMapper.deletePostTopicsByPostIds(postIds);
         return rows;
     }
 

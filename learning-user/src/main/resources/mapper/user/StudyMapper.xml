@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.user.mapper.StudyMapper">
+
+	<resultMap type="StudyRecord" id="StudyRecordResult">
+		<id     property="recordId"  column="record_id"  />
+		<result property="userId"    column="user_id"    />
+		<result property="studyDate" column="study_date" />
+		<result property="seconds"   column="seconds"    />
+	</resultMap>
+
+	<!--
+	  当天有记录就累加，没有就插入。用 on duplicate key update 而不是「先查再改」：
+	  两个人同时上报（比如两台设备）时，先查再改会都查到旧值，导致丢一次时长。
+	-->
+	<insert id="addSeconds">
+		insert into learning_study_record (user_id, study_date, seconds, create_time, update_time)
+		values (#{userId}, #{studyDate}, #{seconds}, sysdate(), sysdate())
+		on duplicate key update seconds = seconds + #{seconds}, update_time = sysdate()
+	</insert>
+
+	<select id="selectDaySeconds" resultType="int">
+		select ifnull(sum(seconds), 0) from learning_study_record
+		 where user_id = #{userId} and study_date = #{studyDate}
+	</select>
+
+	<!-- 本周柱状图：一次取回 7 天（缺的天由服务层补 0） -->
+	<select id="selectBetween" resultMap="StudyRecordResult">
+		select study_date, seconds from learning_study_record
+		 where user_id = #{userId} and study_date between #{start} and #{end}
+		 order by study_date
+	</select>
+
+	<!-- 连续学习天数：只要日期集合，秒数不需要 -->
+	<select id="selectStudyDates" resultType="java.time.LocalDate">
+		select study_date from learning_study_record
+		 where user_id = #{userId} and study_date &gt;= #{fromDate} and seconds &gt; 0
+		 order by study_date desc
+	</select>
+
+	<insert id="upsertProgress">
+		insert into learning_course_progress
+		       (user_id, course_id, video_id, finished, watched_seconds, create_time, update_time)
+		values (#{userId}, #{courseId}, #{videoId}, #{finished}, #{seconds}, sysdate(), sysdate())
+		on duplicate key update
+		       finished        = greatest(finished, #{finished}),
+		       watched_seconds = watched_seconds + #{seconds},
+		       update_time     = sysdate()
+	</insert>
+
+	<select id="selectVideoCourseId" resultType="java.lang.Long">
+		select course_id from learning_course_video
+		 where video_id = #{videoId} and del_flag = '0'
+	</select>
+
+	<select id="countShortVideo" resultType="int">
+		select count(*) from learning_short_video
+		 where video_id = #{videoId} and del_flag = '0' and status = '0'
+	</select>
+
+	<!--
+	  已完成课程：课程下所有未删除的小节都学完。
+	  用 left join + having count(*) = count(p.video_id)：count(*) 是小节总数，
+	  count(p.video_id) 是"有 finished=1 进度行"的小节数，两者相等才算整门课学完。
+	-->
+	<select id="countCompletedCourses" resultType="int">
+		select count(*) from (
+			select c.course_id
+			  from learning_course c
+			  join learning_course_video v on v.course_id = c.course_id and v.del_flag = '0'
+			  left join learning_course_progress p
+			         on p.user_id = #{userId} and p.video_id = v.video_id and p.finished = 1
+			 where c.del_flag = '0'
+			 group by c.course_id
+			having count(*) = count(p.video_id)
+		) t
+	</select>
+
+	<!-- 待办：开始看了但没学完的小节（watched_seconds > 0 排除"误点进来"的 0 秒记录） -->
+	<select id="countTodoVideos" resultType="int">
+		select count(*) from learning_course_progress
+		 where user_id = #{userId} and finished = 0 and watched_seconds &gt; 0
+	</select>
+
+	<select id="countNotes" resultType="int">
+		select count(*) from learning_note where user_id = #{userId} and del_flag = '0'
+	</select>
+
+</mapper>

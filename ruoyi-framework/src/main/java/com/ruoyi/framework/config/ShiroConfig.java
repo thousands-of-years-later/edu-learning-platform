@@ -295,6 +295,14 @@ public class ShiroConfig
         // 上传的图片等静态资源（头像、轮播图、封面）匿名可访问：
         // 移动端用 Token 认证、没有会话 Cookie，若走 /** 的会话校验会 302 登录页导致图片加载失败
         filterChainDefinitionMap.put("/profile/**", "anon");
+        // 接口文档（springdoc / Swagger UI）匿名可访问：
+        // 三端联调时前端直接打开 /swagger-ui.html 查参数；这些是只读的文档页面，
+        // 不放行会被 /** 的 user 链拦住（302 到登录页），等于没有文档。
+        filterChainDefinitionMap.put("/swagger-ui.html", "anon");
+        filterChainDefinitionMap.put("/swagger-ui/**", "anon");
+        filterChainDefinitionMap.put("/v3/api-docs/**", "anon");
+        filterChainDefinitionMap.put("/swagger-resources/**", "anon");
+        filterChainDefinitionMap.put("/webjars/**", "anon");
         // 匿名访问不鉴权注解列表
         permitAllUrl.getUrls().forEach(url -> filterChainDefinitionMap.put(url, "anon"));
         // 退出 logout地址，shiro去清除session

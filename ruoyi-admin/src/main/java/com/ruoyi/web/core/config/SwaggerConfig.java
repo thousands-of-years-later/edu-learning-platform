@@ -43,7 +43,9 @@ public class SwaggerConfig
             .type(SecurityScheme.Type.APIKEY)
             .name("Authorization")
             .in(SecurityScheme.In.HEADER)
-            .scheme("Bearer");
+            .scheme("Bearer")
+            // 文档里提示：客户端令牌要带 Bearer 前缀
+            .description("客户端接口填：Bearer <登录返回的 token>");
     }
     
     /**
@@ -54,9 +56,10 @@ public class SwaggerConfig
     {
         return new Info()
             // 设置标题
-            .title("标题：若依管理系统_接口文档")
+            .title("智能广告基座 · 学习平台 接口文档")
             // 描述
-            .description("描述：用于管理集团旗下公司的人员信息,具体包括XXX,XXX模块...")
+            .description("客户端接口统一前缀 /api/v1，鉴权：请求头 Authorization: Bearer <token>（登录接口返回）。"
+                    + "后台管理接口（/system/**、/course/** 等）走 Shiro 会话，需先在后台登录。")
             // 作者信息
             .contact(new Contact().name(ruoyiConfig.getName()))
             // 版本

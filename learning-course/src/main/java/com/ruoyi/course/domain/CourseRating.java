@@ -32,6 +32,9 @@ public class CourseRating implements Serializable
     /** 允许的最高分 */
     public static final int MAX_SCORE = 5;
 
+    /** 文字评价最大长度（与 learning_course_rating.content 的 varchar(500) 对齐） */
+    public static final int MAX_CONTENT_LENGTH = 500;
+
     private Long ratingId;
 
     /** 课程ID（learning_course.course_id） */
@@ -43,6 +46,9 @@ public class CourseRating implements Serializable
     /** 评分（1-5 的整数） */
     private Integer score;
 
+    /** 文字评价（可空：只打星不写字是允许的） */
+    private String content;
+
     /** 首次评分时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date createTime;
@@ -50,6 +56,14 @@ public class CourseRating implements Serializable
     /** 最近一次修改时间（没改过为 null） */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date updateTime;
+
+    // ===== 以下是展示字段：表里没有对应列，评价列表由 Mapper 的子查询填充 =====
+
+    /** 评分人昵称 */
+    private String userName;
+
+    /** 评分人头像（可能为 null，前端用昵称首字兜底） */
+    private String avatar;
 
     public Long getRatingId()
     {
@@ -89,6 +103,36 @@ public class CourseRating implements Serializable
     public void setScore(Integer score)
     {
         this.score = score;
+    }
+
+    public String getContent()
+    {
+        return content;
+    }
+
+    public void setContent(String content)
+    {
+        this.content = content;
+    }
+
+    public String getUserName()
+    {
+        return userName;
+    }
+
+    public void setUserName(String userName)
+    {
+        this.userName = userName;
+    }
+
+    public String getAvatar()
+    {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar)
+    {
+        this.avatar = avatar;
     }
 
     public Date getCreateTime()

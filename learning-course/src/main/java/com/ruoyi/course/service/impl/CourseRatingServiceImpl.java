@@ -1,12 +1,14 @@
 package com.ruoyi.course.service.impl;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.course.domain.CourseRating;
 import com.ruoyi.course.mapper.CourseRatingMapper;
 import com.ruoyi.course.service.ICourseRatingService;
@@ -36,6 +38,19 @@ public class CourseRatingServiceImpl implements ICourseRatingService
     @Transactional
     public Map<String, Object> addRating(Long userId, Long courseId, Integer score)
     {
+        // 老接口（/api/rating/add）不带文字，等价于"这次没写评价"
+        return doAddRating(userId, courseId, score, null);
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> addRating(Long userId, Long courseId, Integer score, String content)
+    {
+        return doAddRating(userId, courseId, score, normalizeContent(content));
+    }
+
+    private Map<String, Object> doAddRating(Long userId, Long courseId, Integer score, String content)
+    {
         checkParams(userId, courseId, score);
         if (courseRatingMapper.existsCourse(courseId) == 0)
         {
@@ -46,6 +61,7 @@ public class CourseRatingServiceImpl implements ICourseRatingService
         rating.setCourseId(courseId);
         rating.setUserId(userId);
         rating.setScore(score);
+        rating.setContent(content);
         try
         {
             courseRatingMapper.insertRating(rating);
@@ -72,6 +88,23 @@ public class CourseRatingServiceImpl implements ICourseRatingService
     @Override
     @Transactional
     public Map<String, Object> updateRating(Long userId, Long courseId, Integer score)
+    {
+        // 老接口只改分数：不动用户已写的文字（否则改一次分就把评价清空了）
+        return doUpdateRating(userId, courseId, score, null, false);
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> updateRating(Long userId, Long courseId, Integer score, String content)
+    {
+        // 约定：content == null = 客户端没传文字，保持原文字不动；
+        //       content 传空串 = 明确要清空文字，normalizeContent 会把它归一成 null。
+        boolean touchContent = content != null;
+        return doUpdateRating(userId, courseId, score, touchContent ? normalizeContent(content) : null, touchContent);
+    }
+
+    private Map<String, Object> doUpdateRating(Long userId, Long courseId, Integer score, String content,
+                                               boolean touchContent)
     {
         checkParams(userId, courseId, score);
         if (courseRatingMapper.existsCourse(courseId) == 0)
@@ -109,7 +142,56 @@ public class CourseRatingServiceImpl implements ICourseRatingService
                 throw new ServiceException("课程不存在或已被删除");
             }
         }
+        // 文字评价单独一句：只有新接口（带 content）才动它，老接口改分不会清空用户写的文字
+        if (touchContent)
+        {
+            if (courseRatingMapper.updateContentByCourseAndUser(courseId, userId, content) == 0)
+            {
+                throw new ServiceException("您还未评分，请先评分");
+            }
+        }
         return buildResult(score, courseRatingMapper.selectCourseStats(courseId));
+    }
+
+    @Override
+    public List<CourseRating> selectRatingList(Long courseId)
+    {
+        // 【不要在这里查库做校验】：控制器是 startPage() 之后调本方法的，
+        // 这里有额外查询就会先把 PageHelper 的分页参数消费掉，列表反而没有 LIMIT
+        // （表现是分页静默失效、一次返回全量，与 CommentServiceImpl 同一纪律）。
+        // 课程可见性由控制器在 startPage() 之前调 checkCourse() 校验。
+        return courseRatingMapper.selectRatingList(courseId);
+    }
+
+    @Override
+    public void checkCourse(Long courseId)
+    {
+        if (courseId == null)
+        {
+            throw new ServiceException("课程ID不能为空");
+        }
+        // 不可见/停用课程连评价列表都不给看（与 getRatingInfo 同一原则）
+        if (courseRatingMapper.existsCourse(courseId) == 0)
+        {
+            throw new ServiceException("课程不存在或已被删除");
+        }
+    }
+
+    /**
+     * 文字评价归一：去首尾空格；空串按 null（允许只打星不写字）；超长报错
+     */
+    private String normalizeContent(String content)
+    {
+        String text = StringUtils.trim(content);
+        if (StringUtils.isEmpty(text))
+        {
+            return null;
+        }
+        if (text.length() > CourseRating.MAX_CONTENT_LENGTH)
+        {
+            throw new ServiceException("文字评价不能超过" + CourseRating.MAX_CONTENT_LENGTH + "个字");
+        }
+        return text;
     }
 
     @Override

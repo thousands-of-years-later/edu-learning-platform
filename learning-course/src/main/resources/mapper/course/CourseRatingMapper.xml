@@ -9,19 +9,44 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="courseId"   column="course_id"   />
 		<result property="userId"     column="user_id"     />
 		<result property="score"      column="score"       />
+		<result property="content"    column="content"     />
 		<result property="createTime" column="create_time" />
 		<result property="updateTime" column="update_time" />
+		<result property="userName"   column="user_name"   />
+		<result property="avatar"     column="avatar"      />
 	</resultMap>
 
 	<!--
 	  普通 insert，不是 insert ignore：ignore 会把字段超长这类真错误也吞成 warning，
 	  服务层就没法区分「插入失败」和「已经评过」。
 	  重复评分由唯一索引 uk_course_user 正常报出，服务层捕获 DuplicateKeyException。
+	  content 可空（只打星不写字）。
 	-->
 	<insert id="insertRating" parameterType="CourseRating">
-		insert into learning_course_rating (course_id, user_id, score, create_time)
-		values (#{courseId}, #{userId}, #{score}, sysdate())
+		insert into learning_course_rating (course_id, user_id, score, content, create_time)
+		values (#{courseId}, #{userId}, #{score}, #{content,jdbcType=VARCHAR}, sysdate())
 	</insert>
+
+	<!--
+	  评价列表：评分行 + 评分人昵称/头像。
+	  昵称、头像用标量子查询（不 join，避免分页时列名歧义），
+	  头像用 nullif(trim(...)) 把老数据的空串归一成 null（与用户资料接口一致）。
+	  create_time 只到秒，同一秒多条用 rating_id 兜底，保证翻页不重不漏。
+	-->
+	<select id="selectRatingList" resultMap="CourseRatingResult">
+		select r.rating_id, r.course_id, r.user_id, r.score, r.content, r.create_time, r.update_time,
+		       (select u.user_name from sys_user u where u.user_id = r.user_id) as user_name,
+		       (select nullif(trim(u.avatar), '') from sys_user u where u.user_id = r.user_id) as avatar
+		  from learning_course_rating r
+		 where r.course_id = #{courseId}
+		 order by r.create_time desc, r.rating_id desc
+	</select>
+
+	<!-- 只改文字（null/空 = 清空），分数与计数完全不动 -->
+	<update id="updateContentByCourseAndUser">
+		update learning_course_rating set content = #{content,jdbcType=VARCHAR}, update_time = sysdate()
+		 where course_id = #{courseId} and user_id = #{userId}
+	</update>
 
 	<!-- 修改自己的评分：course_id + user_id 同时进 where，别人改不到我的分 -->
 	<update id="updateScoreByCourseAndUser" parameterType="CourseRating">

@@ -1,5 +1,6 @@
 package com.ruoyi.course.controller;
 
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -11,7 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ruoyi.common.core.api.ApiContext;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.course.domain.CourseRating;
 import com.ruoyi.course.service.ICourseRatingService;
 
 /**
@@ -45,23 +48,25 @@ public class ApiV1RatingController extends BaseController
      *
      * @param courseId 课程ID
      * @param score    评分（1-5 的整数；用字符串接收，非法值由服务层统一报错）
+     * @param content  文字评价（可选，≤500 字；不传 = 只打星）
      * @return {myScore: 我的评分, avgScore: 课程平均分, ratingCount: 评分人数}
      */
     @PostMapping("/add")
-    public AjaxResult add(Long courseId, String score)
+    public AjaxResult add(Long courseId, String score, String content)
     {
-        return toResult(courseRatingService.addRating(ApiContext.getUserId(), courseId, Convert.toInt(score)));
+        return toResult(courseRatingService.addRating(ApiContext.getUserId(),
+                courseId, Convert.toInt(score), content));
     }
 
     /**
      * 新增评分（JSON 请求体）
      *
-     * @param body 请求体，字段同表单：courseId、score
+     * @param body 请求体，字段同表单：courseId、score、content（可选）
      */
     @PostMapping(value = "/add", consumes = MediaType.APPLICATION_JSON_VALUE)
     public AjaxResult addJson(@RequestBody Map<String, String> body)
     {
-        return add(Convert.toLong(body.get("courseId")), body.get("score"));
+        return add(Convert.toLong(body.get("courseId")), body.get("score"), body.get("content"));
     }
 
     /**
@@ -69,23 +74,43 @@ public class ApiV1RatingController extends BaseController
      *
      * @param courseId 课程ID
      * @param score    新评分（1-5 的整数）
+     * @param content  文字评价（可选；传空串 = 清空已有文字）
      * @return {myScore, avgScore, ratingCount}
      */
     @PostMapping("/update")
-    public AjaxResult update(Long courseId, String score)
+    public AjaxResult update(Long courseId, String score, String content)
     {
-        return toResult(courseRatingService.updateRating(ApiContext.getUserId(), courseId, Convert.toInt(score)));
+        return toResult(courseRatingService.updateRating(ApiContext.getUserId(),
+                courseId, Convert.toInt(score), content));
     }
 
     /**
      * 修改评分（JSON 请求体）
      *
-     * @param body 请求体，字段同表单：courseId、score
+     * @param body 请求体，字段同表单：courseId、score、content（可选）
      */
     @PostMapping(value = "/update", consumes = MediaType.APPLICATION_JSON_VALUE)
     public AjaxResult updateJson(@RequestBody Map<String, String> body)
     {
-        return update(Convert.toLong(body.get("courseId")), body.get("score"));
+        return update(Convert.toLong(body.get("courseId")), body.get("score"), body.get("content"));
+    }
+
+    /**
+     * 课程评价列表（设计稿 14_课程评价）
+     *
+     * @param courseId 课程ID（必传）；分页参数 pageNum / pageSize
+     * @return {total, rows:[{ratingId, userId, userName, avatar, score, content, createTime, updateTime}]}
+     *         content 可能为 null（只打星没写字）；按首次评分时间倒序
+     */
+    @GetMapping("/list")
+    public TableDataInfo list(Long courseId)
+    {
+        // 校验课程可见性放在 startPage() 之前：分页参数挂在 ThreadLocal，
+        // 抛异常时若已 startPage()，参数会残留给本线程的下一条查询
+        courseRatingService.checkCourse(courseId);
+        startPage();
+        List<CourseRating> list = courseRatingService.selectRatingList(courseId);
+        return getDataTable(list);
     }
 
     /**

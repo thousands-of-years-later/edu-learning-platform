@@ -1,5 +1,6 @@
 package com.ruoyi.course.mapper;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.ibatis.annotations.Param;
 import com.ruoyi.course.domain.CourseRating;
@@ -25,6 +26,24 @@ public interface CourseRatingMapper
      * 查询当前用户对某门课程的评分记录，未评过返回 null
      */
     public CourseRating selectRatingByCourseAndUser(@Param("courseId") Long courseId, @Param("userId") Long userId);
+
+    /**
+     * 某门课程的评价列表（分页由控制器 startPage() 驱动，按首次评分时间倒序）
+     *
+     * 返回评分行 + 评分人昵称/头像（标量子查询取，不 join，避免分页排序撞同名列）；
+     * content 可能为空（只打星没写字）。
+     */
+    public List<CourseRating> selectRatingList(@Param("courseId") Long courseId);
+
+    /**
+     * 只改文字评价（不动分数）：传 null / 空串 = 清空文字
+     *
+     * 与改分分开一个方法：老的 /api/rating/update 只传分数，
+     * 若合并成一句 update 会把用户原有文字清掉。
+     */
+    public int updateContentByCourseAndUser(@Param("courseId") Long courseId,
+                                            @Param("userId") Long userId,
+                                            @Param("content") String content);
 
     /**
      * 同 selectRatingByCourseAndUser，但加锁读（for update）。

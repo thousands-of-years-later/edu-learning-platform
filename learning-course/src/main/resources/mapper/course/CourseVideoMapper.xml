@@ -10,6 +10,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="chapterId"    column="chapter_id"    />
 		<result property="videoTitle"   column="video_title"   />
 		<result property="videoUrl"     column="video_url"     />
+		<result property="duration"     column="duration"      />
 		<result property="orderNum"     column="order_num"     />
 		<result property="delFlag"      column="del_flag"      />
 		<result property="chapterTitle" column="chapter_title" />
@@ -21,7 +22,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
 	<!-- 章节标题为逻辑外键关联查询，chapter_id 为空时左连接自然为空（即「无章节」） -->
 	<sql id="selectVideoVo">
-		select v.video_id, v.course_id, v.chapter_id, v.video_title, v.video_url, v.order_num, v.del_flag,
+		select v.video_id, v.course_id, v.chapter_id, v.video_title, v.video_url, v.duration, v.order_num, v.del_flag,
 		       v.create_by, v.create_time, v.update_by, v.update_time,
 		       ch.chapter_title
 		  from learning_course_video v
@@ -57,6 +58,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  			<if test="chapterId != null">chapter_id,</if>
  			<if test="videoTitle != null and videoTitle != ''">video_title,</if>
  			<if test="videoUrl != null and videoUrl != ''">video_url,</if>
+ 			<if test="duration != null">duration,</if>
  			<if test="orderNum != null">order_num,</if>
  			<if test="createBy != null and createBy != ''">create_by,</if>
  			create_time
@@ -65,6 +67,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  			<if test="chapterId != null">#{chapterId,jdbcType=BIGINT},</if>
  			<if test="videoTitle != null and videoTitle != ''">#{videoTitle},</if>
  			<if test="videoUrl != null and videoUrl != ''">#{videoUrl},</if>
+ 			<if test="duration != null">#{duration},</if>
  			<if test="orderNum != null">#{orderNum},</if>
  			<if test="createBy != null and createBy != ''">#{createBy},</if>
  			sysdate()
@@ -79,6 +82,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  			chapter_id = #{chapterId,jdbcType=BIGINT},
  			<if test="videoTitle != null and videoTitle != ''">video_title = #{videoTitle},</if>
  			<if test="videoUrl != null">video_url = #{videoUrl},</if>
+ 			<!-- duration 不包 <if> 会把清空操作也写进去；这里用 <if> 表示"提交了才改"。
+ 			     清空时长属于低频操作，暂不支持。 -->
+ 			<if test="duration != null">duration = #{duration},</if>
  			<if test="orderNum != null">order_num = #{orderNum},</if>
  			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
  			update_time = sysdate()

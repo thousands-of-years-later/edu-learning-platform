@@ -55,6 +55,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 where video_id = #{videoId} and del_flag = '0'
 	</select>
 
+	<!-- 时长为空才补填：后台管理员填过的值不被客户端上报覆盖 -->
+	<update id="fillVideoDurationIfEmpty">
+		update learning_course_video set duration = #{duration}
+		 where video_id = #{videoId} and duration is null and del_flag = '0'
+	</update>
+
 	<select id="countShortVideo" resultType="int">
 		select count(*) from learning_short_video
 		 where video_id = #{videoId} and del_flag = '0' and status = '0'

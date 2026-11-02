@@ -54,6 +54,15 @@ public interface StudyMapper
     /** 小节所属课程（顺带校验小节存在且未删除）；不存在返回 null */
     public Long selectVideoCourseId(@Param("videoId") Long videoId);
 
+    /**
+     * 小节时长为空时补填一次（客户端播放上报会带视频总时长）
+     *
+     * where 带 duration is null：管理员在后台填过的值不会被客户端覆盖。
+     *
+     * @return 影响行数；0 = 已经有值 / 小节不存在
+     */
+    public int fillVideoDurationIfEmpty(@Param("videoId") Long videoId, @Param("duration") int duration);
+
     /** 短视频是否存在且可看（短视频观看也计入学习时长，但不记小节进度） */
     public int countShortVideo(@Param("videoId") Long videoId);
 

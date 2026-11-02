@@ -40,6 +40,9 @@ public class StudyServiceImpl implements IStudyService
     /** 单次上报秒数上限（1 小时），防止客户端异常把时长刷爆 */
     private static final int MAX_SECONDS_PER_REPORT = 3600;
 
+    /** 视频总时长上限（24 小时），超出说明客户端传错了 */
+    private static final int MAX_VIDEO_DURATION = 86400;
+
     /** 算连续学习天数时往前查多少天（够用且不至于扫全表） */
     private static final int STREAK_LOOKBACK_DAYS = 90;
 
@@ -57,7 +60,8 @@ public class StudyServiceImpl implements IStudyService
 
     @Override
     @Transactional
-    public Map<String, Object> report(Long userId, String targetType, Long videoId, Integer seconds, Integer finished)
+    public Map<String, Object> report(Long userId, String targetType, Long videoId, Integer seconds,
+                                      Integer finished, Integer duration)
     {
         checkUser(userId);
         String type = StringUtils.trim(targetType);
@@ -73,6 +77,11 @@ public class StudyServiceImpl implements IStudyService
         {
             throw new ServiceException("单次上报学习时长不合法（1~" + MAX_SECONDS_PER_REPORT + " 秒）");
         }
+        // 视频总时长：可选。不合法就不填，不影响本次时长上报（时长只是展示/算百分比用的）
+        if (duration != null && (duration <= 0 || duration > MAX_VIDEO_DURATION))
+        {
+            throw new ServiceException("视频时长不合法（1~" + MAX_VIDEO_DURATION + " 秒）");
+        }
         int done = (finished != null && finished > 0) ? 1 : 0;
 
         if (TARGET_COURSE_VIDEO.equals(type))
@@ -84,6 +93,11 @@ public class StudyServiceImpl implements IStudyService
                 throw new ServiceException("课程小节不存在或已删除");
             }
             studyMapper.upsertProgress(userId, courseId, videoId, seconds, done);
+            // 小节时长为空时补填一次（后台管理员填过就不覆盖）
+            if (duration != null)
+            {
+                studyMapper.fillVideoDurationIfEmpty(videoId, duration);
+            }
         }
         else if (studyMapper.countShortVideo(videoId) == 0)
         {

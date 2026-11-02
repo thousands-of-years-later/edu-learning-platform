@@ -37,6 +37,10 @@ public class CourseVideo extends BaseEntity
     /** 视频地址 */
     private String videoUrl;
 
+    /** 时长（秒，可空）：后台录课时填写；为空时客户端播放上报可补填一次 */
+    @Excel(name = "时长(秒)", cellType = ColumnType.NUMERIC)
+    private Integer duration;
+
     /** 显示顺序 */
     @Excel(name = "显示顺序", cellType = ColumnType.NUMERIC)
     private Integer orderNum;
@@ -102,6 +106,16 @@ public class CourseVideo extends BaseEntity
         this.videoUrl = videoUrl;
     }
 
+    public Integer getDuration()
+    {
+        return duration;
+    }
+
+    public void setDuration(Integer duration)
+    {
+        this.duration = duration;
+    }
+
     public Integer getOrderNum()
     {
         return orderNum;
@@ -140,6 +154,7 @@ public class CourseVideo extends BaseEntity
             .append("chapterId", getChapterId())
             .append("videoTitle", getVideoTitle())
             .append("videoUrl", getVideoUrl())
+            .append("duration", getDuration())
             .append("orderNum", getOrderNum())
             .append("delFlag", getDelFlag())
             .append("createBy", getCreateBy())

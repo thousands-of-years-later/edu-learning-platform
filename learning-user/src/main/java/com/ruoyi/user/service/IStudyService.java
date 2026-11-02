@@ -23,9 +23,11 @@ public interface IStudyService
      * @param videoId    小节ID 或 短视频ID
      * @param seconds    本次新增学习秒数（1~3600）
      * @param finished   是否学完（仅课程小节有效：0 否 / 1 是；短视频忽略）
+     * @param duration   视频总时长（秒，可选）：课程小节时长为空时补填一次，已有值不覆盖
      * @return {todayMinutes: 今日累计分钟, todaySeconds: 今日累计秒数}
      */
-    public Map<String, Object> report(Long userId, String targetType, Long videoId, Integer seconds, Integer finished);
+    public Map<String, Object> report(Long userId, String targetType, Long videoId, Integer seconds,
+                                      Integer finished, Integer duration);
 
     /**
      * 学习数据总览

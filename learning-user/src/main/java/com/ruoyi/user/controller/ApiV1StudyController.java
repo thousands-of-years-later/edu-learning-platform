@@ -43,28 +43,31 @@ public class ApiV1StudyController extends BaseController
      * @param videoId    课程小节ID 或 短视频ID
      * @param seconds    本次新增学习秒数（1~3600）
      * @param finished   是否学完（仅课程小节有效：0/1，置 1 后不会回退）
+     * @param duration   视频总时长（秒，可选）：课程小节时长为空时补填一次，已有值不覆盖
      * @return {todayMinutes, todaySeconds}
      */
     @PostMapping("/report")
-    public AjaxResult report(String targetType, Long videoId, Integer seconds, Integer finished)
+    public AjaxResult report(String targetType, Long videoId, Integer seconds, Integer finished, Integer duration)
     {
         AjaxResult ajax = AjaxResult.success();
-        ajax.putAll(studyService.report(ApiContext.getUserId(), targetType, videoId, seconds, finished));
+        ajax.putAll(studyService.report(ApiContext.getUserId(), targetType, videoId, seconds, finished, duration));
         return ajax;
     }
 
     /**
      * 上报学习时长（JSON 请求体）
      *
-     * @param body 字段同表单：targetType、videoId、seconds、finished
+     * @param body 字段同表单：targetType、videoId、seconds、finished、duration
      */
     @PostMapping(value = "/report", consumes = MediaType.APPLICATION_JSON_VALUE)
     public AjaxResult reportJson(@RequestBody Map<String, String> body)
     {
         String rawSeconds = body.get("seconds");
         String rawFinished = body.get("finished");
+        String rawDuration = body.get("duration");
         Integer seconds = Convert.toInt(rawSeconds);
         Integer finished = Convert.toInt(rawFinished);
+        Integer duration = Convert.toInt(rawDuration);
         if (seconds == null && rawSeconds != null && rawSeconds.length() > 0)
         {
             return AjaxResult.error("学习时长不合法");
@@ -73,7 +76,11 @@ public class ApiV1StudyController extends BaseController
         {
             return AjaxResult.error("完成标记不合法");
         }
-        return report(body.get("targetType"), Convert.toLong(body.get("videoId")), seconds, finished);
+        if (duration == null && rawDuration != null && rawDuration.length() > 0)
+        {
+            return AjaxResult.error("视频时长不合法");
+        }
+        return report(body.get("targetType"), Convert.toLong(body.get("videoId")), seconds, finished, duration);
     }
 
     /**

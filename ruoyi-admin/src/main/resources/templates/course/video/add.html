@@ -36,6 +36,13 @@
 				</div>
 			</div>
 			<div class="form-group">
+				<label class="col-sm-3 control-label">时长（秒）：</label>
+				<div class="col-sm-8">
+					<!-- 可留空：客户端播放时会上报补填；填了以后列表/进度条都能算百分比 -->
+					<input class="form-control" type="number" name="duration" id="duration" min="0" placeholder="例如 600，可留空">
+				</div>
+			</div>
+			<div class="form-group">
 				<label class="col-sm-3 control-label">显示顺序：</label>
 				<div class="col-sm-8">
 					<input class="form-control" type="text" name="orderNum" id="orderNum" value="0">

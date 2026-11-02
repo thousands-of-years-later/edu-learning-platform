@@ -38,6 +38,12 @@ public class Topic implements Serializable
     /** 删除标志（0存在 2删除） */
     private String delFlag;
 
+    /** 创建者（后台新增时由控制器填入） */
+    private String createBy;
+
+    /** 更新者（后台编辑时由控制器填入） */
+    private String updateBy;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date createTime;
 
@@ -94,6 +100,26 @@ public class Topic implements Serializable
     public void setDelFlag(String delFlag)
     {
         this.delFlag = delFlag;
+    }
+
+    public String getCreateBy()
+    {
+        return createBy;
+    }
+
+    public void setCreateBy(String createBy)
+    {
+        this.createBy = createBy;
+    }
+
+    public String getUpdateBy()
+    {
+        return updateBy;
+    }
+
+    public void setUpdateBy(String updateBy)
+    {
+        this.updateBy = updateBy;
     }
 
     public Date getCreateTime()

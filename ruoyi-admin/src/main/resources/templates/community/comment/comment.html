@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+	<th:block th:include="include :: header('评论管理')" />
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12 search-collapse">
+				<form id="comment-form">
+					<div class="select-list">
+						<ul>
+							<li>
+								评论内容：<input type="text" name="content"/>
+							</li>
+							<li>
+								目标类型：<select name="targetType">
+									<option value="">所有</option>
+									<option value="1">文章</option>
+									<option value="2">课程</option>
+									<option value="3">短视频</option>
+								</select>
+							</li>
+							<li>
+								<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+							    <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+							</li>
+						</ul>
+					</div>
+				</form>
+			</div>
+
+			<div class="btn-group-sm" id="toolbar" role="group">
+				<a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="community:comment:remove">
+		            <i class="fa fa-remove"></i> 删除
+		        </a>
+	        </div>
+
+	        <div class="col-sm-12 select-table table-striped">
+			    <table id="bootstrap-table"></table>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		var removeFlag = /*[[${@permission.hasPermi('community:comment:remove')}]]*/ "";
+		var prefix = ctx + "community/comment";
+
+		$(function() {
+		    var options = {
+		        url: prefix + "/list",
+		        removeUrl: prefix + "/remove",
+		        modalName: "评论",
+		        uniqueId: "commentId",
+		        sortName: "commentId",
+		        columns: [{
+		            checkbox: true
+		        },
+		        {
+		            field: 'commentId',
+		            title: '评论ID',
+		            sortable: true
+		        },
+		        {
+		            field: 'content',
+		            title: '评论内容',
+		            formatter: function(value, row, index) {
+		                if (!value) { return ''; }
+		                var text = value.length > 60 ? value.substring(0, 60) + '…' : value;
+		                return $('<div/>').text(text).html();
+		            }
+		        },
+		        {
+		            field: 'userName',
+		            title: '评论人'
+		        },
+		        {
+		            field: 'targetType',
+		            title: '目标类型',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                if (value === '1') { return '文章'; }
+		                if (value === '2') { return '课程'; }
+		                if (value === '3') { return '短视频'; }
+		                return value;
+		            }
+		        },
+		        {
+		            field: 'targetTitle',
+		            title: '目标',
+		            formatter: function(value, row, index) {
+		                if (!value) { return '<span class="text-muted">（内容已删除）</span>'; }
+		                return $('<div/>').text(value).html();
+		            }
+		        },
+		        {
+		            field: 'parentId',
+		            title: '类型',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                return value == null ? '<span class="label label-primary">评论</span>' : '<span class="label label-default">回复</span>';
+		            }
+		        },
+		        {
+		            field: 'createTime',
+		            title: '评论时间',
+		            sortable: true
+		        },
+		        {
+		            title: '操作',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                var actions = [];
+		                actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.commentId + '\')"><i class="fa fa-remove"></i>删除</a>');
+		                return actions.join('');
+		            }
+		        }]
+		    };
+		    $.table.init(options);
+		});
+	</script>
+</body>
+</html>

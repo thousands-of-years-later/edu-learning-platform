@@ -65,4 +65,24 @@ public interface ICommentService
      * @return {count: 该目标的最新评论总数（含二级评论）}
      */
     public Map<String, Object> deleteComment(Long userId, Long commentId);
+
+    /**
+     * 后台评论列表（分页由控制器 startPage() 驱动）
+     *
+     * 与客户端列表的区别：包含一级评论和二级回复，可按 targetType / 内容关键字筛选，
+     * 并额外返回评论人、被回复人、目标标题（后台列表明细）。
+     *
+     * @param query 查询条件（targetType、content）
+     */
+    public List<Comment> selectAdminList(Comment query);
+
+    /**
+     * 后台删除评论（管理员可删任何人的评论）
+     *
+     * 与 deleteComment 的差别只有"不校验作者"，其余语义一致：
+     * 删一级评论会级联软删它的回复，并按实际删除条数修正目标的内容评论数。
+     *
+     * @param commentId 评论ID
+     */
+    public void deleteCommentByAdmin(Long commentId);
 }

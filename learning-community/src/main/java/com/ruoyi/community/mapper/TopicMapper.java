@@ -52,4 +52,34 @@ public interface TopicMapper
      * 话题页的"文章数"虽然只统计已发布文章、不会算错，但表里的垃圾会一直累积。
      */
     public int deletePostTopicsByPostIds(Long[] postIds);
+
+    // ==================== 后台管理（/community/topic） ====================
+
+    /** 后台话题列表（分页由控制器驱动）：不过滤 status（停用的也要能管理），
+     * 支持按名称模糊、状态精确筛选；带文章数。 */
+    public List<Topic> selectAdminList(Topic query);
+
+    /** 后台按ID查话题：只过滤 del_flag，停用的也能查出来（编辑页回显） */
+    public Topic selectTopicByIdForAdmin(@Param("topicId") Long topicId);
+
+    /** 新增话题 */
+    public int insertTopic(Topic topic);
+
+    /** 修改话题（只改名称/简介/状态） */
+    public int updateTopic(Topic topic);
+
+    /** 逻辑删除话题（批量） */
+    public int softDeleteByIds(Long[] topicIds);
+
+    /**
+     * 同名话题计数（排除指定 topicId，用于编辑时的唯一性校验）
+     *
+     * 只统计未删除的：软删掉的话题不应占用名称。
+     */
+    public int countByName(@Param("topicName") String topicName, @Param("excludeId") Long excludeId);
+
+    /**
+     * 统计这些话题下还有多少条文章关联（用于阻止删除还有内容的话题）
+     */
+    public int countPostRelations(Long[] topicIds);
 }

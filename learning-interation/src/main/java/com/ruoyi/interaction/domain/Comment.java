@@ -238,6 +238,21 @@ public class Comment implements Serializable
         this.children = children;
     }
 
+    /**
+     * 被评论对象的标题（帖子标题 / 课程名 / 短视频标题；后台评论列表展示用，非本表列）
+     */
+    private String targetTitle;
+
+    public String getTargetTitle()
+    {
+        return targetTitle;
+    }
+
+    public void setTargetTitle(String targetTitle)
+    {
+        this.targetTitle = targetTitle;
+    }
+
     /** 目标类型是否合法 */
     public static boolean isValidTargetType(String t)
     {

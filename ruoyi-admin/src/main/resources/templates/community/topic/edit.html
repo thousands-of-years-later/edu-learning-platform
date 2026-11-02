@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+	<th:block th:include="include :: header('修改话题')" />
+</head>
+<body class="white-bg">
+	<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+		<form class="form-horizontal m" id="form-topic-edit" th:object="${topic}">
+			<input name="topicId" th:field="*{topicId}" type="hidden">
+			<div class="form-group">
+				<label class="col-sm-3 control-label is-required">话题名称：</label>
+				<div class="col-sm-8">
+					<input class="form-control" type="text" name="topicName" id="topicName" th:field="*{topicName}" required maxlength="50">
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">话题简介：</label>
+				<div class="col-sm-8">
+					<textarea class="form-control" name="topicDesc" id="topicDesc" th:field="*{topicDesc}" maxlength="200"></textarea>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">状态：</label>
+				<div class="col-sm-8">
+					<div class="radio-box">
+						<input type="radio" id="status0" name="status" value="0" th:checked="*{status == '0'}">
+						<label for="status0">正常</label>
+					</div>
+					<div class="radio-box">
+						<input type="radio" id="status1" name="status" value="1" th:checked="*{status == '1'}">
+						<label for="status1">停用</label>
+					</div>
+				</div>
+			</div>
+		</form>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script type="text/javascript">
+		var prefix = ctx + "community/topic";
+
+		$("#form-topic-edit").validate({
+			onkeyup: false,
+			rules:{
+				topicName:{
+					required: true,
+					remote: {
+		                url: prefix + "/checkTopicNameUnique",
+		                type: "post",
+		                dataType: "json",
+		                data: {
+		                	"topicName" : function() {
+		                        return $.common.trim($("#topicName").val());
+		                    },
+		                    "topicId" : function() {
+		                        return $("input[name='topicId']").val();
+		                    }
+		                }
+		            }
+				}
+			},
+			messages: {
+		        "topicName": {
+		            remote: "话题名称已经存在"
+		        }
+		    },
+		    focusCleanup: true
+		});
+
+		function submitHandler() {
+	        if ($.validate.form()) {
+	        	$.operate.save(prefix + "/edit", $('#form-topic-edit').serialize());
+	        }
+	    }
+	</script>
+</body>
+</html>

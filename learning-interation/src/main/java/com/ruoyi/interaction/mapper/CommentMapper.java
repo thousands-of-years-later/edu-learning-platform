@@ -123,4 +123,19 @@ public interface CommentMapper
                            @Param("idColumn") String idColumn,
                            @Param("targetId") Long targetId,
                            @Param("delta") int delta);
+
+    /**
+     * 后台评论列表（分页由控制器 startPage() 驱动）
+     *
+     * 过滤：targetType（1帖子 2课程 3短视频）、content 模糊；只查未删除的。
+     * 评论人、被回复人、目标标题都用标量子查询取，不 join（避免分页列名歧义）。
+     */
+    public List<Comment> selectAdminList(Comment query);
+
+    /**
+     * 后台逻辑删除一条评论（不做 owner 校验，管理员可删任何人的评论）
+     *
+     * where 带 del_flag='0'：返回影响行数，调用方据此决定要不要减计数
+     */
+    public int softDeleteByAdmin(@Param("commentId") Long commentId);
 }

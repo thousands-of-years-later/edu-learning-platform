@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+	<th:block th:include="include :: header('新增话题')" />
+</head>
+<body class="white-bg">
+	<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+		<form class="form-horizontal m" id="form-topic-add">
+			<div class="form-group">
+				<label class="col-sm-3 control-label is-required">话题名称：</label>
+				<div class="col-sm-8">
+					<input class="form-control" type="text" name="topicName" id="topicName" required maxlength="50" placeholder="例如 Android（不用输入 # 号）">
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">话题简介：</label>
+				<div class="col-sm-8">
+					<textarea class="form-control" name="topicDesc" id="topicDesc" maxlength="200" placeholder="话题页副标题，例如「Android 开发相关」"></textarea>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">状态：</label>
+				<div class="col-sm-8">
+					<div class="radio-box">
+						<input type="radio" id="status0" name="status" value="0" checked>
+						<label for="status0">正常</label>
+					</div>
+					<div class="radio-box">
+						<input type="radio" id="status1" name="status" value="1">
+						<label for="status1">停用</label>
+					</div>
+				</div>
+			</div>
+		</form>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script type="text/javascript">
+		var prefix = ctx + "community/topic";
+
+		$("#form-topic-add").validate({
+			onkeyup: false,
+			rules:{
+				topicName:{
+					required: true,
+					remote: {
+		                url: prefix + "/checkTopicNameUnique",
+		                type: "post",
+		                dataType: "json",
+		                data: {
+		                	"topicName" : function() {
+		                        return $.common.trim($("#topicName").val());
+		                    }
+		                }
+		            }
+				}
+			},
+			messages: {
+		        "topicName": {
+		            remote: "话题名称已经存在"
+		        }
+		    },
+		    focusCleanup: true
+		});
+
+		function submitHandler() {
+	        if ($.validate.form()) {
+	        	$.operate.save(prefix + "/add", $('#form-topic-add').serialize());
+	        }
+	    }
+	</script>
+</body>
+</html>

@@ -17,6 +17,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="updateTime"    column="update_time"     />
 		<result property="userName"      column="user_name"       />
 		<result property="replyUserName" column="reply_user_name" />
+		<result property="targetTitle"   column="target_title"    />
 		<!-- children 是纯内存字段（本表没有这一列），由 CommentServiceImpl 组装，这里不映射 -->
 	</resultMap>
 
@@ -127,6 +128,38 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		                         <otherwise>greatest(comment_count + #{delta}, 0)</otherwise>
 		                       </choose>
 		 where ${idColumn} = #{targetId} and del_flag = '0'
+	</update>
+
+	<!--
+	  后台评论列表：包含一级评论与二级回复（parent_id 不设条件），
+	  过滤 targetType / content 关键字，只查未删除的。
+	  评论人、被回复人、目标标题用标量子查询取（不 join，避免分页列名歧义）。
+	-->
+	<select id="selectAdminList" parameterType="Comment" resultMap="CommentResult">
+		select c.comment_id, c.user_id, c.target_type, c.target_id, c.parent_id, c.reply_user_id,
+		       c.content, c.del_flag, c.create_time, c.update_time,
+		       (select u.user_name from sys_user u where u.user_id = c.user_id) as user_name,
+		       (select u.user_name from sys_user u where u.user_id = c.reply_user_id) as reply_user_name,
+		       case c.target_type
+		         when '1' then (select p.post_title from learning_post p where p.post_id = c.target_id)
+		         when '2' then (select co.course_name from learning_course co where co.course_id = c.target_id)
+		         when '3' then (select v.video_title from learning_short_video v where v.video_id = c.target_id)
+		       end as target_title
+		  from learning_comment c
+		 where c.del_flag = '0'
+		<if test="targetType != null and targetType != ''">
+		   and c.target_type = #{targetType}
+		</if>
+		<if test="content != null and content != ''">
+		   and c.content like concat('%', #{content}, '%')
+		</if>
+		 order by c.create_time desc, c.comment_id desc
+	</select>
+
+	<!-- 后台删除：不做 owner 校验，只保证删的是未删除的那一条 -->
+	<update id="softDeleteByAdmin">
+		update learning_comment set del_flag = '2', update_time = sysdate()
+		 where comment_id = #{commentId} and del_flag = '0'
 	</update>
 
 </mapper>

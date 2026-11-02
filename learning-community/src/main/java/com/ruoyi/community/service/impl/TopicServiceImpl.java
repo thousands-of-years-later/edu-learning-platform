@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.community.domain.Topic;
 import com.ruoyi.community.mapper.TopicMapper;
@@ -121,5 +122,117 @@ public class TopicServiceImpl implements ITopicService
             throw new ServiceException("存在无效的话题，请重新选择");
         }
         return ids;
+    }
+
+    // ==================== 后台管理 ====================
+
+    @Override
+    public List<Topic> selectAdminList(Topic query)
+    {
+        Topic condition = query == null ? new Topic() : query;
+        condition.setTopicName(StringUtils.trim(condition.getTopicName()));
+        return topicMapper.selectAdminList(condition);
+    }
+
+    @Override
+    public Topic selectTopicByIdForAdmin(Long topicId)
+    {
+        if (topicId == null)
+        {
+            throw new ServiceException("话题ID不能为空");
+        }
+        return topicMapper.selectTopicByIdForAdmin(topicId);
+    }
+
+    @Override
+    @Transactional
+    public int insertTopic(Topic topic)
+    {
+        checkTopic(topic, null);
+        return topicMapper.insertTopic(topic);
+    }
+
+    @Override
+    @Transactional
+    public int updateTopic(Topic topic)
+    {
+        if (topic.getTopicId() == null)
+        {
+            throw new ServiceException("话题ID不能为空");
+        }
+        if (topicMapper.selectTopicByIdForAdmin(topic.getTopicId()) == null)
+        {
+            throw new ServiceException("话题不存在或已被删除");
+        }
+        checkTopic(topic, topic.getTopicId());
+        return topicMapper.updateTopic(topic);
+    }
+
+    @Override
+    @Transactional
+    public int deleteTopicByIds(String ids)
+    {
+        Long[] topicIds = Convert.toLongArray(ids);
+        if (topicIds == null || topicIds.length == 0)
+        {
+            throw new ServiceException("未选择要删除的话题");
+        }
+        // 还有文章的话题不允许删：删了之后文章的关联变孤儿、话题页也打不开
+        if (topicMapper.countPostRelations(topicIds) > 0)
+        {
+            throw new ServiceException("话题下还有文章，不能删除");
+        }
+        return topicMapper.softDeleteByIds(topicIds);
+    }
+
+    @Override
+    public boolean checkTopicNameUnique(String topicName, Long topicId)
+    {
+        String name = StringUtils.trim(topicName);
+        if (StringUtils.isEmpty(name))
+        {
+            return false;
+        }
+        return topicMapper.countByName(name, topicId) == 0;
+    }
+
+    /**
+     * 新增/编辑的公共校验：名称必填、长度、唯一性，状态只认 0/1
+     */
+    private void checkTopic(Topic topic, Long excludeId)
+    {
+        String name = StringUtils.trim(topic.getTopicName());
+        if (StringUtils.isEmpty(name))
+        {
+            throw new ServiceException("话题名称不能为空");
+        }
+        if (name.length() > Topic.MAX_NAME_LENGTH)
+        {
+            throw new ServiceException("话题名称不能超过" + Topic.MAX_NAME_LENGTH + "个字");
+        }
+        // 去掉用户输入的 # 前缀（设计稿显示为 #Android，库里存 Android）
+        if (name.startsWith("#"))
+        {
+            name = name.substring(1).trim();
+            if (StringUtils.isEmpty(name))
+            {
+                throw new ServiceException("话题名称不能为空");
+            }
+        }
+        if (!checkTopicNameUnique(name, excludeId))
+        {
+            throw new ServiceException("话题名称已存在");
+        }
+        topic.setTopicName(name);
+        String desc = StringUtils.trim(topic.getTopicDesc());
+        if (desc != null && desc.length() > 200)
+        {
+            throw new ServiceException("话题简介不能超过200个字");
+        }
+        topic.setTopicDesc(desc);
+        if (!"0".equals(topic.getStatus()) && !"1".equals(topic.getStatus()))
+        {
+            topic.setStatus("0");
+        }
     }
 }

@@ -74,4 +74,68 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		</foreach>
 	</delete>
 
+	<!-- ==================== 后台管理 ==================== -->
+
+	<!--
+	  后台列表：不过滤 status（停用话题也要能编辑），只过滤 del_flag；
+	  文章数口径与客户端一致（只算已发布文章）。
+	-->
+	<select id="selectAdminList" parameterType="Topic" resultMap="TopicResult">
+		<include refid="selectTopicVo"/>
+		 where t.del_flag = '0'
+		<if test="topicName != null and topicName != ''">
+		   and t.topic_name like concat('%', #{topicName}, '%')
+		</if>
+		<if test="status != null and status != ''">
+		   and t.status = #{status}
+		</if>
+		 order by t.topic_id desc
+	</select>
+
+	<insert id="insertTopic" parameterType="Topic" useGeneratedKeys="true" keyProperty="topicId">
+		insert into learning_topic (topic_name, topic_desc, status, del_flag, create_by, create_time)
+		values (#{topicName}, #{topicDesc,jdbcType=VARCHAR}, #{status}, '0', #{createBy}, sysdate())
+	</insert>
+
+	<!-- 后台按ID查：停用的也要能查出来（编辑页回显） -->
+	<select id="selectTopicByIdForAdmin" resultMap="TopicResult">
+		<include refid="selectTopicVo"/>
+		 where t.topic_id = #{topicId} and t.del_flag = '0'
+	</select>
+
+	<update id="updateTopic" parameterType="Topic">
+		update learning_topic
+		   set topic_name  = #{topicName},
+		       topic_desc  = #{topicDesc,jdbcType=VARCHAR},
+		       status      = #{status},
+		       update_by   = #{updateBy},
+		       update_time = sysdate()
+		 where topic_id = #{topicId} and del_flag = '0'
+	</update>
+
+	<update id="softDeleteByIds" parameterType="Long">
+		update learning_topic set del_flag = '2', update_time = sysdate()
+		 where del_flag = '0' and topic_id in
+		<foreach collection="array" item="topicId" open="(" separator="," close=")">
+			#{topicId}
+		</foreach>
+	</update>
+
+	<!-- 同名校验：只算未删除的（软删的话题不占用名称） -->
+	<select id="countByName" resultType="int">
+		select count(*) from learning_topic
+		 where topic_name = #{topicName} and del_flag = '0'
+		<if test="excludeId != null">
+		   and topic_id &lt;&gt; #{excludeId}
+		</if>
+	</select>
+
+	<!-- 话题下是否还有关联文章（用于阻止删除还有内容的话题） -->
+	<select id="countPostRelations" resultType="int">
+		select count(*) from learning_post_topic where topic_id in
+		<foreach collection="array" item="topicId" open="(" separator="," close=")">
+			#{topicId}
+		</foreach>
+	</select>
+
 </mapper>

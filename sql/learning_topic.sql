@@ -37,7 +37,9 @@ create table if not exists learning_topic (
   update_by    varchar(64) default ''              comment '更新者',
   update_time  datetime    default null            comment '更新时间',
   primary key (topic_id),
-  unique key uk_topic_name (topic_name)
+  -- 名称【不做数据库唯一索引】：话题是逻辑删除，软删后同名重建会撞唯一键；
+  -- 唯一性由应用层校验（只统计 del_flag='0' 的行），见 TopicServiceImpl。
+  key idx_topic_name (topic_name)
 ) engine = innodb auto_increment = 1 default charset = utf8mb4 comment = '话题表';
 
 -- ----------------------------

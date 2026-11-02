@@ -47,4 +47,43 @@ public interface ITopicService
      * @return 解析后的去重话题ID列表（空表示没选话题）
      */
     public List<Long> parseAndCheckTopicIds(String topicIds);
+
+    // ==================== 后台管理 ====================
+
+    /**
+     * 后台话题列表（分页由控制器驱动）：含停用话题，可按名称/状态筛选
+     */
+    public List<Topic> selectAdminList(Topic query);
+
+    /**
+     * 后台按ID查话题（含停用），不存在返回 null
+     */
+    public Topic selectTopicByIdForAdmin(Long topicId);
+
+    /**
+     * 新增话题
+     */
+    public int insertTopic(Topic topic);
+
+    /**
+     * 修改话题
+     */
+    public int updateTopic(Topic topic);
+
+    /**
+     * 批量删除话题（逻辑删除）
+     *
+     * 话题下还有文章时拒绝删除：文章的关联会变孤儿、话题页也打不开。
+     *
+     * @param ids 逗号分隔的话题ID
+     */
+    public int deleteTopicByIds(String ids);
+
+    /**
+     * 话题名唯一性校验（同名返回 false）
+     *
+     * @param topicName 话题名
+     * @param topicId   编辑时排除自己；新增传 null
+     */
+    public boolean checkTopicNameUnique(String topicName, Long topicId);
 }

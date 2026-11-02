@@ -31,6 +31,17 @@ file:
     # 当前配置的推导结果：https://zhinengguanggaopingtai.oss-cn-shanghai.aliyuncs.com
     urlPrefix: ${OSS_URL_PREFIX:}
 
+# 跨域（CORS）配置：见 com.ruoyi.framework.config.CorsConfig
+# 小程序/原生 App 不受同源策略限制，但 H5、uni-app 浏览器调试、WebView 内嵌页面需要
+cors:
+  # 允许的来源，逗号分隔；默认 * 表示不限制（仅建议开发环境使用）
+  # 生产建议改成具体域名，例如：https://edu.example.com,https://h5.example.com
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+  # 是否允许携带 Cookie；移动端用 Token，默认 false
+  allow-credentials: ${CORS_ALLOW_CREDENTIALS:false}
+  # 预检（OPTIONS）结果缓存秒数
+  max-age: 3600
+
 # 开发环境配置
 server:
   # 服务器的HTTP端口，默认为80

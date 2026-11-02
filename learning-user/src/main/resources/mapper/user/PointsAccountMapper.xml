@@ -11,6 +11,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="adFreeExpireTime" column="ad_free_expire_time" />
 		<result property="createTime"       column="create_time"        />
 		<result property="updateTime"       column="update_time"        />
+		<result property="userName"         column="user_name"          />
 		<!-- adFree 是纯内存字段（本表没有这一列），由 PointsServiceImpl 按到期时间算，这里不映射 -->
 	</resultMap>
 
@@ -62,5 +63,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 where user_id = #{userId}
 		   and balance &gt;= #{cost}
 	</update>
+
+	<!-- 后台积分账户列表：带用户昵称（标量子查询，不 join） -->
+	<select id="selectAdminList" resultMap="PointsAccountResult">
+		select a.user_id, a.balance, a.total_earned, a.ad_free_expire_time, a.create_time, a.update_time,
+		       (select u.user_name from sys_user u where u.user_id = a.user_id) as user_name
+		  from learning_points_account a
+		<where>
+			<if test="userName != null and userName != ''">
+			   and exists (select 1 from sys_user u
+			                where u.user_id = a.user_id and u.user_name like concat('%', #{userName}, '%'))
+			</if>
+		</where>
+		 order by a.balance desc, a.user_id asc
+	</select>
 
 </mapper>

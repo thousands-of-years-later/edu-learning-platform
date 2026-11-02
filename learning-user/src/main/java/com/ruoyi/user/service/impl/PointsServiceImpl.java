@@ -116,6 +116,19 @@ public class PointsServiceImpl implements IPointsService
         }
     }
 
+    @Override
+    public List<PointsAccount> selectAdminAccountList(String userName)
+    {
+        return pointsAccountMapper.selectAdminList(userName == null ? null : userName.trim());
+    }
+
+    @Override
+    public List<PointsLog> selectAdminLogList(String userName, String type)
+    {
+        return pointsLogMapper.selectAdminList(userName == null ? null : userName.trim(),
+                type == null ? null : type.trim());
+    }
+
     /** 到期时间格式化成字符串给前端（null 原样返回 null） */
     private String format(Date time)
     {

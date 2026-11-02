@@ -14,6 +14,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="updateTime" column="update_time" />
 		<result property="userName"   column="user_name"   />
 		<result property="avatar"     column="avatar"      />
+		<result property="courseName" column="course_name" />
 	</resultMap>
 
 	<!--
@@ -112,6 +113,45 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<foreach collection="array" item="courseId" open="(" separator="," close=")">
 			#{courseId}
 		</foreach>
+	</delete>
+
+	<!-- ==================== 后台评价管理 ==================== -->
+
+	<!--
+	  后台评价列表：带课程名 + 评分人（标量子查询，不 join，避免分页列名歧义）。
+	  评分表没有 del_flag，全部记录都是有效数据。
+	-->
+	<select id="selectAdminList" parameterType="CourseRating" resultMap="CourseRatingResult">
+		select r.rating_id, r.course_id, r.user_id, r.score, r.content, r.create_time, r.update_time,
+		       (select c.course_name from learning_course c where c.course_id = r.course_id) as course_name,
+		       (select u.user_name from sys_user u where u.user_id = r.user_id) as user_name,
+		       (select nullif(trim(u.avatar), '') from sys_user u where u.user_id = r.user_id) as avatar
+		  from learning_course_rating r
+		<where>
+			<if test="courseId != null">
+			   and r.course_id = #{courseId}
+			</if>
+			<if test="score != null">
+			   and r.score = #{score}
+			</if>
+			<if test="content != null and content != ''">
+			   and r.content like concat('%', #{content}, '%')
+			</if>
+			<if test="userId != null">
+			   and r.user_id = #{userId}
+			</if>
+		</where>
+		 order by r.create_time desc, r.rating_id desc
+	</select>
+
+	<select id="selectRatingById" resultMap="CourseRatingResult">
+		select rating_id, course_id, user_id, score, content, create_time, update_time
+		  from learning_course_rating
+		 where rating_id = #{ratingId}
+	</select>
+
+	<delete id="deleteRatingById">
+		delete from learning_course_rating where rating_id = #{ratingId}
 	</delete>
 
 </mapper>

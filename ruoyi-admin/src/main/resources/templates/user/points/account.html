@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+	<th:block th:include="include :: header('积分账户')" />
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12 search-collapse">
+				<form id="account-form">
+					<div class="select-list">
+						<ul>
+							<li>
+								用户昵称：<input type="text" name="userName"/>
+							</li>
+							<li>
+								<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+							    <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+							</li>
+						</ul>
+					</div>
+				</form>
+			</div>
+
+			<div class="btn-group-sm" id="toolbar" role="group">
+				<a class="btn btn-default" href="/user/points/log"><i class="fa fa-list"></i> 查看积分流水</a>
+	        </div>
+
+	        <div class="col-sm-12 select-table table-striped">
+			    <table id="bootstrap-table"></table>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		var prefix = ctx + "user/points";
+
+		$(function() {
+		    var options = {
+		        url: prefix + "/account/list",
+		        modalName: "积分账户",
+		        uniqueId: "userId",
+		        sortName: "userId",
+		        columns: [{
+		            field: 'userId',
+		            title: '用户ID',
+		            sortable: true
+		        },
+		        {
+		            field: 'userName',
+		            title: '用户'
+		        },
+		        {
+		            field: 'balance',
+		            title: '当前余额',
+		            align: 'center',
+		            sortable: true
+		        },
+		        {
+		            field: 'totalEarned',
+		            title: '累计获得',
+		            align: 'center'
+		        },
+		        {
+		            field: 'adFreeExpireTime',
+		            title: '免广告到期',
+		            formatter: function(value, row, index) {
+		                return value ? value : '<span class="text-muted">无</span>';
+		            }
+		        },
+		        {
+		            field: 'updateTime',
+		            title: '最后变动',
+		            sortable: true
+		        }]
+		    };
+		    $.table.init(options);
+		});
+	</script>
+</body>
+</html>

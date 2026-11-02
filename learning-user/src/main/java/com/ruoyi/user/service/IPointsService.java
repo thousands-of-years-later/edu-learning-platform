@@ -2,6 +2,8 @@ package com.ruoyi.user.service;
 
 import java.util.List;
 import java.util.Map;
+import com.ruoyi.user.domain.PointsAccount;
+import com.ruoyi.user.domain.PointsLog;
 
 /**
  * 积分 / 权益 服务层
@@ -42,4 +44,19 @@ public interface IPointsService
      *         不要用手机本地时间减 adFreeExpireTime（手机时间可以随便改）
      */
     public Map<String, Object> account(Long userId);
+
+    /**
+     * 后台积分账户列表（分页由控制器 startPage() 驱动）
+     *
+     * @param userName 用户昵称模糊（可空）
+     */
+    public List<PointsAccount> selectAdminAccountList(String userName);
+
+    /**
+     * 后台积分流水列表（分页由控制器 startPage() 驱动）
+     *
+     * @param userName 用户昵称模糊（可空）
+     * @param type     类型（checkin / exchange / adjust，可空）
+     */
+    public List<PointsLog> selectAdminLogList(String userName, String type);
 }

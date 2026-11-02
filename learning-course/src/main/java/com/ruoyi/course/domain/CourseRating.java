@@ -65,6 +65,9 @@ public class CourseRating implements Serializable
     /** 评分人头像（可能为 null，前端用昵称首字兜底） */
     private String avatar;
 
+    /** 课程名（后台评价管理列表用，非本表列） */
+    private String courseName;
+
     public Long getRatingId()
     {
         return ratingId;
@@ -133,6 +136,16 @@ public class CourseRating implements Serializable
     public void setAvatar(String avatar)
     {
         this.avatar = avatar;
+    }
+
+    public String getCourseName()
+    {
+        return courseName;
+    }
+
+    public void setCourseName(String courseName)
+    {
+        this.courseName = courseName;
     }
 
     public Date getCreateTime()

@@ -211,6 +211,17 @@ public class CheckinServiceImpl implements ICheckinService
         }
     }
 
+    @Override
+    public List<CheckinRecord> selectAdminList(String userName, String beginDate, String endDate)
+    {
+        return checkinMapper.selectAdminList(trim(userName), trim(beginDate), trim(endDate));
+    }
+
+    private String trim(String text)
+    {
+        return text == null ? null : text.trim();
+    }
+
     /** 今天（东八区）yyyy-MM-dd */
     private String today()
     {

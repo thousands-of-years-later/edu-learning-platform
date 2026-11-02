@@ -8,6 +8,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.course.domain.CourseRating;
 import com.ruoyi.course.mapper.CourseRatingMapper;
@@ -253,5 +254,39 @@ public class CourseRatingServiceImpl implements ICourseRatingService
         result.put("avgScore", avgScore);
         result.put("ratingCount", ratingCount);
         return result;
+    }
+
+    @Override
+    public List<CourseRating> selectAdminList(CourseRating query)
+    {
+        return courseRatingMapper.selectAdminList(query == null ? new CourseRating() : query);
+    }
+
+    @Override
+    @Transactional
+    public int deleteRatingByIds(String ids)
+    {
+        Long[] ratingIds = Convert.toLongArray(ids);
+        if (ratingIds == null || ratingIds.length == 0)
+        {
+            throw new ServiceException("未选择要删除的评价");
+        }
+        int rows = 0;
+        for (Long ratingId : ratingIds)
+        {
+            CourseRating rating = courseRatingMapper.selectRatingById(ratingId);
+            if (rating == null)
+            {
+                // 已被别的管理员删掉：跳过，不报错（批量删除里常见）
+                continue;
+            }
+            if (courseRatingMapper.deleteRatingById(ratingId) > 0)
+            {
+                rows++;
+                // 删掉一条评分：人数 -1，总分 -该条分数。where 带 del_flag，课程已删时影响 0 行（忽略）
+                courseRatingMapper.updateCourseRatingStats(rating.getCourseId(), -1, -rating.getScore());
+            }
+        }
+        return rows;
     }
 }

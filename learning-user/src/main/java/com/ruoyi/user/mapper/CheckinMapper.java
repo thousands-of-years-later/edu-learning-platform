@@ -61,4 +61,15 @@ public interface CheckinMapper
      * 某天是否已签到（0 / 1）
      */
     public int existsByUserAndDate(@Param("userId") Long userId, @Param("signDate") String signDate);
+
+    /**
+     * 后台签到记录列表（分页由控制器驱动）
+     *
+     * @param userName  按用户昵称模糊（空 = 全部用户）
+     * @param beginDate 签到日期起始 yyyy-MM-dd（含，可空）
+     * @param endDate   签到日期结束 yyyy-MM-dd（含，可空）
+     */
+    public List<CheckinRecord> selectAdminList(@Param("userName") String userName,
+                                               @Param("beginDate") String beginDate,
+                                               @Param("endDate") String endDate);
 }

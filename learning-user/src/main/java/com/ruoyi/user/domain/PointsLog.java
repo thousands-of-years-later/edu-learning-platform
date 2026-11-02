@@ -33,6 +33,9 @@ public class PointsLog implements Serializable
     /** 用户ID（sys_user.user_id） */
     private Long userId;
 
+    /** 用户昵称（后台积分流水列表用，非本表列） */
+    private String userName;
+
     /** 变动值（签到为正、兑换为负） */
     private Integer changeAmount;
 
@@ -128,5 +131,15 @@ public class PointsLog implements Serializable
     public void setCreateTime(Date createTime)
     {
         this.createTime = createTime;
+    }
+
+    public String getUserName()
+    {
+        return userName;
+    }
+
+    public void setUserName(String userName)
+    {
+        this.userName = userName;
     }
 }

@@ -4,10 +4,39 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ruoyi.user.mapper.PointsLogMapper">
 
+	<resultMap type="PointsLog" id="PointsLogResult">
+		<id     property="logId"        column="log_id"        />
+		<result property="userId"       column="user_id"       />
+		<result property="changeAmount" column="change_amount" />
+		<result property="balance"      column="balance"       />
+		<result property="type"         column="type"          />
+		<result property="refId"        column="ref_id"        />
+		<result property="remark"       column="remark"        />
+		<result property="createTime"   column="create_time"   />
+		<result property="userName"     column="user_name"     />
+	</resultMap>
+
 	<!-- 只增不改：流水是审计数据，没有 update / delete 语句 -->
 	<insert id="insertLog" parameterType="PointsLog" useGeneratedKeys="true" keyProperty="logId">
 		insert into learning_points_log (user_id, change_amount, balance, type, ref_id, remark, create_time)
 		values (#{userId}, #{changeAmount}, #{balance}, #{type}, #{refId}, #{remark}, sysdate())
 	</insert>
+
+	<!-- 后台积分流水：带用户昵称（标量子查询，不 join）；按 log_id 倒序保证翻页稳定 -->
+	<select id="selectAdminList" resultMap="PointsLogResult">
+		select l.log_id, l.user_id, l.change_amount, l.balance, l.type, l.ref_id, l.remark, l.create_time,
+		       (select u.user_name from sys_user u where u.user_id = l.user_id) as user_name
+		  from learning_points_log l
+		<where>
+			<if test="userName != null and userName != ''">
+			   and exists (select 1 from sys_user u
+			                where u.user_id = l.user_id and u.user_name like concat('%', #{userName}, '%'))
+			</if>
+			<if test="type != null and type != ''">
+			   and l.type = #{type}
+			</if>
+		</where>
+		 order by l.log_id desc
+	</select>
 
 </mapper>

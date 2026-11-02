@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+	<th:block th:include="include :: header('签到记录')" />
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12 search-collapse">
+				<form id="checkin-form">
+					<div class="select-list">
+						<ul>
+							<li>
+								用户昵称：<input type="text" name="userName"/>
+							</li>
+							<li>
+								签到日期：<input type="text" name="beginDate" onclick="WdatePicker({dateFmt:'yyyy-MM-dd'})"/>
+								-
+								<input type="text" name="endDate" onclick="WdatePicker({dateFmt:'yyyy-MM-dd'})"/>
+							</li>
+							<li>
+								<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+							    <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+							</li>
+						</ul>
+					</div>
+				</form>
+			</div>
+
+	        <div class="col-sm-12 select-table table-striped">
+			    <table id="bootstrap-table"></table>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		var prefix = ctx + "user/checkin";
+
+		$(function() {
+		    var options = {
+		        url: prefix + "/list",
+		        modalName: "签到记录",
+		        uniqueId: "checkinId",
+		        sortName: "checkinId",
+		        columns: [{
+		            field: 'checkinId',
+		            title: '记录ID',
+		            sortable: true
+		        },
+		        {
+		            field: 'userName',
+		            title: '用户'
+		        },
+		        {
+		            field: 'userId',
+		            title: '用户ID',
+		            align: 'center'
+		        },
+		        {
+		            field: 'signDate',
+		            title: '签到日期',
+		            sortable: true
+		        },
+		        {
+		            field: 'points',
+		            title: '本次积分',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                return value == null ? '' : '<span class="text-success">+' + value + '</span>';
+		            }
+		        },
+		        {
+		            field: 'continuousDays',
+		            title: '连续天数',
+		            align: 'center'
+		        },
+		        {
+		            field: 'createTime',
+		            title: '签到时间',
+		            sortable: true
+		        }]
+		    };
+		    $.table.init(options);
+		});
+	</script>
+</body>
+</html>

@@ -63,4 +63,23 @@ public interface ICourseRatingService
      * @return {myScore: 我的评分（未评为 null）, avgScore: 平均分（无人评分为 null）, ratingCount: 评分人数}
      */
     public Map<String, Object> getRatingInfo(Long userId, Long courseId);
+
+    // ==================== 后台评价管理 ====================
+
+    /**
+     * 后台评价列表（分页由控制器 startPage() 驱动）
+     *
+     * @param query 过滤条件：courseId / score / content / userId
+     */
+    public List<CourseRating> selectAdminList(CourseRating query);
+
+    /**
+     * 后台删除评价（物理删除，评分表没有 del_flag）
+     *
+     * 每删一条同步修正课程的 rating_count / rating_score，
+     * 否则课程详情的平均分与人数会和实际对不上。
+     *
+     * @param ids 逗号分隔的评分ID
+     */
+    public int deleteRatingByIds(String ids);
 }

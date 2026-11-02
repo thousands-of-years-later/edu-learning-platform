@@ -43,4 +43,13 @@ public interface UserHomeMapper
      * @param limit  取几条
      */
     public List<FanBrief> selectFanPreview(@Param("userId") Long userId, @Param("limit") int limit);
+
+    /**
+     * 我是否关注了某个用户（他人主页的"关注/已关注"按钮状态）
+     *
+     * @param userId       我
+     * @param followUserId 对方
+     * @return 1 = 已关注，0 = 未关注
+     */
+    public int countFollow(@Param("userId") Long userId, @Param("followUserId") Long followUserId);
 }

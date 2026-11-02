@@ -96,6 +96,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<if test="featured != null and featured">
 		   and p.is_featured = '1'
 		</if>
+		<!-- 他人主页：只看这个作者的文章（userId 为空 = 全部作者） -->
+		<if test="userId != null">
+		   and p.user_id = #{userId}
+		</if>
 		 order by
 		<choose>
 			<when test="sortBy == 'likeCount'">p.like_count desc, p.create_time desc, p.post_id desc</when>

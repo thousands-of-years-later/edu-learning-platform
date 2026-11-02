@@ -68,6 +68,25 @@ public class ApiV1UserProfileController extends BaseController
     }
 
     /**
+     * 他人主页资料（点别人头像进来；关注、粉丝列表也能用）
+     *
+     * 只返回公开字段，不带手机号、登录名；isFollowing 直接给"关注/已关注"按钮用，
+     * 前端不用再单独调 /api/v1/follow/status。
+     *
+     * @param userId 被查看的用户ID（必传）
+     * @return {userId, userName, avatar, sex, sexLabel, bio,
+     *          followCount, fansCount, likeReceivedCount, isSelf, isFollowing}
+     *         他的文章列表调 GET /api/v1/post/list?userId=xxx
+     */
+    @GetMapping("/publicProfile")
+    public AjaxResult publicProfile(Long userId)
+    {
+        AjaxResult ajax = AjaxResult.success();
+        ajax.putAll(userProfileService.publicProfile(ApiContext.getUserId(), userId));
+        return ajax;
+    }
+
+    /**
      * 保存我的资料
      *
      * @param userName 昵称（1~20 字，去首尾空格）

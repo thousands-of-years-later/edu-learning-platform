@@ -105,6 +105,36 @@ public class UserProfileServiceImpl implements IUserProfileService
         return result;
     }
 
+    @Override
+    public Map<String, Object> publicProfile(Long meUserId, Long targetUserId)
+    {
+        checkUser(meUserId);
+        if (targetUserId == null)
+        {
+            throw new ServiceException("用户ID不能为空");
+        }
+        UserProfile profile = userProfileMapper.selectProfile(targetUserId);
+        if (profile == null)
+        {
+            throw new ServiceException("用户不存在或已被删除");
+        }
+        // 只给公开字段：手机号、登录名这些不放进来
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("userId", profile.getUserId());
+        result.put("userName", profile.getUserName());
+        result.put("avatar", StringUtils.isEmpty(profile.getAvatar()) ? null : profile.getAvatar());
+        result.put("sex", profile.getSex());
+        result.put("sexLabel", UserProfile.sexLabelOf(profile.getSex()));
+        result.put("bio", StringUtils.isEmpty(profile.getBio()) ? null : profile.getBio());
+        result.put("followCount", userHomeMapper.countFollowing(targetUserId));
+        result.put("fansCount", userHomeMapper.countFans(targetUserId));
+        Integer received = userHomeMapper.sumPostLikes(targetUserId);
+        result.put("likeReceivedCount", received == null ? 0 : received);
+        result.put("isSelf", meUserId.equals(targetUserId));
+        result.put("isFollowing", userHomeMapper.countFollow(meUserId, targetUserId) > 0);
+        return result;
+    }
+
     private void checkUser(Long userId)
     {
         if (userId == null)

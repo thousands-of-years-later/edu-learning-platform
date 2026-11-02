@@ -42,4 +42,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 limit #{limit}
 	</select>
 
+	<!-- 我是否关注了对方：他人主页的"关注/已关注"按钮状态 -->
+	<select id="countFollow" resultType="int">
+		select count(*) from learning_follow
+		 where user_id = #{userId} and follow_user_id = #{followUserId}
+	</select>
+
 </mapper>

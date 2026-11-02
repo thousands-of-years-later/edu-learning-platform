@@ -53,4 +53,18 @@ public interface IUserProfileService
      *          fanPreview:[{userId, userName, avatar}]}
      */
     public Map<String, Object> home(Long userId);
+
+    /**
+     * 他人主页资料（点别人头像 / 从关注、粉丝列表点进来）
+     *
+     * 只返回公开字段：昵称、头像、性别文案、简介、关注数、粉丝数、获赞数，
+     * 外加两个按钮状态：isSelf（是不是自己）、isFollowing（我有没有关注他）。
+     * 不返回手机号、登录名等隐私信息。
+     *
+     * @param meUserId     当前登录用户（用于算 isFollowing / isSelf）
+     * @param targetUserId 被查看的用户
+     * @return {userId, userName, avatar, sex, sexLabel, bio,
+     *          followCount, fansCount, likeReceivedCount, isSelf, isFollowing}
+     */
+    public Map<String, Object> publicProfile(Long meUserId, Long targetUserId);
 }

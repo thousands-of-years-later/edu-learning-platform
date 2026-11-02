@@ -119,12 +119,14 @@ public class ApiV1PostController extends BaseController
      * @param categoryId 类别ID（可选）
      * @param featured 是否只看精华文章：true/1 只看精华；不传/false 返回全部
      * @param sortBy 排序方式：createTime（缺省）/ likeCount
+     * @param userId 作者ID（可选）：他人主页传被查看人的 userId，只看他的文章；
+     *        不传 = 所有人的已发布文章
      *        分页参数：pageNum / pageSize
      * @return {code:0, rows:[{postId, postTitle, userName, avatar, isFeatured,
      *         createTime, viewCount, likeCount, favoriteCount, commentCount}], total}
      */
     @GetMapping("/list")
-    public Object list(Long categoryId, Boolean featured, String sortBy)
+    public Object list(Long categoryId, Boolean featured, String sortBy, Long userId)
     {
         // 校验必须在 startPage() 之前：PageHelper 的分页参数挂在 ThreadLocal 上，
         // 校验失败若发生在 startPage() 之后且没有查询消费它，参数会残留到本线程的下一条查询。
@@ -144,7 +146,7 @@ public class ApiV1PostController extends BaseController
         PageDomain page = TableSupport.buildPageRequest();
         PageHelper.startPage(page.getPageNum(), page.getPageSize()).setReasonable(page.getReasonable());
         List<PostListSummary> list = myPostMapper.selectPublishedList(
-                categoryId, Boolean.TRUE.equals(featured), sort);
+                categoryId, Boolean.TRUE.equals(featured), sort, userId);
         return getDataTable(list);
     }
 

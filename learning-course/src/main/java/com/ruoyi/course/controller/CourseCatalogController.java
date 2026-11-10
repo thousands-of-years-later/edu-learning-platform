@@ -90,6 +90,7 @@ public class CourseCatalogController extends BaseController
         {
             Map<String, Object> node = newNode("c" + course.getCourseId(), "0", "course",
                     course.getCourseName(), course.getCourseId(), null, null);
+            node.put("courseName", course.getCourseName());
             node.put("status", course.getStatus());
             node.put("coverUrl", course.getCoverUrl());
             node.put("intro", course.getIntro());
@@ -98,6 +99,7 @@ public class CourseCatalogController extends BaseController
             rows.add(node);
 
             // 2、章节节点
+            int chapterStart = rows.size();
             CourseChapter chapterQuery = new CourseChapter();
             chapterQuery.setCourseId(course.getCourseId());
             List<CourseChapter> chapters = courseChapterService.selectChapterList(chapterQuery);
@@ -105,6 +107,7 @@ public class CourseCatalogController extends BaseController
             {
                 Map<String, Object> chapterNode = newNode("h" + chapter.getChapterId(), "c" + course.getCourseId(),
                         "chapter", chapter.getChapterTitle(), course.getCourseId(), chapter.getChapterId(), null);
+                chapterNode.put("courseName", course.getCourseName());
                 chapterNode.put("orderNum", chapter.getOrderNum());
                 chapterNode.put("chapterContent", chapter.getChapterContent());
                 rows.add(chapterNode);
@@ -120,14 +123,66 @@ public class CourseCatalogController extends BaseController
                         : "h" + video.getChapterId();
                 Map<String, Object> videoNode = newNode("v" + video.getVideoId(), parent, "video",
                         video.getVideoTitle(), course.getCourseId(), video.getChapterId(), video.getVideoId());
+                videoNode.put("courseName", course.getCourseName());
                 videoNode.put("orderNum", video.getOrderNum());
                 videoNode.put("duration", video.getDuration());
                 videoNode.put("videoUrl", video.getVideoUrl());
                 videoNode.put("chapterTitle", video.getChapterTitle());
+                videoNode.put("createTime", video.getCreateTime());
+                videoNode.put("updateTime", video.getUpdateTime());
                 rows.add(videoNode);
+            }
+
+            // 4、给章节补"小节数量 / 第一个小节"，章节行上的播放和详情直接用
+            for (int i = chapterStart; i < rows.size(); i++)
+            {
+                Map<String, Object> chapterNode = rows.get(i);
+                if (!"chapter".equals(chapterNode.get("type")))
+                {
+                    continue;
+                }
+                int videoCount = 0;
+                Map<String, Object> firstVideo = null;
+                for (Map<String, Object> videoNode : rows)
+                {
+                    if ("video".equals(videoNode.get("type"))
+                            && chapterNode.get("id").equals(videoNode.get("parentId")))
+                    {
+                        videoCount++;
+                        if (firstVideo == null)
+                        {
+                            firstVideo = videoNode;
+                        }
+                    }
+                }
+                chapterNode.put("videoCount", videoCount);
+                if (firstVideo != null)
+                {
+                    chapterNode.put("firstVideoUrl", firstVideo.get("videoUrl"));
+                    chapterNode.put("firstVideoTitle", firstVideo.get("name"));
+                }
             }
         }
         return rows;
+    }
+
+    /**
+     * 某个章节下的小节列表（章节行的播放/详情用）
+     *
+     * @param chapterId 章节ID
+     */
+    @RequiresPermissions("course:course:view")
+    @PostMapping("/videos")
+    @ResponseBody
+    public List<CourseVideo> videos(Long chapterId)
+    {
+        if (chapterId == null)
+        {
+            return new ArrayList<>();
+        }
+        CourseVideo query = new CourseVideo();
+        query.setChapterId(chapterId);
+        return courseVideoService.selectVideoList(query);
     }
 
     /**

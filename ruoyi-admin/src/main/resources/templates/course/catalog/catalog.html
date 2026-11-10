@@ -40,6 +40,37 @@
 		};
 		var typeLabels = { course: '课程', chapter: '章节', video: '小节' };
 
+		/* 最近一次加载的树数据：行内按钮只传 id，详情要用整行数据 */
+		var catalogRows = [];
+
+		function findCatalogRow(type, id) {
+			for (var i = 0; i < catalogRows.length; i++) {
+				var row = catalogRows[i];
+				if (row.type !== type) {
+					continue;
+				}
+				var key = type === 'chapter' ? 'chapterId' : 'videoId';
+				if (String(row[key]) === String(id)) {
+					return row;
+				}
+			}
+			return null;
+		}
+
+		function chapterDetailById(chapterId) {
+			var row = findCatalogRow('chapter', chapterId);
+			if (row) {
+				chapterDetail(row);
+			}
+		}
+
+		function videoDetailById(videoId) {
+			var row = findCatalogRow('video', videoId);
+			if (row) {
+				videoDetail(row);
+			}
+		}
+
 		/* 打开新增/编辑页：弹层 iframe，关闭后刷新树 */
 		function openForm(title, url) {
 			layer.open({
@@ -105,8 +136,75 @@
 				title: title,
 				area: ['820px', '520px'],
 				content: '<div style="width:100%;height:100%;background:#000;">'
-					+ '<video src="' + url + '" controls autoplay style="width:100%;height:100%;"></video></div>'
+					+ '<video src="' + escAttr(url) + '" controls autoplay style="width:100%;height:100%;"></video></div>'
 			});
+		}
+
+		/* 章节播放：只有一个直接播，多个先列出来选 */
+		function playChapter(row) {
+			$.post(ctx + "course/catalog/videos", { chapterId: row.chapterId }, function (list) {
+				if (!list || list.length === 0) {
+					$.modal.alertWarning("该章节还没有小节视频");
+					return;
+				}
+				if (list.length === 1) {
+					previewVideo(list[0].videoUrl, list[0].videoTitle);
+					return;
+				}
+				var html = '<div style="padding:14px;">';
+				$.each(list, function (i, v) {
+					html += '<div style="margin-bottom:12px;">'
+						+ '<a class="btn btn-info btn-xs" href="javascript:void(0)"'
+						+ ' onclick="previewVideo(\'' + escAttr(v.videoUrl) + '\',\'' + escAttr(v.videoTitle) + '\')">'
+						+ '<i class="fa fa-play"></i> 播放</a>'
+						+ '<span style="margin-left:10px;">' + escHtml(v.videoTitle) + '</span>'
+						+ '<span style="color:#9aa7b5;margin-left:10px;">' + formatDuration(v.duration) + '</span>'
+						+ '</div>';
+				});
+				html += '</div>';
+				layer.open({ type: 1, title: row.name + ' - 小节列表', area: ['640px', '420px'], content: html });
+			}, "json");
+		}
+
+		/* 章节详情 */
+		function chapterDetail(row) {
+			var html = '<div style="padding:16px;line-height:2;">'
+				+ '<div><b>章节：</b>' + escHtml(row.name || '') + '</div>'
+				+ '<div><b>所属课程：</b>' + escHtml(row.courseName || '') + '</div>'
+				+ '<div><b>排序：</b>' + (row.orderNum == null ? '' : row.orderNum) + '</div>'
+				+ '<div><b>小节数：</b>' + (row.videoCount || 0) + '</div>'
+				+ '<div><b>章节简介：</b></div>'
+				+ '<div style="white-space:pre-wrap;color:#4a5568;">' + escHtml(row.chapterContent || '（无）') + '</div>'
+				+ '</div>';
+			layer.open({ type: 1, title: '章节详情', area: ['660px', '460px'], content: html });
+		}
+
+		/* 小节详情 */
+		function videoDetail(row) {
+			var html = '<div style="padding:16px;line-height:2;">'
+				+ '<div><b>小节：</b>' + escHtml(row.name || '') + '</div>'
+				+ '<div><b>所属章节：</b>' + escHtml(row.chapterTitle || '无章节') + '</div>'
+				+ '<div><b>所属课程：</b>' + escHtml(row.courseName || '') + '</div>'
+				+ '<div><b>时长：</b>' + formatDuration(row.duration) + '</div>'
+				+ '<div><b>排序：</b>' + (row.orderNum == null ? '' : row.orderNum) + '</div>'
+				+ '<div><b>上传时间：</b>' + escHtml(row.createTime || '') + '</div>'
+				+ '<div style="margin-top:12px;">'
+				+ '<a class="btn btn-info btn-sm" href="javascript:void(0)"'
+				+ ' onclick="previewVideo(\'' + escAttr(row.videoUrl || '') + '\',\'' + escAttr(row.name || '') + '\')">'
+				+ '<i class="fa fa-play"></i> 播放</a></div>'
+				+ '</div>';
+			layer.open({ type: 1, title: '小节详情', area: ['660px', '440px'], content: html });
+		}
+
+		/* 转义：内容里可能带引号/尖括号 */
+		function escHtml(text) {
+			return String(text == null ? '' : text)
+				.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		}
+
+		function escAttr(text) {
+			return String(text == null ? '' : text)
+				.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 		}
 
 		/* 删除章节 / 小节：章节删除会连同章节下的小节一起删（服务端已有级联） */
@@ -146,6 +244,9 @@
 				showRefresh: false,
 				url: prefix + "/list",
 				ajaxParams: currentCourseId ? { courseId: currentCourseId } : {},
+				responseHandler: function (res) {
+					catalogRows = res || [];
+				},
 				modalName: "课程目录",
 				columns: [{
 					field: 'selectItem',
@@ -154,7 +255,7 @@
 				{
 					title: '名称',
 					field: 'name',
-					width: '46',
+					width: '40',
 					widthUnit: '%',
 					formatter: function (value, row, index) {
 						var icon = typeIcons[row.type] || 'fa fa-file-o';
@@ -168,7 +269,7 @@
 				{
 					title: '类型',
 					field: 'type',
-					width: '10',
+					width: '8',
 					widthUnit: '%',
 					align: 'center',
 					formatter: function (value, row, index) {
@@ -178,7 +279,7 @@
 				{
 					title: '排序',
 					field: 'orderNum',
-					width: '8',
+					width: '7',
 					widthUnit: '%',
 					align: 'center',
 					formatter: function (value, row, index) {
@@ -188,7 +289,7 @@
 				{
 					title: '时长',
 					field: 'duration',
-					width: '10',
+					width: '8',
 					widthUnit: '%',
 					align: 'center',
 					formatter: function (value, row, index) {
@@ -197,7 +298,7 @@
 				},
 				{
 					title: '操作',
-					width: '26',
+					width: '37',
 					widthUnit: '%',
 					align: 'center',
 					formatter: function (value, row, index) {
@@ -205,19 +306,30 @@
 						if (row.type === 'course') {
 							actions.push('<a class="btn btn-success btn-xs ' + addFlag + '" href="javascript:void(0)" onclick="addChapter(\'' + row.courseId + '\')"><i class="fa fa-plus"></i>新增章节</a>');
 						} else if (row.type === 'chapter') {
-							actions.push('<a class="btn btn-success btn-xs ' + addFlag + '" href="javascript:void(0)" onclick="addVideo(\'' + row.courseId + '\',\'' + row.chapterId + '\')"><i class="fa fa-plus"></i>新增小节</a> ');
+							actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="playChapter(\'' + row.chapterId + '\')"><i class="fa fa-play"></i>播放</a> ');
+							actions.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="chapterDetailById(\'' + row.chapterId + '\')"><i class="fa fa-info-circle"></i>详情</a> ');
+							actions.push('<a class="btn btn-success btn-xs ' + addFlag + '" href="javascript:void(0)" onclick="addVideo(\'' + row.courseId + '\',\'' + row.chapterId + '\')"><i class="fa fa-plus"></i>小节</a> ');
 							actions.push('<a class="btn btn-primary btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="editChapter(\'' + row.chapterId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
-							actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="removeNode(\'chapter\',\'' + row.chapterId + '\',\'' + (row.name || '') + '\')"><i class="fa fa-remove"></i>删除</a>');
+							actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="removeNode(\'chapter\',\'' + row.chapterId + '\',\'' + escAttr(row.name) + '\')"><i class="fa fa-remove"></i>删除</a>');
 						} else if (row.type === 'video') {
-							actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="previewVideo(\'' + (row.videoUrl || '') + '\',\'' + (row.name || '') + '\')"><i class="fa fa-play"></i>播放</a> ');
+							actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="previewVideo(\'' + escAttr(row.videoUrl || '') + '\',\'' + escAttr(row.name) + '\')"><i class="fa fa-play"></i>播放</a> ');
+							actions.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="videoDetailById(\'' + row.videoId + '\')"><i class="fa fa-info-circle"></i>详情</a> ');
 							actions.push('<a class="btn btn-primary btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="editVideo(\'' + row.videoId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
-							actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="removeNode(\'video\',\'' + row.videoId + '\',\'' + (row.name || '') + '\')"><i class="fa fa-remove"></i>删除</a>');
+							actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="removeNode(\'video\',\'' + row.videoId + '\',\'' + escAttr(row.name) + '\')"><i class="fa fa-remove"></i>删除</a>');
 						}
 						return actions.join('');
 					}
 				}]
 			};
 			$.treeTable.init(options);
+
+			/* 点课程/章节这一行本身就展开或收起（点到按钮、单选框、展开图标时不重复处理） */
+			$('#bootstrap-tree-table').on('click', 'tbody tr', function (e) {
+				if ($(e.target).closest('a, button, input, select, textarea, .treetable-expander').length > 0) {
+					return;
+				}
+				$(this).find('.treetable-expander').first().trigger('click');
+			});
 		});
 	</script>
 </body>

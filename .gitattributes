@@ -1,5 +1,3 @@
-# 统一换行符，避免 Linux 上出现 \r 导致 bash 执行失败
+# 仅约束需要在 Linux 上执行的脚本，避免全仓库换行符抖动
 *.sh text eol=lf
 Dockerfile text eol=lf
-*.yml text eol=lf
-*.yaml text eol=lf

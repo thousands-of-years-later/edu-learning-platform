@@ -1,6 +1,7 @@
 package com.ruoyi.user.service.impl;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -12,6 +13,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.user.domain.AdFreeRule;
 import com.ruoyi.user.domain.PointsAccount;
 import com.ruoyi.user.domain.PointsLog;
+import com.ruoyi.user.domain.PointsSource;
 import com.ruoyi.user.mapper.PointsAccountMapper;
 import com.ruoyi.user.mapper.PointsLogMapper;
 import com.ruoyi.user.service.IPointsService;
@@ -122,11 +124,44 @@ public class PointsServiceImpl implements IPointsService
         return pointsAccountMapper.selectAdminList(userName == null ? null : userName.trim());
     }
 
+
     @Override
-    public List<PointsLog> selectAdminLogList(String userName, String type)
+    public PointsAccount selectAdminAccount(Long userId)
     {
-        return pointsLogMapper.selectAdminList(userName == null ? null : userName.trim(),
-                type == null ? null : type.trim());
+        if (userId == null)
+        {
+            return null;
+        }
+        return pointsAccountMapper.selectAdminAccountByUser(userId);
+    }
+
+    @Override
+    public List<PointsLog> selectLogsByUser(Long userId)
+    {
+        if (userId == null)
+        {
+            return new ArrayList<>();
+        }
+        List<PointsLog> list = pointsLogMapper.selectByUser(userId);
+        fillSourceLabel(list);
+        return list;
+    }
+
+    /**
+     * 给每条明细补"来源中文名"
+     *
+     * 来源编码 -> 中文的映射统一放在 PointsSource，新增来源不用改这里和页面。
+     */
+    private void fillSourceLabel(List<PointsLog> list)
+    {
+        if (list == null)
+        {
+            return;
+        }
+        for (PointsLog log : list)
+        {
+            log.setSourceLabel(PointsSource.labelOf(log.getType()));
+        }
     }
 
     /** 到期时间格式化成字符串给前端（null 原样返回 null） */

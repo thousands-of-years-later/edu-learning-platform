@@ -56,12 +56,4 @@ public interface ICheckinService
      */
     public Map<String, Object> rules();
 
-    /**
-     * 后台签到记录列表（分页由控制器 startPage() 驱动）
-     *
-     * @param userName  用户昵称模糊（可空）
-     * @param beginDate 起始日期 yyyy-MM-dd（可空）
-     * @param endDate   结束日期 yyyy-MM-dd（可空）
-     */
-    public List<CheckinRecord> selectAdminList(String userName, String beginDate, String endDate);
 }

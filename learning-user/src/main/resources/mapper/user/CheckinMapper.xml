@@ -68,27 +68,5 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		values (#{userId}, #{signDate}, #{points}, #{continuousDays}, sysdate())
 	</insert>
 
-	<!--
-	  后台签到记录：带用户昵称（标量子查询，不 join）。
-	  按昵称筛选用 exists 子查询而不是 join，避免分页时列名歧义。
-	-->
-	<select id="selectAdminList" resultMap="CheckinRecordResult">
-		select c.checkin_id, c.user_id, c.sign_date, c.points, c.continuous_days, c.create_time,
-		       (select u.user_name from sys_user u where u.user_id = c.user_id) as user_name
-		  from learning_checkin c
-		<where>
-			<if test="userName != null and userName != ''">
-			   and exists (select 1 from sys_user u
-			                where u.user_id = c.user_id and u.user_name like concat('%', #{userName}, '%'))
-			</if>
-			<if test="beginDate != null and beginDate != ''">
-			   and c.sign_date &gt;= #{beginDate}
-			</if>
-			<if test="endDate != null and endDate != ''">
-			   and c.sign_date &lt;= #{endDate}
-			</if>
-		</where>
-		 order by c.sign_date desc, c.checkin_id desc
-	</select>
 
 </mapper>

@@ -22,12 +22,11 @@ public interface PointsLogMapper
      */
     public int insertLog(PointsLog log);
 
+
     /**
-     * 后台积分流水列表（分页由控制器驱动），带用户昵称
+     * 某个用户的全部积分明细（后台"积分记录 → 查看明细"用），按 log_id 倒序
      *
-     * @param userName 用户昵称模糊（可空）
-     * @param type     类型 checkin / exchange / adjust（可空）
+     * @param userId 用户ID
      */
-    public List<PointsLog> selectAdminList(@Param("userName") String userName,
-                                           @Param("type") String type);
+    public List<PointsLog> selectByUser(@Param("userId") Long userId);
 }

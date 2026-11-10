@@ -22,20 +22,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		values (#{userId}, #{changeAmount}, #{balance}, #{type}, #{refId}, #{remark}, sysdate())
 	</insert>
 
-	<!-- 后台积分流水：带用户昵称（标量子查询，不 join）；按 log_id 倒序保证翻页稳定 -->
-	<select id="selectAdminList" resultMap="PointsLogResult">
-		select l.log_id, l.user_id, l.change_amount, l.balance, l.type, l.ref_id, l.remark, l.create_time,
-		       (select u.user_name from sys_user u where u.user_id = l.user_id) as user_name
+
+	<!-- 某个用户的积分明细：后台"积分记录 → 查看明细"用，按时间倒序（log_id 兜底稳定） -->
+	<select id="selectByUser" resultMap="PointsLogResult">
+		select l.log_id, l.user_id, l.change_amount, l.balance, l.type, l.ref_id, l.remark, l.create_time
 		  from learning_points_log l
-		<where>
-			<if test="userName != null and userName != ''">
-			   and exists (select 1 from sys_user u
-			                where u.user_id = l.user_id and u.user_name like concat('%', #{userName}, '%'))
-			</if>
-			<if test="type != null and type != ''">
-			   and l.type = #{type}
-			</if>
-		</where>
+		 where l.user_id = #{userId}
 		 order by l.log_id desc
 	</select>
 

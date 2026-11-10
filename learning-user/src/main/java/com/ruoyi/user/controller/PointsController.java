@@ -4,6 +4,7 @@ import java.util.List;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,10 +16,17 @@ import com.ruoyi.user.domain.PointsLog;
 import com.ruoyi.user.service.IPointsService;
 
 /**
- * 积分账户 / 积分流水（后台，只读）
+ * 积分记录（后台，只读）
  *
- * 积分是签到与兑换算出来的结果，后台只查看不修改（要纠正就记一条 adjust 流水）。
- * 权限：user:points:view / list（只给 admin）。
+ * 一个菜单两页：
+ *   1) /user/points/records  用户列表：每个用户的总积分（当前余额）、累计获得、最后变动时间；
+ *   2) /user/points/detail   点某个用户进来：他的每一条积分来源、积分变动、变动后余额、时间。
+ *
+ * 「来源」用 PointsLog.type 存编码，展示时用 PointsSource.labelOf 转中文；
+ * 以后新增积分来源（任务、邀请、活动…）只要在 PointsSource 里加编码+标签、发积分时写一条流水即可，
+ * 后台这里不需要改代码。
+ *
+ * 权限：user:points:view（页面）/ user:points:list（列表数据），只给 admin。
  *
  * @author edu
  */
@@ -30,24 +38,24 @@ public class PointsController extends BaseController
     private IPointsService pointsService;
 
     /**
-     * 积分账户页面
+     * 积分记录页（用户列表）
      */
     @RequiresPermissions("user:points:view")
-    @GetMapping("/account")
-    public String account()
+    @GetMapping("/records")
+    public String records()
     {
-        return "user/points/account";
+        return "user/points/records";
     }
 
     /**
-     * 积分账户列表（分页）
+     * 积分记录列表（分页）：每个用户一行
      *
      * @param userName 用户昵称模糊（可空）
      */
     @RequiresPermissions("user:points:list")
-    @PostMapping("/account/list")
+    @PostMapping("/list")
     @ResponseBody
-    public TableDataInfo accountList(String userName)
+    public TableDataInfo list(String userName)
     {
         startPage();
         List<PointsAccount> list = pointsService.selectAdminAccountList(userName);
@@ -55,28 +63,30 @@ public class PointsController extends BaseController
     }
 
     /**
-     * 积分流水页面
+     * 某个用户的积分明细页
+     *
+     * @param userId 用户ID
      */
     @RequiresPermissions("user:points:view")
-    @GetMapping("/log")
-    public String log()
+    @GetMapping("/detail")
+    public String detail(Long userId, ModelMap mmap)
     {
-        return "user/points/log";
-    }
+        mmap.put("userId", userId);
+        if (userId == null)
+        {
+            mmap.put("error", "参数不合法，无法查看积分记录");
+            return "user/points/detail";
+        }
 
-    /**
-     * 积分流水列表（分页）
-     *
-     * @param userName 用户昵称模糊（可空）
-     * @param type     类型 checkin / exchange / adjust（可空）
-     */
-    @RequiresPermissions("user:points:list")
-    @PostMapping("/log/list")
-    @ResponseBody
-    public TableDataInfo logList(String userName, String type)
-    {
-        startPage();
-        List<PointsLog> list = pointsService.selectAdminLogList(userName, type);
-        return getDataTable(list);
+        PointsAccount account = pointsService.selectAdminAccount(userId);
+        if (account == null)
+        {
+            mmap.put("error", "该用户还没有积分记录");
+            return "user/points/detail";
+        }
+
+        mmap.put("account", account);
+        mmap.put("logs", pointsService.selectLogsByUser(userId));
+        return "user/points/detail";
     }
 }

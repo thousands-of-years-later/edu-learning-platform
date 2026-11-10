@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<th:block th:include="include :: header('积分明细')" />
+	<style>
+		.points-summary { padding: 16px 18px; background: #f8fafc; border: 1px solid #e6ebf2; border-radius: 6px; }
+		.points-summary .user-title { font-size: 18px; font-weight: 600; margin: 0 0 6px; }
+		.points-summary .user-meta { color: #7b8794; font-size: 13px; }
+		.points-summary .user-meta span { margin-right: 18px; }
+		.points-cards { display: flex; gap: 14px; margin-top: 14px; }
+		.points-card { flex: 1; padding: 14px 16px; background: #fff; border: 1px solid #e6ebf2; border-radius: 6px; }
+		.points-card .label { color: #8a97a6; font-size: 12px; }
+		.points-card .value { font-size: 26px; font-weight: 600; color: #2b3a4b; line-height: 1.4; }
+		.points-change-plus { color: #3c9d5f; font-weight: 600; }
+		.points-change-minus { color: #d9534f; font-weight: 600; }
+		.points-empty { padding: 40px 0; text-align: center; color: #9aa7b5; }
+		.text-muted { color: #9aa7b5; }
+	</style>
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12">
+				<div th:if="${error != null}" class="ibox">
+					<div class="ibox-content">
+						<div class="points-empty">
+							<i class="fa fa-exclamation-circle"></i>&nbsp;
+							<span th:text="${error}">该用户还没有积分记录</span>
+						</div>
+					</div>
+				</div>
+
+				<th:block th:if="${error == null}">
+					<div class="points-summary">
+						<p class="user-title" th:text="${account.userName}">用户</p>
+						<div class="user-meta">
+							<span th:text="'用户ID：' + ${account.userId}">用户ID</span>
+							<span th:text="'首次获得：' + ${#dates.format(account.createTime, 'yyyy-MM-dd HH:mm')}">首次</span>
+							<span th:text="'最后变动：' + ${#dates.format(account.updateTime, 'yyyy-MM-dd HH:mm')}">最后</span>
+						</div>
+					</div>
+
+					<div class="points-cards">
+						<div class="points-card">
+							<div class="label">当前总积分</div>
+							<div class="value" th:text="${account.balance != null ? account.balance : 0}">0</div>
+						</div>
+						<div class="points-card">
+							<div class="label">累计获得</div>
+							<div class="value" th:text="${account.totalEarned != null ? account.totalEarned : 0}">0</div>
+						</div>
+						<div class="points-card">
+							<div class="label">明细条数</div>
+							<div class="value" th:text="${#lists.size(logs)}">0</div>
+						</div>
+					</div>
+
+					<div class="ibox" style="margin-top: 16px;">
+						<div class="ibox-title">
+							<h5>积分明细（<span th:text="${#lists.size(logs)}">0</span>）</h5>
+						</div>
+						<div class="ibox-content">
+							<div th:if="${#lists.isEmpty(logs)}" class="points-empty">
+								<i class="fa fa-inbox"></i>&nbsp;暂无积分变动记录
+							</div>
+
+							<table th:if="${not #lists.isEmpty(logs)}" class="table table-striped">
+								<thead>
+									<tr>
+										<th style="width: 90px;">序号</th>
+										<th style="width: 170px;">时间</th>
+										<th style="width: 130px;">来源</th>
+										<th style="width: 110px;">积分变动</th>
+										<th style="width: 120px;">变动后余额</th>
+										<th>说明</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr th:each="log, stat : ${logs}">
+										<td th:text="${stat.count}">1</td>
+										<td th:text="${#dates.format(log.createTime, 'yyyy-MM-dd HH:mm:ss')}">时间</td>
+										<td>
+											<span class="label label-primary"
+											      th:text="${log.sourceLabel != null ? log.sourceLabel : log.type}">签到</span>
+										</td>
+										<td>
+											<span th:if="${log.changeAmount != null and log.changeAmount >= 0}"
+											      class="points-change-plus" th:text="'+' + ${log.changeAmount}">+5</span>
+											<span th:if="${log.changeAmount != null and log.changeAmount < 0}"
+											      class="points-change-minus" th:text="${log.changeAmount}">-10</span>
+										</td>
+										<td th:text="${log.balance}">0</td>
+										<td th:text="${log.remark != null ? log.remark : ''}">说明</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</th:block>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+</body>
+</html>

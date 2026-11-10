@@ -78,4 +78,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 order by a.balance desc, a.user_id asc
 	</select>
 
+	<!-- 后台按用户查账户（带昵称）：积分记录 → 查看明细 的头部用 -->
+	<select id="selectAdminAccountByUser" resultMap="PointsAccountResult">
+		select a.user_id, a.balance, a.total_earned, a.ad_free_expire_time, a.create_time, a.update_time,
+		       (select u.user_name from sys_user u where u.user_id = a.user_id) as user_name
+		  from learning_points_account a
+		 where a.user_id = #{userId}
+	</select>
+
 </mapper>

@@ -45,6 +45,13 @@ public class PointsLog implements Serializable
     /** 类型：checkin / exchange / adjust */
     private String type;
 
+    /**
+     * 来源中文名（展示字段，不入库）：由服务层用 PointsSource.labelOf(type) 填
+     *
+     * 新增来源时只要在 PointsSource 加编码+标签，这里自动跟着变。
+     */
+    private String sourceLabel;
+
     /** 关联业务ID（签到记录 checkin_id 等） */
     private Long refId;
 
@@ -141,5 +148,15 @@ public class PointsLog implements Serializable
     public void setUserName(String userName)
     {
         this.userName = userName;
+    }
+
+    public String getSourceLabel()
+    {
+        return sourceLabel;
+    }
+
+    public void setSourceLabel(String sourceLabel)
+    {
+        this.sourceLabel = sourceLabel;
     }
 }

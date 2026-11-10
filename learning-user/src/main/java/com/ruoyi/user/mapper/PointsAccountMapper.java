@@ -61,4 +61,12 @@ public interface PointsAccountMapper
      * @param userName 用户昵称模糊（可空）
      */
     public List<PointsAccount> selectAdminList(@Param("userName") String userName);
+
+    /**
+     * 后台按用户ID查积分账户（带昵称），给"积分记录 → 查看明细"的页面头部用
+     *
+     * @param userId 用户ID
+     * @return 账户不存在返回 null
+     */
+    public PointsAccount selectAdminAccountByUser(@Param("userId") Long userId);
 }

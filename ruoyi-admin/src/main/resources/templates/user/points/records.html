@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
 <head>
-	<th:block th:include="include :: header('积分账户')" />
+	<th:block th:include="include :: header('积分记录')" />
 </head>
 <body class="gray-bg">
 	<div class="container-div">
 		<div class="row">
 			<div class="col-sm-12 search-collapse">
-				<form id="account-form">
+				<form id="points-form">
 					<div class="select-list">
 						<ul>
 							<li>
@@ -22,11 +22,7 @@
 				</form>
 			</div>
 
-			<div class="btn-group-sm" id="toolbar" role="group">
-				<a class="btn btn-default" href="/user/points/log"><i class="fa fa-list"></i> 查看积分流水</a>
-	        </div>
-
-	        <div class="col-sm-12 select-table table-striped">
+			<div class="col-sm-12 select-table table-striped">
 			    <table id="bootstrap-table"></table>
 			</div>
 		</div>
@@ -35,10 +31,15 @@
 	<script th:inline="javascript">
 		var prefix = ctx + "user/points";
 
+		/* 打开某个用户的积分明细：来源 + 每次积分变动 + 变动后余额 */
+		function openDetail(userId) {
+			$.modal.openTab("积分明细", ctx + "user/points/detail?userId=" + userId);
+		}
+
 		$(function() {
 		    var options = {
-		        url: prefix + "/account/list",
-		        modalName: "积分账户",
+		        url: prefix + "/list",
+		        modalName: "积分记录",
 		        uniqueId: "userId",
 		        sortName: "userId",
 		        columns: [{
@@ -52,9 +53,13 @@
 		        },
 		        {
 		            field: 'balance',
-		            title: '当前余额',
+		            title: '总积分',
 		            align: 'center',
-		            sortable: true
+		            sortable: true,
+		            formatter: function(value, row, index) {
+		                if (value == null) { return '0'; }
+		                return '<span class="label label-success">' + value + '</span>';
+		            }
 		        },
 		        {
 		            field: 'totalEarned',
@@ -62,16 +67,16 @@
 		            align: 'center'
 		        },
 		        {
-		            field: 'adFreeExpireTime',
-		            title: '免广告到期',
-		            formatter: function(value, row, index) {
-		                return value ? value : '<span class="text-muted">无</span>';
-		            }
-		        },
-		        {
 		            field: 'updateTime',
 		            title: '最后变动',
 		            sortable: true
+		        },
+		        {
+		            title: '操作',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                return '<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="openDetail(\'' + row.userId + '\')"><i class="fa fa-list"></i>查看明细</a>';
+		            }
 		        }]
 		    };
 		    $.table.init(options);

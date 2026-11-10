@@ -52,11 +52,19 @@ public interface IPointsService
      */
     public List<PointsAccount> selectAdminAccountList(String userName);
 
+
     /**
-     * 后台积分流水列表（分页由控制器 startPage() 驱动）
+     * 后台按用户查积分账户（带昵称），给"积分记录 → 查看明细"用
      *
-     * @param userName 用户昵称模糊（可空）
-     * @param type     类型（checkin / exchange / adjust，可空）
+     * @param userId 用户ID
+     * @return 账户不存在返回 null
      */
-    public List<PointsLog> selectAdminLogList(String userName, String type);
+    public PointsAccount selectAdminAccount(Long userId);
+
+    /**
+     * 某个用户的全部积分明细（含来源中文名），按时间倒序
+     *
+     * @param userId 用户ID
+     */
+    public List<PointsLog> selectLogsByUser(Long userId);
 }

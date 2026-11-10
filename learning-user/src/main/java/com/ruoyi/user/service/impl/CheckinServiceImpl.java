@@ -211,11 +211,6 @@ public class CheckinServiceImpl implements ICheckinService
         }
     }
 
-    @Override
-    public List<CheckinRecord> selectAdminList(String userName, String beginDate, String endDate)
-    {
-        return checkinMapper.selectAdminList(trim(userName), trim(beginDate), trim(endDate));
-    }
 
     private String trim(String text)
     {

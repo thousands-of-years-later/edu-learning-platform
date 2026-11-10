@@ -60,6 +60,27 @@
 			$.modal.openTab("短视频评论", ctx + "community/comment/view?targetType=3&targetId=" + videoId);
 		}
 
+		/* 播放：弹层直接播 OSS 上的视频 */
+		function playVideo(videoUrl, videoTitle) {
+			if (!videoUrl) {
+				$.modal.alertWarning("该短视频没有视频地址");
+				return;
+			}
+			layer.open({
+				type: 1,
+				title: videoTitle || "视频播放",
+				area: ['820px', '520px'],
+				content: '<div style="width:100%;height:100%;background:#000;">'
+					+ '<video src="' + escAttr(videoUrl) + '" controls autoplay style="width:100%;height:100%;"></video></div>'
+			});
+		}
+
+		/* 转义：地址/标题里带引号也不会把 onclick 拼坏 */
+		function escAttr(text) {
+			return String(text == null ? '' : text)
+				.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+		}
+
 		$(function() {
 		    var options = {
 		        url: prefix + "/list",
@@ -148,6 +169,7 @@
 		            align: 'center',
 		            formatter: function(value, row, index) {
 		                var actions = [];
+		                actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="playVideo(\'' + escAttr(row.videoUrl || '') + '\',\'' + escAttr(row.videoTitle || '') + '\')"><i class="fa fa-play"></i>播放</a> ');
 		                actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="openComments(\'' + row.videoId + '\')"><i class="fa fa-comments"></i>评论</a> ');
 		                actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.videoId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
 		                actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.videoId + '\')"><i class="fa fa-remove"></i>删除</a>');

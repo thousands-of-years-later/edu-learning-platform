@@ -8,8 +8,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.interaction.domain.Comment;
 import com.ruoyi.interaction.service.ICommentService;
 
@@ -67,6 +74,31 @@ public class CommentController extends BaseController
         // 真实评论数（含回复），不读冗余列
         mmap.put("commentCount", commentService.countByTarget(targetType, targetId));
         return PREFIX + "/view";
+    }
+
+    /**
+     * 删除一条评论（管理员）
+     *
+     * 一级评论会级联删除它下面的回复，并修正内容的评论数。
+     *
+     * @param commentId 评论ID
+     */
+    @Log(title = "评论查看", businessType = BusinessType.DELETE)
+    @PostMapping("/remove")
+    @ResponseBody
+    public AjaxResult remove(Long commentId)
+    {
+        if (commentId == null)
+        {
+            throw new ServiceException("评论ID不能为空");
+        }
+        // 菜单已取消，这里用"是否管理员"兜底：业务后台菜单只授给 admin
+        if (!ShiroUtils.isAdmin())
+        {
+            throw new ServiceException("只有管理员可以删除评论");
+        }
+        commentService.deleteCommentByAdmin(commentId);
+        return success();
     }
 
     /**

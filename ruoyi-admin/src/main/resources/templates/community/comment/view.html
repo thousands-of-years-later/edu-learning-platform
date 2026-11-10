@@ -58,6 +58,11 @@
 								<div class="comment-head">
 									<span class="comment-user" th:text="${c.userName}">评论人</span>
 									<span class="comment-time" th:text="${#dates.format(c.createTime, 'yyyy-MM-dd HH:mm:ss')}">时间</span>
+									<a class="btn btn-danger btn-xs" style="margin-left: 10px;"
+									   href="javascript:void(0)"
+									   th:onclick="'removeComment(' + ${c.commentId} + ')'">
+										<i class="fa fa-remove"></i>删除
+									</a>
 								</div>
 								<div class="comment-content" th:text="${c.content}">评论内容</div>
 
@@ -67,6 +72,11 @@
 										<span class="reply-to" th:if="${r.replyUserName != null and r.replyUserName != ''}"
 										      th:text="' 回复 ' + ${r.replyUserName}"> 回复 某人</span>
 										<span class="comment-time" th:text="${#dates.format(r.createTime, 'yyyy-MM-dd HH:mm:ss')}">时间</span>
+										<a class="btn btn-danger btn-xs" style="margin-left: 10px;"
+										   href="javascript:void(0)"
+										   th:onclick="'removeComment(' + ${r.commentId} + ')'">
+											<i class="fa fa-remove"></i>删除
+										</a>
 									</div>
 									<div class="comment-content" th:text="${r.content}">回复内容</div>
 								</div>
@@ -83,6 +93,20 @@
 		var typeLabel = /*[[${typeLabel}]]*/ '';
 		if (typeLabel) {
 			document.title = typeLabel + '评论 - 若依后台管理框架';
+		}
+
+		/* 删除评论：一级评论会连带删除它下面的回复，评论数同步变化 */
+		function removeComment(commentId) {
+			if (!confirm("确定删除这条评论吗？如果是一级评论，它下面的回复会一起删除。")) {
+				return;
+			}
+			$.post(ctx + "community/comment/remove", { commentId: commentId }, function (rsp) {
+				if (rsp.code === 0) {
+					location.reload();
+				} else {
+					alert(rsp.msg || "删除失败");
+				}
+			}, "json");
 		}
 	</script>
 </body>

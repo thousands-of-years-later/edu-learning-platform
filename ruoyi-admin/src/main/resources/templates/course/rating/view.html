@@ -74,6 +74,7 @@
 										<th style="width: 130px;">评分</th>
 										<th>文字评价</th>
 										<th style="width: 170px;">评分时间</th>
+										<th style="width: 90px;">操作</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -98,6 +99,12 @@
 											<div th:if="${r.updateTime != null}" class="text-muted"
 											     th:text="'改于 ' + ${#dates.format(r.updateTime, 'yyyy-MM-dd HH:mm:ss')}">修改时间</div>
 										</td>
+										<td>
+											<a class="btn btn-danger btn-xs" href="javascript:void(0)"
+											   th:onclick="'removeRating(' + ${r.ratingId} + ')'">
+												<i class="fa fa-remove"></i>删除
+											</a>
+										</td>
 									</tr>
 								</tbody>
 							</table>
@@ -108,5 +115,20 @@
 		</div>
 	</div>
 	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		/* 删除评价：课程的评分人数与平均分会同步变化 */
+		function removeRating(ratingId) {
+			if (!confirm("确定删除这条评价吗？删除后课程的评分人数和平均分会同步变化。")) {
+				return;
+			}
+			$.post(ctx + "course/rating/remove", { ratingId: ratingId }, function (rsp) {
+				if (rsp.code === 0) {
+					location.reload();
+				} else {
+					alert(rsp.msg || "删除失败");
+				}
+			}, "json");
+		}
+	</script>
 </body>
 </html>

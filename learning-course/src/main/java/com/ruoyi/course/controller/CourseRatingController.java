@@ -5,8 +5,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.course.domain.Course;
 import com.ruoyi.course.domain.CourseRating;
@@ -79,5 +86,29 @@ public class CourseRatingController extends BaseController
         mmap.put("avgScore", CourseRating.avgScore(count, scoreSum));
         mmap.put("withContentCount", withContentCount);
         return PREFIX + "/view";
+    }
+
+    /**
+     * 删除一条评价（管理员）
+     *
+     * 删除后同步修正课程的评分人数与总分，课程详情的平均分不会漂移。
+     *
+     * @param ratingId 评分ID
+     */
+    @Log(title = "课程评价", businessType = BusinessType.DELETE)
+    @PostMapping("/remove")
+    @ResponseBody
+    public AjaxResult remove(Long ratingId)
+    {
+        if (ratingId == null)
+        {
+            throw new ServiceException("评价ID不能为空");
+        }
+        // 菜单已取消，这里用"是否管理员"兜底：业务后台菜单只授给 admin
+        if (!ShiroUtils.isAdmin())
+        {
+            throw new ServiceException("只有管理员可以删除评价");
+        }
+        return toAjax(courseRatingService.deleteRatingById(ratingId));
     }
 }

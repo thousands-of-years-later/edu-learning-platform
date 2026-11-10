@@ -300,6 +300,34 @@ public class CommentServiceImpl implements ICommentService
         return commentMapper.countByTarget(targetType, targetId);
     }
 
+    @Override
+    @Transactional
+    public void deleteCommentByAdmin(Long commentId)
+    {
+        if (commentId == null)
+        {
+            throw new ServiceException("评论ID不能为空");
+        }
+        Comment old = commentMapper.selectCommentById(commentId);
+        if (old == null)
+        {
+            throw new ServiceException("评论不存在或已被删除");
+        }
+        // 与客户端删除的唯一差别：不做"只能删自己的"校验
+        if (commentMapper.softDeleteByAdmin(commentId) == 0)
+        {
+            throw new ServiceException("评论已被删除");
+        }
+        int childDeleted = 0;
+        if (old.getParentId() == null)
+        {
+            childDeleted = commentMapper.softDeleteRepliesByParentId(commentId);
+        }
+        // 计数按实际删除条数修正（内容已删/计数已兜到 0 时影响 0 行，忽略即可）
+        commentMapper.updateCount(tableOf(old.getTargetType()), idColumnOf(old.getTargetType()),
+                old.getTargetId(), -(1 + childDeleted));
+    }
+
     /** 目标是否存在且可评论（未逻辑删除 + 状态正常） */
     private boolean targetExists(String targetType, Long targetId)
     {

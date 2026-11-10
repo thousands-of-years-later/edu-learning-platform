@@ -254,4 +254,26 @@ public class CourseRatingServiceImpl implements ICourseRatingService
         result.put("ratingCount", ratingCount);
         return result;
     }
+
+    @Override
+    @Transactional
+    public int deleteRatingById(Long ratingId)
+    {
+        if (ratingId == null)
+        {
+            throw new ServiceException("评价ID不能为空");
+        }
+        CourseRating rating = courseRatingMapper.selectRatingById(ratingId);
+        if (rating == null)
+        {
+            throw new ServiceException("评价不存在或已被删除");
+        }
+        if (courseRatingMapper.deleteRatingById(ratingId) == 0)
+        {
+            throw new ServiceException("评价已被删除");
+        }
+        // 删掉一条评分：人数 -1，总分 -该条分数（where 带 del_flag，课程已删时影响 0 行，忽略）
+        courseRatingMapper.updateCourseRatingStats(rating.getCourseId(), -1, -rating.getScore());
+        return 1;
+    }
 }

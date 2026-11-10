@@ -114,4 +114,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			#{courseId}
 		</foreach>
 	</delete>
+
+	<!-- 后台评价查看页：按ID取一条（删除前拿课程与分数，用于修正课程统计） -->
+	<select id="selectRatingById" resultMap="CourseRatingResult">
+		select rating_id, course_id, user_id, score, content, create_time, update_time
+		  from learning_course_rating
+		 where rating_id = #{ratingId}
+	</select>
+
+	<delete id="deleteRatingById">
+		delete from learning_course_rating where rating_id = #{ratingId}
+	</delete>
 </mapper>

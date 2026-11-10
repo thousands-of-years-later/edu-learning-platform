@@ -130,6 +130,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 where ${idColumn} = #{targetId} and del_flag = '0'
 	</update>
 
+	<!-- 后台删除：不做 owner 校验，只保证删的是未删除的那一条 -->
+	<update id="softDeleteByAdmin">
+		update learning_comment set del_flag = '2', update_time = sysdate()
+		 where comment_id = #{commentId} and del_flag = '0'
+	</update>
+
 	<!--
 	  内容简介：给"从课程/帖子/短视频页查看评论"的页面头部用。
 	  三张内容表列名不同，用 choose 分别查；列名统一 as 成驼峰，Map 的 key 就是它。

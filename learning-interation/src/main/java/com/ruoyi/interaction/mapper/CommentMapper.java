@@ -135,4 +135,11 @@ public interface CommentMapper
      */
     public java.util.Map<String, Object> selectTargetBrief(@Param("targetType") String targetType,
                                                            @Param("targetId") Long targetId);
+
+    /**
+     * 后台逻辑删除一条评论（不做 owner 校验，管理员可删任何人的评论）
+     *
+     * where 带 del_flag='0'：返回影响行数，调用方据此决定要不要减计数
+     */
+    public int softDeleteByAdmin(@Param("commentId") Long commentId);
 }

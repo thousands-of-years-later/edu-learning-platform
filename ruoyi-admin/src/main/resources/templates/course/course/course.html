@@ -38,6 +38,9 @@
 				<a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="course:course:add">
 	                <i class="fa fa-plus"></i> 新增
 	            </a>
+				<a class="btn btn-default" onclick="openCatalogAll()" shiro:hasPermission="course:course:view">
+		            <i class="fa fa-sitemap"></i> 目录总览
+		        </a>
 				<a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="course:course:edit">
 		            <i class="fa fa-edit"></i> 修改
 		        </a>
@@ -61,15 +64,14 @@
 		var datas = /*[[${@dict.getType('sys_normal_disable')}]]*/ [];
 		var prefix = ctx + "course/course";
 
-		/* 视频、章节是课程的下级内容，开成页签而不是弹层：
-		   弹层挂在顶层窗口，保存后 $.operate 的 activeWindow() 会刷新到错误的页签上。
-		   注意这两个是独立控制器（/course/video、/course/chapter），不能拿 prefix 拼。 */
-		function openVideos(courseId) {
-			$.modal.openTab("视频管理", ctx + "course/video?courseId=" + courseId);
+		/* 课程目录：章节 + 小节用树形展示（点课程看章节、点章节看小节），开成页签 */
+		function openCatalog(courseId) {
+			$.modal.openTab("课程目录", ctx + "course/catalog?courseId=" + courseId);
 		}
 
-		function openChapters(courseId) {
-			$.modal.openTab("章节管理", ctx + "course/chapter?courseId=" + courseId);
+		/* 目录总览：不限定课程，树里列出全部课程 → 章节 → 小节 */
+		function openCatalogAll() {
+			$.modal.openTab("课程目录总览", ctx + "course/catalog");
 		}
 
 		/* 评论查看：从课程行内进入，展示课程信息 + 评论 + 回复 */
@@ -157,8 +159,7 @@
 		                actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.courseId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
 		                actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="openComments(\'' + row.courseId + '\')"><i class="fa fa-comments"></i>评论</a> ');
 		                actions.push('<a class="btn btn-warning btn-xs" href="javascript:void(0)" onclick="openRatings(\'' + row.courseId + '\')"><i class="fa fa-star"></i>评价</a> ');
-		                actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="openVideos(\'' + row.courseId + '\')"><i class="fa fa-video-camera"></i>视频</a> ');
-		                actions.push('<a class="btn btn-warning btn-xs" href="javascript:void(0)" onclick="openChapters(\'' + row.courseId + '\')"><i class="fa fa-list-alt"></i>章节</a> ');
+		                actions.push('<a class="btn btn-warning btn-xs" href="javascript:void(0)" onclick="openCatalog(\'' + row.courseId + '\')"><i class="fa fa-sitemap"></i>目录</a> ');
 		                actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.courseId + '\')"><i class="fa fa-remove"></i>删除</a>');
 		                return actions.join('');
 		            }

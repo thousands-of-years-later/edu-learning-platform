@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+	<th:block th:include="include :: header('课程目录')" />
+	<style>
+		.catalog-type { display: inline-block; min-width: 46px; text-align: center; }
+		.catalog-name { margin-left: 4px; }
+		.catalog-name .duration { color: #9aa7b5; font-size: 12px; margin-left: 8px; }
+	</style>
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="btn-group-sm" id="toolbar" role="group">
+				<a class="btn btn-success" onclick="addChapterBySelection()" shiro:hasPermission="course:course:add">
+					<i class="fa fa-plus"></i> 新增章节
+				</a>
+				<a class="btn btn-default" onclick="$.treeTable.refresh()">
+					<i class="fa fa-refresh"></i> 刷新
+				</a>
+			</div>
+
+			<div class="col-sm-12 select-table table-striped">
+				<table id="bootstrap-tree-table"></table>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		var prefix = ctx + "course/catalog";
+		var currentCourseId = /*[[${courseId}]]*/ null;
+		var addFlag = /*[[${@permission.hasPermi('course:course:add')}]]*/ "";
+		var editFlag = /*[[${@permission.hasPermi('course:course:edit')}]]*/ "";
+		var removeFlag = /*[[${@permission.hasPermi('course:course:remove')}]]*/ "";
+
+		var typeIcons = {
+			course: 'fa fa-book text-primary',
+			chapter: 'fa fa-folder-open-o text-warning',
+			video: 'fa fa-play-circle-o text-info'
+		};
+		var typeLabels = { course: '课程', chapter: '章节', video: '小节' };
+
+		/* 打开新增/编辑页：弹层 iframe，关闭后刷新树 */
+		function openForm(title, url) {
+			layer.open({
+				type: 2,
+				title: title,
+				area: ['820px', '620px'],
+				content: url,
+				end: function () {
+					$.treeTable.refresh();
+				}
+			});
+		}
+
+		function addChapter(courseId) {
+			if (!courseId) {
+				$.modal.alertWarning("请先选择一门课程");
+				return;
+			}
+			openForm("新增章节", ctx + "course/chapter/add/" + courseId);
+		}
+
+		function addVideo(courseId, chapterId) {
+			var url = ctx + "course/video/add/" + courseId;
+			if (chapterId) {
+				url += "?chapterId=" + chapterId;
+			}
+			openForm("新增小节", url);
+		}
+
+		function editChapter(chapterId) {
+			openForm("编辑章节", ctx + "course/chapter/edit/" + chapterId);
+		}
+
+		function editVideo(videoId) {
+			openForm("编辑小节", ctx + "course/video/edit/" + videoId);
+		}
+
+		/* 工具栏「新增章节」：优先用当前选中的课程/章节所属课程 */
+		function addChapterBySelection() {
+			var row = selectedRow();
+			if (row && row.courseId) {
+				addChapter(row.courseId);
+			} else if (currentCourseId) {
+				addChapter(currentCourseId);
+			} else {
+				$.modal.alertWarning("请先选中一门课程");
+			}
+		}
+
+		function selectedRow() {
+			var rows = $.bttTable.bootstrapTreeTable('getSelections');
+			return rows && rows.length > 0 ? rows[0] : null;
+		}
+
+		/* 预览小节视频 */
+		function previewVideo(url, title) {
+			if (!url) {
+				$.modal.alertWarning("该小节还没有上传视频");
+				return;
+			}
+			layer.open({
+				type: 1,
+				title: title,
+				area: ['820px', '520px'],
+				content: '<div style="width:100%;height:100%;background:#000;">'
+					+ '<video src="' + url + '" controls autoplay style="width:100%;height:100%;"></video></div>'
+			});
+		}
+
+		/* 删除章节 / 小节：章节删除会连同章节下的小节一起删（服务端已有级联） */
+		function removeNode(type, id, name) {
+			var label = type === 'chapter' ? '章节' : '小节';
+			var extra = type === 'chapter' ? '，章节下的小节会一并删除' : '';
+			$.modal.confirm("确定删除" + label + "「" + name + "」吗" + extra + "？", function () {
+				$.post(ctx + "course/" + type + "/remove", { ids: id }, function (rsp) {
+					if (rsp.code === 0) {
+						$.modal.msgSuccess("删除成功");
+						$.treeTable.refresh();
+					} else {
+						$.modal.alertError(rsp.msg || "删除失败");
+					}
+				}, "json");
+			});
+		}
+
+		function formatDuration(value) {
+			if (!value) {
+				return '';
+			}
+			var m = Math.floor(value / 60);
+			var s = value % 60;
+			return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+		}
+
+		$(function () {
+			var options = {
+				code: "id",
+				parentCode: "parentId",
+				uniqueId: "id",
+				expandAll: false,
+				expandFirst: false,
+				showSearch: false,
+				showColumns: false,
+				showRefresh: false,
+				url: prefix + "/list",
+				ajaxParams: currentCourseId ? { courseId: currentCourseId } : {},
+				modalName: "课程目录",
+				columns: [{
+					field: 'selectItem',
+					radio: true
+				},
+				{
+					title: '名称',
+					field: 'name',
+					width: '46',
+					widthUnit: '%',
+					formatter: function (value, row, index) {
+						var icon = typeIcons[row.type] || 'fa fa-file-o';
+						var html = '<i class="' + icon + '"></i><span class="catalog-name">' + (value || '') + '</span>';
+						if (row.type === 'video' && row.duration) {
+							html += '<span class="duration">' + formatDuration(row.duration) + '</span>';
+						}
+						return html;
+					}
+				},
+				{
+					title: '类型',
+					field: 'type',
+					width: '10',
+					widthUnit: '%',
+					align: 'center',
+					formatter: function (value, row, index) {
+						return '<span class="catalog-type">' + (typeLabels[value] || value) + '</span>';
+					}
+				},
+				{
+					title: '排序',
+					field: 'orderNum',
+					width: '8',
+					widthUnit: '%',
+					align: 'center',
+					formatter: function (value, row, index) {
+						return value == null ? '' : value;
+					}
+				},
+				{
+					title: '时长',
+					field: 'duration',
+					width: '10',
+					widthUnit: '%',
+					align: 'center',
+					formatter: function (value, row, index) {
+						return row.type === 'video' ? formatDuration(value) : '';
+					}
+				},
+				{
+					title: '操作',
+					width: '26',
+					widthUnit: '%',
+					align: 'center',
+					formatter: function (value, row, index) {
+						var actions = [];
+						if (row.type === 'course') {
+							actions.push('<a class="btn btn-success btn-xs ' + addFlag + '" href="javascript:void(0)" onclick="addChapter(\'' + row.courseId + '\')"><i class="fa fa-plus"></i>新增章节</a>');
+						} else if (row.type === 'chapter') {
+							actions.push('<a class="btn btn-success btn-xs ' + addFlag + '" href="javascript:void(0)" onclick="addVideo(\'' + row.courseId + '\',\'' + row.chapterId + '\')"><i class="fa fa-plus"></i>新增小节</a> ');
+							actions.push('<a class="btn btn-primary btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="editChapter(\'' + row.chapterId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+							actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="removeNode(\'chapter\',\'' + row.chapterId + '\',\'' + (row.name || '') + '\')"><i class="fa fa-remove"></i>删除</a>');
+						} else if (row.type === 'video') {
+							actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="previewVideo(\'' + (row.videoUrl || '') + '\',\'' + (row.name || '') + '\')"><i class="fa fa-play"></i>播放</a> ');
+							actions.push('<a class="btn btn-primary btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="editVideo(\'' + row.videoId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+							actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="removeNode(\'video\',\'' + row.videoId + '\',\'' + (row.name || '') + '\')"><i class="fa fa-remove"></i>删除</a>');
+						}
+						return actions.join('');
+					}
+				}]
+			};
+			$.treeTable.init(options);
+		});
+	</script>
+</body>
+</html>

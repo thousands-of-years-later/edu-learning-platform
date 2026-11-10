@@ -1,0 +1,80 @@
+# ============================================================
+# 智能广告基座学习平台 · Docker Compose 编排（若依 4.8.3）
+# 服务：backend（若依 ruoyi-admin）+ mysql + redis
+# 用法：
+#   首次部署：cp deploy/.env.example deploy/.env 并填写真实值
+#   启动：    docker compose -f deploy/docker-compose.yml up -d
+#   重建：    docker compose -f deploy/docker-compose.yml up -d --build
+#   停止：    docker compose -f deploy/docker-compose.yml down
+# ============================================================
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: edu-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 deploy/.env 中配置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: learning_platform
+      TZ: Asia/Shanghai
+    ports:
+      - "${MYSQL_HOST_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:6.2
+    container_name: edu-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: edu-learning-platform/backend:latest
+    container_name: edu-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # 覆盖 application-druid.yml 默认值（容器内用服务名连接 MySQL）
+      MYSQL_HOST: mysql
+      MYSQL_USER: ${MYSQL_USER:-edu_dev_03}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-12345678}
+      UPLOAD_PATH: /home/ruoyi/uploadPath
+      OSS_ENABLED: ${OSS_ENABLED:-false}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID:-}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET:-}
+      OSS_BUCKET: ${OSS_BUCKET:-zhinengguanggaopingtai}
+      OSS_ENDPOINT: ${OSS_ENDPOINT:-oss-cn-shanghai.aliyuncs.com}
+      OSS_URL_PREFIX: ${OSS_URL_PREFIX:-}
+      TZ: Asia/Shanghai
+    ports:
+      - "${BACKEND_HOST_PORT:-8080}:80"
+    volumes:
+      - upload-data:/home/ruoyi/uploadPath
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+volumes:
+  mysql-data:
+  redis-data:
+  upload-data:

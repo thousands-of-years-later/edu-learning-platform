@@ -41,6 +41,10 @@ nbdist/
 *.xml.versionsBackup
 *.swp
 
+# 部署密钥（含 OSS AK/SK），禁止提交
+deploy/.env
+.env
+
 !*/build/*.java
 !*/build/*.html
 !*/build/*.xml

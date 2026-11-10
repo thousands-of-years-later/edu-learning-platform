@@ -12,6 +12,12 @@ services:
     image: mysql:8.0
     container_name: edu-mysql
     restart: unless-stopped
+    # 日志轮转：单文件 50MB，最多 3 个，总计不超 150MB
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 deploy/.env 中配置 MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: learning_platform
@@ -30,6 +36,12 @@ services:
     image: redis:6.2
     container_name: edu-redis
     restart: unless-stopped
+    # 日志轮转：单文件 50MB，最多 3 个，总计不超 150MB
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     volumes:
@@ -46,6 +58,12 @@ services:
     image: edu-learning-platform/backend:latest
     container_name: edu-backend
     restart: unless-stopped
+    # 日志轮转：单文件 50MB，最多 3 个，总计不超 150MB
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     depends_on:
       mysql:
         condition: service_healthy

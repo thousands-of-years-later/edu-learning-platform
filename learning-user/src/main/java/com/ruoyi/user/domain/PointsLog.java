@@ -19,14 +19,14 @@ public class PointsLog implements Serializable
 {
     private static final long serialVersionUID = 1L;
 
-    /** 流水类型：签到 */
-    public static final String TYPE_CHECKIN = "checkin";
+    /** 流水类型：签到（来源） */
+    public static final String TYPE_CHECKIN = PointsSource.CHECKIN;
 
-    /** 流水类型：兑换（免广告板块使用，本模块只预留） */
-    public static final String TYPE_EXCHANGE = "exchange";
+    /** 流水类型：兑换（消耗，非来源） */
+    public static final String TYPE_EXCHANGE = PointsSource.EXCHANGE;
 
-    /** 流水类型：手工调整（后台使用，本模块只预留） */
-    public static final String TYPE_ADJUST = "adjust";
+    /** 流水类型：手工调整（非来源） */
+    public static final String TYPE_ADJUST = PointsSource.ADJUST;
 
     private Long logId;
 

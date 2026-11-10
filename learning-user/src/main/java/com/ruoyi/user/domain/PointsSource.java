@@ -7,43 +7,66 @@ import java.util.Map;
 /**
  * 积分来源（明细类型）
  *
- * 积分流水的 type 列就是"来源编码"，这里的每个常量对应一种来源。
- * 以后要加新来源（比如：每日任务、邀请好友、管理员手动补发、活动奖励），
- * 只需要三步：
- *   1) 在本类加一个常量 + 一行中文标签（保持顺序即页面展示顺序）；
- *   2) 发积分的业务代码里写一条 learning_points_log，type 用新常量；
- *   3) 后台「积分记录 → 查看明细」会自动显示新来源，不需要改页面。
+ * 目前只有四类来源（顺序即页面展示顺序）：
+ *   签到 / 观看短视频 / 观看帖子 / 观看课程
  *
- * 【不要】把来源塞进 remark：remark 是给人看的补充说明，来源要能统计、能筛选。
+ * 扩展方式：以后要加新来源（任务、邀请、活动…）只需要
+ *   1) 在本类加一个常量 + 一行中文标签；
+ *   2) 发积分的业务代码调用 IPointsService.awardPoints(...)，type 传新常量；
+ * 后台「积分记录 → 查看明细」会自动显示新来源，不需要改页面、菜单和 SQL。
+ *
+ * 注意：兑换（exchange）是【消耗积分】，不算"来源"，只作为历史/支出类型保留展示；
+ *      手工调整（adjust）同理，仅用于后台纠错。
  *
  * @author edu
  */
 public class PointsSource
 {
-    /** 签到（目前唯一的正向来源） */
+    /** 签到 */
     public static final String CHECKIN = "checkin";
 
-    /** 兑换免广告（负向） */
+    /** 观看短视频 */
+    public static final String WATCH_VIDEO = "watchVideo";
+
+    /** 观看帖子 */
+    public static final String WATCH_POST = "watchPost";
+
+    /** 观看课程 */
+    public static final String WATCH_COURSE = "watchCourse";
+
+    // ===== 以下是"消耗/调整"，不是积分来源，只为历史数据和后台纠错保留 =====
+
+    /** 兑换免广告（消耗，负向） */
     public static final String EXCHANGE = "exchange";
 
     /** 管理员手工调整（正负都可以） */
     public static final String ADJUST = "adjust";
 
     /**
-     * 来源编码 -> 中文名
+     * 四种来源：编码 -> 中文名
      *
-     * 用 LinkedHashMap 保证遍历顺序 = 页面下拉/标签的顺序；
-     * 以后加来源直接在这里加一行即可。
+     * 用 LinkedHashMap 保证遍历顺序 = 页面展示顺序
      */
-    private static final Map<String, String> LABELS;
+    private static final Map<String, String> SOURCES;
+
+    /**
+     * 消耗/调整类：有自己的中文名，但不出现在"来源"列表里
+     */
+    private static final Map<String, String> CONSUME_TYPES;
 
     static
     {
-        Map<String, String> labels = new LinkedHashMap<>();
-        labels.put(CHECKIN, "签到");
-        labels.put(EXCHANGE, "兑换");
-        labels.put(ADJUST, "手工调整");
-        LABELS = Collections.unmodifiableMap(labels);
+        Map<String, String> sources = new LinkedHashMap<>();
+        sources.put(CHECKIN, "签到");
+        sources.put(WATCH_VIDEO, "观看短视频");
+        sources.put(WATCH_POST, "观看帖子");
+        sources.put(WATCH_COURSE, "观看课程");
+        SOURCES = Collections.unmodifiableMap(sources);
+
+        Map<String, String> consumes = new LinkedHashMap<>();
+        consumes.put(EXCHANGE, "兑换");
+        consumes.put(ADJUST, "手工调整");
+        CONSUME_TYPES = Collections.unmodifiableMap(consumes);
     }
 
     private PointsSource()
@@ -51,7 +74,9 @@ public class PointsSource
     }
 
     /**
-     * 来源中文名；未知编码原样返回（保证以后加了来源但忘了加标签时也能看出来）
+     * 编码 -> 中文名
+     *
+     * 先查四种来源，再查消耗/调整，最后原样返回（防止加了来源忘了加标签时页面空白）
      */
     public static String labelOf(String code)
     {
@@ -59,15 +84,35 @@ public class PointsSource
         {
             return "其他";
         }
-        String label = LABELS.get(code);
+        String label = SOURCES.get(code);
+        if (label == null)
+        {
+            label = CONSUME_TYPES.get(code);
+        }
         return label == null ? code : label;
     }
 
     /**
-     * 全部来源（编码 -> 中文），给后台筛选/展示预留
+     * 是否是合法的"积分来源"（四种之一）
+     */
+    public static boolean isSource(String code)
+    {
+        return code != null && SOURCES.containsKey(code);
+    }
+
+    /**
+     * 是否是合法的明细类型（四种来源 + 兑换/调整）
+     */
+    public static boolean isKnown(String code)
+    {
+        return isSource(code) || (code != null && CONSUME_TYPES.containsKey(code));
+    }
+
+    /**
+     * 四种来源（编码 -> 中文），给后台筛选/展示用
      */
     public static Map<String, String> all()
     {
-        return LABELS;
+        return SOURCES;
     }
 }

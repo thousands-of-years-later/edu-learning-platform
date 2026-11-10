@@ -67,4 +67,19 @@ public interface IPointsService
      * @param userId 用户ID
      */
     public List<PointsLog> selectLogsByUser(Long userId);
+
+    /**
+     * 发放积分（统一入口）——以后观看短视频/帖子/课程、任务、活动奖励都调这里
+     *
+     * 同一事务内完成：加账户余额 + 写一条来源明细（来源编码见 PointsSource）。
+     * 只接受正向积分；负向（兑换）走 exchange。
+     *
+     * @param userId 用户ID
+     * @param source 来源编码（PointsSource 里的四种来源之一）
+     * @param points 发放积分（必须 > 0）
+     * @param refId  关联业务ID（如短视频ID、帖子ID、课程ID，可空）
+     * @param remark 说明（如"观看短视频奖励"，可空）
+     * @return 变动后的余额
+     */
+    public int awardPoints(Long userId, String source, int points, Long refId, String remark);
 }

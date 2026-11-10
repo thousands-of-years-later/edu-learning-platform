@@ -164,6 +164,39 @@ public class PointsServiceImpl implements IPointsService
         }
     }
 
+    @Override
+    @Transactional
+    public int awardPoints(Long userId, String source, int points, Long refId, String remark)
+    {
+        if (userId == null)
+        {
+            throw new ServiceException("用户ID不能为空");
+        }
+        if (!PointsSource.isSource(source))
+        {
+            throw new ServiceException("积分来源不合法");
+        }
+        if (points <= 0)
+        {
+            throw new ServiceException("发放积分必须大于 0");
+        }
+
+        // 账户不存在就创建，然后原子累加（increasePoints 本身就是 upsert）
+        pointsAccountMapper.increasePoints(userId, points);
+        Integer balance = pointsAccountMapper.selectBalance(userId);
+        int after = balance == null ? points : balance;
+
+        PointsLog log = new PointsLog();
+        log.setUserId(userId);
+        log.setChangeAmount(points);
+        log.setBalance(after);
+        log.setType(source);
+        log.setRefId(refId);
+        log.setRemark(remark);
+        pointsLogMapper.insertLog(log);
+        return after;
+    }
+
     /** 到期时间格式化成字符串给前端（null 原样返回 null） */
     private String format(Date time)
     {

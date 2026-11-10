@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<th:block th:include="include :: header('课程评价')" />
+	<style>
+		.rating-summary { padding: 16px 18px; background: #f8fafc; border: 1px solid #e6ebf2; border-radius: 6px; }
+		.rating-summary .course-title { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+		.rating-summary .course-meta { color: #7b8794; font-size: 13px; }
+		.rating-summary .course-meta span { margin-right: 16px; }
+		.rating-cards { display: flex; gap: 14px; margin-top: 14px; }
+		.rating-card { flex: 1; padding: 14px 16px; background: #fff; border: 1px solid #e6ebf2; border-radius: 6px; }
+		.rating-card .label { color: #8a97a6; font-size: 12px; }
+		.rating-card .value { font-size: 26px; font-weight: 600; color: #2b3a4b; line-height: 1.4; }
+		.rating-star { color: #f0ad4e; letter-spacing: 1px; }
+		.rating-content { color: #33404f; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+		.rating-empty { padding: 40px 0; text-align: center; color: #9aa7b5; }
+		.text-muted { color: #9aa7b5; }
+	</style>
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12">
+				<div th:if="${error != null}" class="ibox">
+					<div class="ibox-content">
+						<div class="rating-empty">
+							<i class="fa fa-exclamation-circle"></i>&nbsp;
+							<span th:text="${error}">课程不存在</span>
+						</div>
+					</div>
+				</div>
+
+				<th:block th:if="${error == null}">
+					<div class="rating-summary">
+						<p class="course-title" th:text="${course.courseName}">课程名称</p>
+						<div class="course-meta">
+							<span th:if="${course.categoryName != null and course.categoryName != ''}"
+							      th:text="'分类：' + ${course.categoryName}">分类</span>
+							<span th:text="${course.status == '0'} ? '状态：正常' : '状态：停用'">状态</span>
+							<span th:text="'评论 ' + ${course.commentCount}">评论</span>
+							<span th:text="'点赞 ' + ${course.likeCount}">点赞</span>
+							<span th:text="'收藏 ' + ${course.favoriteCount}">收藏</span>
+						</div>
+					</div>
+
+					<div class="rating-cards">
+						<div class="rating-card">
+							<div class="label">平均分</div>
+							<div class="value" th:text="${avgScore != null ? avgScore : '暂无'}">0.0</div>
+						</div>
+						<div class="rating-card">
+							<div class="label">评分人数</div>
+							<div class="value" th:text="${ratingCount}">0</div>
+						</div>
+						<div class="rating-card">
+							<div class="label">带文字的评价</div>
+							<div class="value" th:text="${withContentCount}">0</div>
+						</div>
+					</div>
+
+					<div class="ibox" style="margin-top: 16px;">
+						<div class="ibox-title">
+							<h5>评价列表（<span th:text="${ratingCount}">0</span>）</h5>
+						</div>
+						<div class="ibox-content">
+							<div th:if="${#lists.isEmpty(ratings)}" class="rating-empty">
+								<i class="fa fa-star-o"></i>&nbsp;这门课还没有人评分
+							</div>
+
+							<table th:if="${not #lists.isEmpty(ratings)}" class="table table-striped">
+								<thead>
+									<tr>
+										<th style="width: 160px;">用户</th>
+										<th style="width: 130px;">评分</th>
+										<th>文字评价</th>
+										<th style="width: 170px;">评分时间</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr th:each="r : ${ratings}">
+										<td>
+											<img th:if="${r.avatar != null and r.avatar != ''}" th:src="${r.avatar}"
+											     style="width:22px;height:22px;border-radius:50%;margin-right:6px;">
+											<span th:text="${r.userName}">用户</span>
+										</td>
+										<td>
+											<span class="rating-star">
+												<i th:each="i : ${#numbers.sequence(1, 5)}" class="fa"
+												   th:classappend="${i <= r.score} ? 'fa-star' : 'fa-star-o'"></i>
+											</span>
+										</td>
+										<td>
+											<div th:if="${r.content != null and r.content != ''}" class="rating-content" th:text="${r.content}">评价内容</div>
+											<div th:if="${r.content == null or r.content == ''}" class="text-muted">只打星，未写评价</div>
+										</td>
+										<td>
+											<div th:text="${#dates.format(r.createTime, 'yyyy-MM-dd HH:mm:ss')}">时间</div>
+											<div th:if="${r.updateTime != null}" class="text-muted"
+											     th:text="'改于 ' + ${#dates.format(r.updateTime, 'yyyy-MM-dd HH:mm:ss')}">修改时间</div>
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</th:block>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+</body>
+</html>

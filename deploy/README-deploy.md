@@ -50,6 +50,40 @@
 
 清理只在部署成功后执行，部署失败时保留现场便于排查。
 
+## 代理与网络加速
+
+服务器装了 mihomo（Clash Meta）常驻服务，只为本机的 git 和 docker 使用。
+
+| 项 | 值 |
+|---|---|
+| 服务 | `systemctl status mihomo` / `restart mihomo` |
+| 配置 | `/opt/mihomo/config.yaml`（权限 600，含节点凭据，不进仓库） |
+| 代理端口 | `127.0.0.1:7890`（mixed，仅本机监听，防火墙未放行） |
+| 控制面 | `127.0.0.1:9090`，需 `secret`（在配置文件里） |
+| 作用范围 | git 仅对 github.com；docker daemon 全局 |
+
+实测对比：
+
+| 场景 | 直连 | 走代理 |
+|---|---|---|
+| 打开 github.com | 12 秒超时 | 0.2–0.6 秒 |
+| `git ls-remote` | 40 秒超时 | 1 秒 |
+
+常用操作：
+
+```bash
+bash /opt/mihomo/update-sub.sh      # 更新订阅节点（失败自动保留旧配置，不会断服务）
+journalctl -u mihomo -n 30 --no-pager   # 看内核日志
+```
+
+docker 的代理在 `/etc/docker/daemon.json`，改动前的备份在 `/root/daemon.json.bak.*`；
+已开 `live-restore`，但首次重启 daemon 仍会重启容器，所以改 docker 配置要挑时间。
+
+注意事项：
+- 订阅到期 2026-12-07，到期前更新订阅链接或续费
+- 没有设置全局 `http_proxy`，容器内和 Maven 构建不会被带偏
+- 代理挂掉不影响部署：部署走服务器本地裸仓库，不走外网
+
 ## 注意事项
 
 - `deploy/.env` 不进仓库，服务器上保留原文件，`git reset --hard` 不会删它

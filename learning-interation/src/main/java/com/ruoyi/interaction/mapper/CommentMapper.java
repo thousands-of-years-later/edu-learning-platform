@@ -125,17 +125,14 @@ public interface CommentMapper
                            @Param("delta") int delta);
 
     /**
-     * 后台评论列表（分页由控制器 startPage() 驱动）
+     * 内容简介（标题 + 阅读/点赞/收藏/评论数），给"从内容页查看评论"的页面头部用
      *
-     * 过滤：targetType（1帖子 2课程 3短视频）、content 模糊；只查未删除的。
-     * 评论人、被回复人、目标标题都用标量子查询取，不 join（避免分页列名歧义）。
-     */
-    public List<Comment> selectAdminList(Comment query);
-
-    /**
-     * 后台逻辑删除一条评论（不做 owner 校验，管理员可删任何人的评论）
+     * 三张内容表的列名不同，用 choose 按类型查；只查未删除的。
+     * 不 join、也不反向依赖 learning-community / learning-course / learning-video 模块。
      *
-     * where 带 del_flag='0'：返回影响行数，调用方据此决定要不要减计数
+     * @return Map（title / viewCount / likeCount / favoriteCount / commentCount / createTime / status）；
+     *         内容不存在返回 null
      */
-    public int softDeleteByAdmin(@Param("commentId") Long commentId);
+    public java.util.Map<String, Object> selectTargetBrief(@Param("targetType") String targetType,
+                                                           @Param("targetId") Long targetId);
 }

@@ -1,34 +1,26 @@
 package com.ruoyi.interaction.controller;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import org.apache.shiro.authz.annotation.RequiresPermissions;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
 import com.ruoyi.common.core.controller.BaseController;
-import com.ruoyi.common.core.domain.AjaxResult;
-import com.ruoyi.common.core.page.TableDataInfo;
-import com.ruoyi.common.core.text.Convert;
-import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.interaction.domain.Comment;
 import com.ruoyi.interaction.service.ICommentService;
 
 /**
- * 评论管理（后台）
+ * 内容评论查看（后台）
  *
- * 客户端（小程序/App）的评论读写在 /api/v1/comment，这里是给管理员用的：
- * 看全站评论（一级评论 + 回复），删违规评论。
+ * 不再单独设「评论管理」菜单：评论从课程管理、社区帖子、短视频管理的行内「评论」按钮进入，
+ * 页面顶部展示内容信息（标题、阅读/点赞/收藏/评论数），下面按一级评论 + 回复的方式展开。
  *
- * 权限：
- *   community:comment:view    页面访问
- *   community:comment:list    列表数据
- *   community:comment:remove  删除
- *
- * 删除语义与客户端一致：一级评论会级联软删它的回复，并修正内容表的评论数；
- * 区别只在于管理员可以删任何人的评论。
+ * 参数：targetType（1文章 2课程 3短视频）、targetId（内容ID）。
+ * 权限：后台页面统一登录后访问；能进哪个内容页，就能看这个内容的评论。
  *
  * @author edu
  */
@@ -43,49 +35,66 @@ public class CommentController extends BaseController
     private ICommentService commentService;
 
     /**
-     * 评论管理页面
+     * 评论查看页
+     *
+     * @param targetType 目标类型（1文章 2课程 3短视频）
+     * @param targetId   目标ID
      */
-    @RequiresPermissions("community:comment:view")
-    @GetMapping()
-    public String comment()
+    @GetMapping("/view")
+    public String view(String targetType, Long targetId, ModelMap mmap)
     {
-        return PREFIX + "/comment";
+        mmap.put("targetType", targetType);
+        mmap.put("targetId", targetId);
+
+        if (!Comment.isValidTargetType(targetType) || targetId == null)
+        {
+            mmap.put("error", "参数不合法，无法查看评论");
+            return PREFIX + "/view";
+        }
+
+        Map<String, Object> brief = commentService.selectTargetBrief(targetType, targetId);
+        if (brief == null)
+        {
+            mmap.put("error", "内容不存在或已被删除");
+            return PREFIX + "/view";
+        }
+        normalizeCreateTime(brief);
+
+        mmap.put("brief", brief);
+        mmap.put("typeLabel", typeLabel(targetType));
+        // 一级评论（children 里是各自的回复），按评论ID倒序
+        mmap.put("comments", commentService.selectCommentList(targetType, targetId));
+        // 真实评论数（含回复），不读冗余列
+        mmap.put("commentCount", commentService.countByTarget(targetType, targetId));
+        return PREFIX + "/view";
     }
 
     /**
-     * 评论列表（分页）
-     *
-     * @param comment 查询条件：targetType（1帖子 2课程 3短视频）、content（模糊）
+     * 内容简介里的发布时间是数据库 DATETIME，Map 查询会映射成 LocalDateTime；
+     * Thymeleaf 的 #dates 只认 java.util.Date，所以这里统一格式化成字符串再交给页面。
      */
-    @RequiresPermissions("community:comment:list")
-    @PostMapping("/list")
-    @ResponseBody
-    public TableDataInfo list(Comment comment)
+    private void normalizeCreateTime(Map<String, Object> brief)
     {
-        startPage();
-        List<Comment> list = commentService.selectAdminList(comment);
-        return getDataTable(list);
+        Object value = brief.get("createTime");
+        if (value instanceof LocalDateTime)
+        {
+            brief.put("createTime", ((LocalDateTime) value).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+        }
     }
 
     /**
-     * 删除评论（支持批量，逗号分隔）
-     *
-     * @param ids 评论ID串
+     * 目标类型 -> 中文标签
      */
-    @RequiresPermissions("community:comment:remove")
-    @PostMapping("/remove")
-    @ResponseBody
-    public AjaxResult remove(String ids)
+    private String typeLabel(String targetType)
     {
-        Long[] commentIds = Convert.toLongArray(ids);
-        if (commentIds == null || commentIds.length == 0)
+        if (Comment.TARGET_POST.equals(targetType))
         {
-            throw new ServiceException("未选择要删除的评论");
+            return "文章";
         }
-        for (Long commentId : commentIds)
+        if (Comment.TARGET_COURSE.equals(targetType))
         {
-            commentService.deleteCommentByAdmin(commentId);
+            return "课程";
         }
-        return success();
+        return "短视频";
     }
 }

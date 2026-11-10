@@ -77,20 +77,4 @@ public interface CourseRatingMapper
      * 也会让 learning_course_rating_fix_count.sql 把已删课程的评分重新算回冗余列。
      */
     public int deleteRatingByCourseIds(Long[] courseIds);
-
-    // ==================== 后台评价管理 ====================
-
-    /**
-     * 后台评价列表（分页由控制器驱动）
-     *
-     * 过滤：courseId、score、content 模糊、userId；
-     * 额外返回课程名与评分人（标量子查询，不 join）。
-     */
-    public List<CourseRating> selectAdminList(CourseRating query);
-
-    /** 按ID查一条评分（后台删除前取课程与分数，用于修正课程统计） */
-    public CourseRating selectRatingById(@Param("ratingId") Long ratingId);
-
-    /** 后台删除：物理删除一条评分（评分表没有 del_flag） */
-    public int deleteRatingById(@Param("ratingId") Long ratingId);
 }

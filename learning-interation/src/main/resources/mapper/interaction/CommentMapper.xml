@@ -131,35 +131,34 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	</update>
 
 	<!--
-	  后台评论列表：包含一级评论与二级回复（parent_id 不设条件），
-	  过滤 targetType / content 关键字，只查未删除的。
-	  评论人、被回复人、目标标题用标量子查询取（不 join，避免分页列名歧义）。
+	  内容简介：给"从课程/帖子/短视频页查看评论"的页面头部用。
+	  三张内容表列名不同，用 choose 分别查；列名统一 as 成驼峰，Map 的 key 就是它。
+	  只查未删除内容（status 由调用方判断是否展示为"已下架"）。
 	-->
-	<select id="selectAdminList" parameterType="Comment" resultMap="CommentResult">
-		select c.comment_id, c.user_id, c.target_type, c.target_id, c.parent_id, c.reply_user_id,
-		       c.content, c.del_flag, c.create_time, c.update_time,
-		       (select u.user_name from sys_user u where u.user_id = c.user_id) as user_name,
-		       (select u.user_name from sys_user u where u.user_id = c.reply_user_id) as reply_user_name,
-		       case c.target_type
-		         when '1' then (select p.post_title from learning_post p where p.post_id = c.target_id)
-		         when '2' then (select co.course_name from learning_course co where co.course_id = c.target_id)
-		         when '3' then (select v.video_title from learning_short_video v where v.video_id = c.target_id)
-		       end as target_title
-		  from learning_comment c
-		 where c.del_flag = '0'
-		<if test="targetType != null and targetType != ''">
-		   and c.target_type = #{targetType}
-		</if>
-		<if test="content != null and content != ''">
-		   and c.content like concat('%', #{content}, '%')
-		</if>
-		 order by c.create_time desc, c.comment_id desc
+	<select id="selectTargetBrief" resultType="java.util.Map">
+		<choose>
+			<when test='targetType == "1"'>
+				select p.post_title as title, ifnull(p.view_count,0) as viewCount,
+				       ifnull(p.like_count,0) as likeCount, ifnull(p.favorite_count,0) as favoriteCount,
+				       ifnull(p.comment_count,0) as commentCount, p.create_time as createTime, p.status as status
+				  from learning_post p
+				 where p.post_id = #{targetId} and p.del_flag = '0'
+			</when>
+			<when test='targetType == "2"'>
+				select c.course_name as title, ifnull(c.view_count,0) as viewCount,
+				       ifnull(c.like_count,0) as likeCount, ifnull(c.favorite_count,0) as favoriteCount,
+				       ifnull(c.comment_count,0) as commentCount, c.create_time as createTime, c.status as status
+				  from learning_course c
+				 where c.course_id = #{targetId} and c.del_flag = '0'
+			</when>
+			<otherwise>
+				select v.video_title as title, ifnull(v.view_count,0) as viewCount,
+				       ifnull(v.like_count,0) as likeCount, ifnull(v.favorite_count,0) as favoriteCount,
+				       ifnull(v.comment_count,0) as commentCount, v.create_time as createTime, v.status as status
+				  from learning_short_video v
+				 where v.video_id = #{targetId} and v.del_flag = '0'
+			</otherwise>
+		</choose>
 	</select>
-
-	<!-- 后台删除：不做 owner 校验，只保证删的是未删除的那一条 -->
-	<update id="softDeleteByAdmin">
-		update learning_comment set del_flag = '2', update_time = sysdate()
-		 where comment_id = #{commentId} and del_flag = '0'
-	</update>
 
 </mapper>

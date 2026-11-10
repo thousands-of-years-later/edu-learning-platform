@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<th:block th:include="include :: header('评论查看')" />
+	<style>
+		.comment-summary { padding: 14px 18px; background: #f8fafc; border: 1px solid #e6ebf2; border-radius: 6px; }
+		.comment-summary .title { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+		.comment-summary .meta { color: #7b8794; font-size: 13px; }
+		.comment-summary .meta span { margin-right: 16px; }
+		.comment-item { padding: 14px 4px; border-bottom: 1px solid #eef2f6; }
+		.comment-item:last-child { border-bottom: none; }
+		.comment-head { margin-bottom: 6px; }
+		.comment-user { font-weight: 600; color: #2b3a4b; }
+		.comment-time { color: #9aa7b5; font-size: 12px; margin-left: 10px; }
+		.comment-content { color: #33404f; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+		.comment-reply { margin: 10px 0 0 24px; padding: 8px 12px; background: #f7f9fc; border-left: 3px solid #d6e2f0; border-radius: 4px; }
+		.comment-reply .reply-user { font-weight: 600; color: #3d5673; }
+		.comment-reply .reply-to { color: #8a97a6; }
+		.comment-empty { padding: 40px 0; text-align: center; color: #9aa7b5; }
+	</style>
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12">
+				<div th:if="${error != null}" class="ibox">
+					<div class="ibox-content">
+						<div class="comment-empty">
+							<i class="fa fa-exclamation-circle"></i>&nbsp;
+							<span th:text="${error}">内容不存在</span>
+						</div>
+					</div>
+				</div>
+
+				<th:block th:if="${error == null}">
+					<div class="comment-summary">
+						<p class="title" th:text="${brief.title}">内容标题</p>
+						<div class="meta">
+							<span th:text="'类型：' + ${typeLabel}">类型：文章</span>
+							<span th:text="'发布时间：' + ${brief.createTime}">发布时间</span>
+							<span th:text="'阅读 ' + ${brief.viewCount}">阅读</span>
+							<span th:text="'点赞 ' + ${brief.likeCount}">点赞</span>
+							<span th:text="'收藏 ' + ${brief.favoriteCount}">收藏</span>
+							<span th:text="'评论 ' + ${commentCount}">评论</span>
+						</div>
+					</div>
+
+					<div class="ibox" style="margin-top: 16px;">
+						<div class="ibox-title">
+							<h5>评论列表（<span th:text="${commentCount}">0</span>）</h5>
+						</div>
+						<div class="ibox-content">
+							<div th:if="${#lists.isEmpty(comments)}" class="comment-empty">
+								<i class="fa fa-comment-o"></i>&nbsp;暂无评论
+							</div>
+
+							<div th:each="c : ${comments}" class="comment-item">
+								<div class="comment-head">
+									<span class="comment-user" th:text="${c.userName}">评论人</span>
+									<span class="comment-time" th:text="${#dates.format(c.createTime, 'yyyy-MM-dd HH:mm:ss')}">时间</span>
+								</div>
+								<div class="comment-content" th:text="${c.content}">评论内容</div>
+
+								<div th:each="r : ${c.children}" class="comment-reply">
+									<div class="comment-head">
+										<span class="reply-user" th:text="${r.userName}">回复人</span>
+										<span class="reply-to" th:if="${r.replyUserName != null and r.replyUserName != ''}"
+										      th:text="' 回复 ' + ${r.replyUserName}"> 回复 某人</span>
+										<span class="comment-time" th:text="${#dates.format(r.createTime, 'yyyy-MM-dd HH:mm:ss')}">时间</span>
+									</div>
+									<div class="comment-content" th:text="${r.content}">回复内容</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</th:block>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		// 页签标题跟着内容类型走，便于同时开多个评论页时区分
+		var typeLabel = /*[[${typeLabel}]]*/ '';
+		if (typeLabel) {
+			document.title = typeLabel + '评论 - 若依后台管理框架';
+		}
+	</script>
+</body>
+</html>

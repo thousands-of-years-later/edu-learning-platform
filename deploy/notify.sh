@@ -33,6 +33,7 @@ kind = os.environ.get("TYPE", "feishu")
 url = os.environ["WEBHOOK_URL"]
 
 text = f"{title}\n{body}" if body else title
+text = text.replace("\\n", "\n")
 
 if kind == "feishu":
     payload = {"msg_type": "text", "content": {"text": text}}

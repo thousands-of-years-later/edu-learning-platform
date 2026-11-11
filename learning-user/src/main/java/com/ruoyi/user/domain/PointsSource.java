@@ -17,7 +17,7 @@ import java.util.Map;
  *  - 课程 + 帖子两类合计每天最多 50 分（即每天最多 10 条内容）。
  *  - 刷短视频【不再计分】（保留编码与标签只为兼容可能存在的历史数据）。
  *  - 签到：7 天循环 1~7 分，断签从 1 分重来（见 CheckinRule）。
- *  - 观看广告：完整看完一条 +10 分，不占上面 50 分的额度。
+ *  - 观看广告：完整看完一条 +10 分，每天最多 3 条（30 分），不占上面 50 分的额度。
  *    真实广告 SDK 后续接入，目前在后台规则里先把类型和分值定好。
  *
  * 扩展方式：以后要加新来源（任务、邀请、活动…）只需要
@@ -59,6 +59,9 @@ public class PointsSource
 
     /** 完整看完一条广告给多少分 */
     public static final int AD_POINTS = 10;
+
+    /** 广告每天最多计几条（3 条 = 30 分/天） */
+    public static final int AD_DAILY_LIMIT = 3;
 
     /** 观看/阅读满多少秒才结算内容积分 */
     public static final int CONTENT_MIN_SECONDS = 30;

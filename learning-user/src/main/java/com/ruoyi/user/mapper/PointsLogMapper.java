@@ -31,4 +31,19 @@ public interface PointsLogMapper
      */
     public List<PointsLog> selectByUser(@Param("userId") Long userId,
                                         @Param("type") String type);
+
+    /**
+     * 某用户某时间段内、指定来源的积分合计（正数）
+     *
+     * 用于"课程 + 帖子每天最多 50 分"的上限判断：直接以流水为准，不信任何计数器。
+     *
+     * @param userId 用户ID
+     * @param types  来源编码集合（watchCourse / watchPost）
+     * @param begin  起始时间（含）
+     * @param end    结束时间（不含）
+     */
+    public int sumPointsByTypesBetween(@Param("userId") Long userId,
+                                       @Param("types") List<String> types,
+                                       @Param("begin") java.util.Date begin,
+                                       @Param("end") java.util.Date end);
 }

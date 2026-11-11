@@ -63,6 +63,9 @@ public class PointsSource
     /** 广告每天最多计几条（3 条 = 30 分/天） */
     public static final int AD_DAILY_LIMIT = 3;
 
+    /** 广告至少观看多少秒才算"看完"（接入真实 SDK 后由回调保证） */
+    public static final int AD_MIN_SECONDS = 15;
+
     /** 观看/阅读满多少秒才结算内容积分 */
     public static final int CONTENT_MIN_SECONDS = 30;
 

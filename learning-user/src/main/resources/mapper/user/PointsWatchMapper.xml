@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.user.mapper.PointsWatchMapper">
+
+	<!-- 累加当天观看秒数；同一 (用户,内容,日期) 只有一行 -->
+	<insert id="upsertSeconds">
+		insert into learning_points_watch
+			(user_id, target_type, target_id, award_date, watched_seconds, awarded, points, create_time, update_time)
+		values
+			(#{userId}, #{targetType}, #{targetId}, #{awardDate}, #{seconds}, 0, 0, sysdate(), sysdate())
+		on duplicate key update
+			watched_seconds = watched_seconds + #{seconds},
+			update_time = sysdate()
+	</insert>
+
+	<select id="selectWatchedSeconds" resultType="int">
+		select ifnull(max(watched_seconds), 0)
+		  from learning_points_watch
+		 where user_id = #{userId}
+		   and target_type = #{targetType}
+		   and target_id = #{targetId}
+		   and award_date = #{awardDate}
+	</select>
+
+	<!-- 抢占发分：awarded=0 且看满 minSeconds 才置 1；并发只有一个线程能成功 -->
+	<update id="claimAward">
+		update learning_points_watch
+		   set awarded = 1,
+		       points = #{points},
+		       update_time = sysdate()
+		 where user_id = #{userId}
+		   and target_type = #{targetType}
+		   and target_id = #{targetId}
+		   and award_date = #{awardDate}
+		   and awarded = 0
+		   and watched_seconds &gt;= #{minSeconds}
+	</update>
+
+	<!-- 内容存在性校验：status='0' 才是已发布，待审核/下架不给分 -->
+	<select id="countPublishedPost" resultType="int">
+		select count(*)
+		  from learning_post
+		 where post_id = #{postId}
+		   and del_flag = '0'
+		   and status = '0'
+	</select>
+
+	<select id="countCourseVideo" resultType="int">
+		select count(*)
+		  from learning_course_video
+		 where video_id = #{videoId}
+		   and del_flag = '0'
+	</select>
+
+</mapper>

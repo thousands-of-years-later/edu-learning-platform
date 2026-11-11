@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * 签到积分档位（设计稿 19_积分规则）
  *
- * 连续 1..7 天分别 5 / 8 / 10 / 12 / 15 / 18 / 20 分，第 8 天起从第 1 档重新循环。
+ * 连续 1..7 天分别 1 / 2 / 3 / 4 / 5 / 6 / 7 分，第 8 天起从第 1 档重新循环。
  * 写死成常量而不是配置表：档位是产品在设计稿里定死的，做成配置反而多一张表 + 一套后台；
  * 以后真要可配置，把 TIERS 换成查表即可，pointsOf / tiers 的调用方都不用改。
  *
@@ -23,7 +23,7 @@ public class CheckinRule
     public static final int LOOP_DAYS = 7;
 
     /** 每档积分，下标 0 = 连续第 1 天 */
-    private static final int[] TIERS = { 5, 8, 10, 12, 15, 18, 20 };
+    private static final int[] TIERS = { 1, 2, 3, 4, 5, 6, 7 };
 
     /**
      * 连续第 continuousDays 天能得多少分（第 8 天起按 7 天周期循环）

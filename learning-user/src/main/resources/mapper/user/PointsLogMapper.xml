@@ -34,4 +34,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 order by l.log_id desc
 	</select>
 
+	<!-- 课程 + 帖子的当日已得积分：上限判断用，直接 sum 流水 -->
+	<select id="sumPointsByTypesBetween" resultType="int">
+		select ifnull(sum(change_amount), 0)
+		  from learning_points_log
+		 where user_id = #{userId}
+		   and type in
+		<foreach collection="types" item="type" open="(" separator="," close=")">
+			#{type}
+		</foreach>
+		   and create_time &gt;= #{begin}
+		   and create_time &lt; #{end}
+	</select>
+
 </mapper>

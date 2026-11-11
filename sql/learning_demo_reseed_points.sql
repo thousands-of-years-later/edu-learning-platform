@@ -9,10 +9,10 @@
 --         · 今天不签到，测试同学可以自己签，看到"下一天"的分数。
 --
 -- 演示账号：
---   111 连续签到 6 天（1~6 分），今天签到应得 7 分
---   112 连续签到 3 天（1~3 分），今天签到应得 4 分
---   115 连续签到 2 天（1~2 分），今天签到应得 3 分
---   118 连续签到 2 天（1~2 分），今天签到应得 3 分
+--   111 连续签到 7 天（1~7 分，今天已签，完整展示 7 天循环）
+--   112 连续签到 3 天（1~3 分），今天留空，可签出第 4 天 4 分
+--   115 连续签到 2 天（1~2 分），今天留空
+--   118 连续签到 2 天（1~2 分），今天留空
 --
 -- 幂等：先按用户清空积分流水/签到/去重表再重建，可重复执行。
 -- 执行：
@@ -35,6 +35,7 @@ insert into learning_checkin (user_id, sign_date, points, continuous_days, creat
 (111, date_sub(curdate(), interval 3 day), 4, 4, timestamp(date_sub(curdate(), interval 3 day), '10:00:00')),
 (111, date_sub(curdate(), interval 2 day), 5, 5, timestamp(date_sub(curdate(), interval 2 day), '10:00:00')),
 (111, date_sub(curdate(), interval 1 day), 6, 6, timestamp(date_sub(curdate(), interval 1 day), '10:00:00')),
+(111, curdate(), 7, 7, sysdate()),
 (112, date_sub(curdate(), interval 3 day), 1, 1, timestamp(date_sub(curdate(), interval 3 day), '09:10:00')),
 (112, date_sub(curdate(), interval 2 day), 2, 2, timestamp(date_sub(curdate(), interval 2 day), '09:10:00')),
 (112, date_sub(curdate(), interval 1 day), 3, 3, timestamp(date_sub(curdate(), interval 1 day), '09:10:00')),

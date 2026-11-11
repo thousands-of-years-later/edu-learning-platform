@@ -7,8 +7,16 @@ import java.util.Map;
 /**
  * 积分来源（明细类型）
  *
- * 目前只有四类来源（顺序即页面展示顺序）：
- *   签到 / 观看短视频 / 观看帖子 / 观看课程
+ * 目前五类来源（顺序即后台「积分记录」的展示/筛选顺序）：
+ *   签到 / 观看课程 / 观看短视频 / 观看帖子 / 观看广告
+ *
+ * 【积分获取规则（2026-11 定稿）】
+ *  - 观看课程、短视频、帖子：每条内容每天只能得一次积分，每次固定 +5 分；
+ *    三类内容合计每天最多 50 分（即每天最多 10 条内容）。
+ *    "一条内容"的粒度：课程 = 一个小节视频，短视频 = 一条短视频，帖子 = 一篇帖子。
+ *    看完一分钟的视频也只给 5 分，不按秒累加。
+ *  - 签到：7 天循环 1~7 分，断签从 1 分重来（见 CheckinRule）。
+ *  - 观看广告：单独计分，不占上面 50 分的额度。
  *
  * 扩展方式：以后要加新来源（任务、邀请、活动…）只需要
  *   1) 在本类加一个常量 + 一行中文标签；
@@ -25,25 +33,34 @@ public class PointsSource
     /** 签到 */
     public static final String CHECKIN = "checkin";
 
+    /** 观看课程（粒度：课程小节视频） */
+    public static final String WATCH_COURSE = "watchCourse";
+
     /** 观看短视频 */
     public static final String WATCH_VIDEO = "watchVideo";
 
     /** 观看帖子 */
     public static final String WATCH_POST = "watchPost";
 
-    /** 观看课程 */
-    public static final String WATCH_COURSE = "watchCourse";
+    /** 观看广告 */
+    public static final String WATCH_AD = "watchAd";
+
+    /** 每条内容每天给多少分（课程/短视频/帖子通用） */
+    public static final int CONTENT_POINTS = 5;
+
+    /** 课程 + 短视频 + 帖子 三类内容的每日合计上限 */
+    public static final int CONTENT_DAILY_CAP = 50;
 
     // ===== 以下是"消耗/调整"，不是积分来源，只为历史数据和后台纠错保留 =====
 
-    /** 兑换免广告（消耗，负向） */
+    /** 兑换（老版本免广告兑换，消耗，负向） */
     public static final String EXCHANGE = "exchange";
 
     /** 管理员手工调整（正负都可以） */
     public static final String ADJUST = "adjust";
 
     /**
-     * 四种来源：编码 -> 中文名
+     * 五种来源：编码 -> 中文名
      *
      * 用 LinkedHashMap 保证遍历顺序 = 页面展示顺序
      */
@@ -58,9 +75,10 @@ public class PointsSource
     {
         Map<String, String> sources = new LinkedHashMap<>();
         sources.put(CHECKIN, "签到");
+        sources.put(WATCH_COURSE, "观看课程");
         sources.put(WATCH_VIDEO, "观看短视频");
         sources.put(WATCH_POST, "观看帖子");
-        sources.put(WATCH_COURSE, "观看课程");
+        sources.put(WATCH_AD, "观看广告");
         SOURCES = Collections.unmodifiableMap(sources);
 
         Map<String, String> consumes = new LinkedHashMap<>();
@@ -76,7 +94,7 @@ public class PointsSource
     /**
      * 编码 -> 中文名
      *
-     * 先查四种来源，再查消耗/调整，最后原样返回（防止加了来源忘了加标签时页面空白）
+     * 先查五种来源，再查消耗/调整，最后原样返回（防止加了来源忘了加标签时页面空白）
      */
     public static String labelOf(String code)
     {
@@ -93,7 +111,7 @@ public class PointsSource
     }
 
     /**
-     * 是否是合法的"积分来源"（四种之一）
+     * 是否是合法的"积分来源"（五种之一）
      */
     public static boolean isSource(String code)
     {
@@ -101,7 +119,15 @@ public class PointsSource
     }
 
     /**
-     * 是否是合法的明细类型（四种来源 + 兑换/调整）
+     * 是否是"内容观看"类来源（课程/短视频/帖子，受每日 50 分上限约束）
+     */
+    public static boolean isContentSource(String code)
+    {
+        return WATCH_COURSE.equals(code) || WATCH_VIDEO.equals(code) || WATCH_POST.equals(code);
+    }
+
+    /**
+     * 是否是合法的明细类型（五种来源 + 兑换/调整）
      */
     public static boolean isKnown(String code)
     {
@@ -109,7 +135,7 @@ public class PointsSource
     }
 
     /**
-     * 四种来源（编码 -> 中文），给后台筛选/展示用
+     * 五种来源（编码 -> 中文），给后台筛选/展示用
      */
     public static Map<String, String> all()
     {

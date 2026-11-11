@@ -24,9 +24,11 @@ public interface PointsLogMapper
 
 
     /**
-     * 某个用户的全部积分明细（后台"积分记录 → 查看明细"用），按 log_id 倒序
+     * 某个用户的积分明细（后台"积分记录 → 查看明细"用），按 log_id 倒序
      *
      * @param userId 用户ID
+     * @param type   来源编码（可空：空 = 全部来源）
      */
-    public List<PointsLog> selectByUser(@Param("userId") Long userId);
+    public List<PointsLog> selectByUser(@Param("userId") Long userId,
+                                        @Param("type") String type);
 }

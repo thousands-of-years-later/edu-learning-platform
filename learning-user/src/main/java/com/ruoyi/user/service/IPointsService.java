@@ -62,11 +62,12 @@ public interface IPointsService
     public PointsAccount selectAdminAccount(Long userId);
 
     /**
-     * 某个用户的全部积分明细（含来源中文名），按时间倒序
+     * 某个用户的积分明细（含来源中文名），按时间倒序
      *
      * @param userId 用户ID
+     * @param type   来源编码（可空：空 = 全部来源）
      */
-    public List<PointsLog> selectLogsByUser(Long userId);
+    public List<PointsLog> selectLogsByUser(Long userId, String type);
 
     /**
      * 发放积分（统一入口）——以后观看短视频/帖子/课程、任务、活动奖励都调这里

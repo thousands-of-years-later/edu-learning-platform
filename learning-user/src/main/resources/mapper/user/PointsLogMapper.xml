@@ -28,6 +28,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		select l.log_id, l.user_id, l.change_amount, l.balance, l.type, l.ref_id, l.remark, l.create_time
 		  from learning_points_log l
 		 where l.user_id = #{userId}
+		<if test="type != null and type != ''">
+		   and l.type = #{type}
+		</if>
 		 order by l.log_id desc
 	</select>
 

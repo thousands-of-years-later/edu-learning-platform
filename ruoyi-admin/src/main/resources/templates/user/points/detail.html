@@ -55,13 +55,29 @@
 						</div>
 					</div>
 
+					<div class="alert alert-info" style="margin-top: 12px; padding: 8px 12px; font-size: 12px; line-height: 1.8;">
+						积分规则：签到按 7 天循环 1~7 分；观看课程 / 短视频 / 帖子，
+						<b>每条内容每天只能得一次、每次 +5 分</b>，三类合计每天最多 50 分；观看广告单独计分。
+					</div>
+
 					<div class="ibox" style="margin-top: 16px;">
 						<div class="ibox-title">
 							<h5>积分明细（<span th:text="${#lists.size(logs)}">0</span>）</h5>
 						</div>
 						<div class="ibox-content">
+							<form class="form-inline" method="get" th:action="@{/user/points/detail}" style="margin-bottom: 12px;">
+								<input type="hidden" name="userId" th:value="${userId}"/>
+								<label for="sourceType">获取来源：</label>
+								<select id="sourceType" name="type" class="form-control input-sm">
+									<option value="">全部来源</option>
+									<option th:each="s : ${sources}" th:value="${s.key}" th:text="${s.value}"
+									        th:selected="${type != null and type == s.key}"></option>
+								</select>
+								<button type="submit" class="btn btn-primary btn-sm"><i class="fa fa-search"></i> 筛选</button>
+							</form>
+
 							<div th:if="${#lists.isEmpty(logs)}" class="points-empty">
-								<i class="fa fa-inbox"></i>&nbsp;暂无积分变动记录
+								<i class="fa fa-inbox"></i>&nbsp;<span th:text="${type != null and type != ''} ? '该来源暂无记录' : '暂无积分变动记录'">暂无积分变动记录</span>
 							</div>
 
 							<table th:if="${not #lists.isEmpty(logs)}" class="table table-striped">

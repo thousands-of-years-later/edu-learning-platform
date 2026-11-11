@@ -13,6 +13,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.user.domain.PointsAccount;
 import com.ruoyi.user.domain.PointsLog;
+import com.ruoyi.user.domain.PointsSource;
 import com.ruoyi.user.service.IPointsService;
 
 /**
@@ -66,12 +67,15 @@ public class PointsController extends BaseController
      * 某个用户的积分明细页
      *
      * @param userId 用户ID
+     * @param type   来源编码（可空：空 = 全部来源）
      */
     @RequiresPermissions("user:points:view")
     @GetMapping("/detail")
-    public String detail(Long userId, ModelMap mmap)
+    public String detail(Long userId, String type, ModelMap mmap)
     {
         mmap.put("userId", userId);
+        mmap.put("type", type);
+        mmap.put("sources", PointsSource.all());
         if (userId == null)
         {
             mmap.put("error", "参数不合法，无法查看积分记录");
@@ -86,7 +90,7 @@ public class PointsController extends BaseController
         }
 
         mmap.put("account", account);
-        mmap.put("logs", pointsService.selectLogsByUser(userId));
+        mmap.put("logs", pointsService.selectLogsByUser(userId, type));
         return "user/points/detail";
     }
 }

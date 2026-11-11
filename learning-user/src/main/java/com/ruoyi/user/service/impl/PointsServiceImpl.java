@@ -136,13 +136,19 @@ public class PointsServiceImpl implements IPointsService
     }
 
     @Override
-    public List<PointsLog> selectLogsByUser(Long userId)
+    public List<PointsLog> selectLogsByUser(Long userId, String type)
     {
         if (userId == null)
         {
             return new ArrayList<>();
         }
-        List<PointsLog> list = pointsLogMapper.selectByUser(userId);
+        String source = type == null ? null : type.trim();
+        // 只接受已知来源，避免传乱七八糟的值查出空列表还以为是没数据
+        if (source != null && !source.isEmpty() && !PointsSource.isKnown(source))
+        {
+            source = null;
+        }
+        List<PointsLog> list = pointsLogMapper.selectByUser(userId, source);
         fillSourceLabel(list);
         return list;
     }

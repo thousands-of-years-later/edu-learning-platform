@@ -29,6 +29,31 @@
 | 查看部署日志 | `tail -f /var/log/edu-deploy.log` |
 | 查看清理日志 | `tail -f /var/log/edu-maintenance.log` |
 
+## 部署判定与通知
+
+`auto-deploy.sh` 拉到新提交后会先判断改了什么：
+
+| 变更内容 | 行为 |
+|---|---|
+| 有任意代码、配置、脚本改动 | 正常构建并部署 |
+| 只有 `docs/` 目录、`*.md`、`deploy/README` | 只更新代码，**跳过重建**（省 5 分钟） |
+| 没有新提交 | 直接退出，0 秒 |
+
+每次部署会记录耗时（`[完成] 部署成功 xxx，耗时 N 秒`）。
+
+部署结果可推送到群机器人（可选，不配就静默跳过）：
+
+```bash
+mkdir -p /etc/edu-deploy
+cat > /etc/edu-deploy/notify.conf <<'EOF'
+WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx
+NOTIFY_TYPE=feishu      # feishu | wecom | dingtalk
+NOTIFY_ON=all           # all 或 fail（只在失败时通知）
+EOF
+chmod 600 /etc/edu-deploy/notify.conf
+bash /www/wwwroot/edu-smart-learning/deploy/notify.sh "测试通知" "配置成功"
+```
+
 ## 版本与回滚
 
 - 每次构建自动打标签 `edu-learning-platform/backend:YYYYMMDD-HHMMSS`

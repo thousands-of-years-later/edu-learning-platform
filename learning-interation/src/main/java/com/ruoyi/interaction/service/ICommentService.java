@@ -65,4 +65,28 @@ public interface ICommentService
      * @return {count: 该目标的最新评论总数（含二级评论）}
      */
     public Map<String, Object> deleteComment(Long userId, Long commentId);
+
+    /**
+     * 内容简介（标题 + 阅读/点赞/收藏/评论数），给"从内容页查看评论"的页面头部用
+     *
+     * @param targetType 目标类型（1帖子 2课程 3短视频）
+     * @param targetId   目标ID
+     * @return 内容不存在/参数不合法时返回 null
+     */
+    public Map<String, Object> selectTargetBrief(String targetType, Long targetId);
+
+    /**
+     * 某目标的真实评论总数（含回复），页面头部展示用
+     */
+    public int countByTarget(String targetType, Long targetId);
+
+    /**
+     * 后台删除评论（管理员可删任何人的评论）
+     *
+     * 与 deleteComment 的差别只有"不校验作者"，其余语义一致：
+     * 删一级评论会级联软删它的回复，并按实际删除条数修正目标的内容评论数。
+     *
+     * @param commentId 评论ID
+     */
+    public void deleteCommentByAdmin(Long commentId);
 }

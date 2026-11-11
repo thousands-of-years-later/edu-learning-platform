@@ -211,6 +211,12 @@ public class CheckinServiceImpl implements ICheckinService
         }
     }
 
+
+    private String trim(String text)
+    {
+        return text == null ? null : text.trim();
+    }
+
     /** 今天（东八区）yyyy-MM-dd */
     private String today()
     {

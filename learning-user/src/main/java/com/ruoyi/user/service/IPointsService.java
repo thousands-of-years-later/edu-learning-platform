@@ -2,6 +2,8 @@ package com.ruoyi.user.service;
 
 import java.util.List;
 import java.util.Map;
+import com.ruoyi.user.domain.PointsAccount;
+import com.ruoyi.user.domain.PointsLog;
 
 /**
  * 积分 / 权益 服务层
@@ -42,4 +44,43 @@ public interface IPointsService
      *         不要用手机本地时间减 adFreeExpireTime（手机时间可以随便改）
      */
     public Map<String, Object> account(Long userId);
+
+    /**
+     * 后台积分账户列表（分页由控制器 startPage() 驱动）
+     *
+     * @param userName 用户昵称模糊（可空）
+     */
+    public List<PointsAccount> selectAdminAccountList(String userName);
+
+
+    /**
+     * 后台按用户查积分账户（带昵称），给"积分记录 → 查看明细"用
+     *
+     * @param userId 用户ID
+     * @return 账户不存在返回 null
+     */
+    public PointsAccount selectAdminAccount(Long userId);
+
+    /**
+     * 某个用户的积分明细（含来源中文名），按时间倒序
+     *
+     * @param userId 用户ID
+     * @param type   来源编码（可空：空 = 全部来源）
+     */
+    public List<PointsLog> selectLogsByUser(Long userId, String type);
+
+    /**
+     * 发放积分（统一入口）——以后观看短视频/帖子/课程、任务、活动奖励都调这里
+     *
+     * 同一事务内完成：加账户余额 + 写一条来源明细（来源编码见 PointsSource）。
+     * 只接受正向积分；负向（兑换）走 exchange。
+     *
+     * @param userId 用户ID
+     * @param source 来源编码（PointsSource 里的四种来源之一）
+     * @param points 发放积分（必须 > 0）
+     * @param refId  关联业务ID（如短视频ID、帖子ID、课程ID，可空）
+     * @param remark 说明（如"观看短视频奖励"，可空）
+     * @return 变动后的余额
+     */
+    public int awardPoints(Long userId, String source, int points, Long refId, String remark);
 }

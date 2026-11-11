@@ -4,10 +4,47 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ruoyi.user.mapper.PointsLogMapper">
 
+	<resultMap type="PointsLog" id="PointsLogResult">
+		<id     property="logId"        column="log_id"        />
+		<result property="userId"       column="user_id"       />
+		<result property="changeAmount" column="change_amount" />
+		<result property="balance"      column="balance"       />
+		<result property="type"         column="type"          />
+		<result property="refId"        column="ref_id"        />
+		<result property="remark"       column="remark"        />
+		<result property="createTime"   column="create_time"   />
+		<result property="userName"     column="user_name"     />
+	</resultMap>
+
 	<!-- 只增不改：流水是审计数据，没有 update / delete 语句 -->
 	<insert id="insertLog" parameterType="PointsLog" useGeneratedKeys="true" keyProperty="logId">
 		insert into learning_points_log (user_id, change_amount, balance, type, ref_id, remark, create_time)
 		values (#{userId}, #{changeAmount}, #{balance}, #{type}, #{refId}, #{remark}, sysdate())
 	</insert>
+
+
+	<!-- 某个用户的积分明细：后台"积分记录 → 查看明细"用，按时间倒序（log_id 兜底稳定） -->
+	<select id="selectByUser" resultMap="PointsLogResult">
+		select l.log_id, l.user_id, l.change_amount, l.balance, l.type, l.ref_id, l.remark, l.create_time
+		  from learning_points_log l
+		 where l.user_id = #{userId}
+		<if test="type != null and type != ''">
+		   and l.type = #{type}
+		</if>
+		 order by l.log_id desc
+	</select>
+
+	<!-- 课程 + 帖子的当日已得积分：上限判断用，直接 sum 流水 -->
+	<select id="sumPointsByTypesBetween" resultType="int">
+		select ifnull(sum(change_amount), 0)
+		  from learning_points_log
+		 where user_id = #{userId}
+		   and type in
+		<foreach collection="types" item="type" open="(" separator="," close=")">
+			#{type}
+		</foreach>
+		   and create_time &gt;= #{begin}
+		   and create_time &lt; #{end}
+	</select>
 
 </mapper>

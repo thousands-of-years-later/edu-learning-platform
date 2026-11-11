@@ -55,4 +55,5 @@ public interface ICheckinService
      * @return {tiers:[{day,points}...], loopDays, dailyLimit, resetNote, loopNote}
      */
     public Map<String, Object> rules();
+
 }

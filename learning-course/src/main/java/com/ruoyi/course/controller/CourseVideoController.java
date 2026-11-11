@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
@@ -69,10 +70,14 @@ public class CourseVideoController extends BaseController
      */
     @RequiresPermissions("course:course:add")
     @GetMapping("/add/{courseId}")
-    public String add(@PathVariable("courseId") Long courseId, ModelMap mmap)
+    public String add(@PathVariable("courseId") Long courseId,
+                      @RequestParam(value = "chapterId", required = false) Long chapterId,
+                      ModelMap mmap)
     {
         mmap.put("courseId", courseId);
         mmap.put("chapters", selectChapters(courseId));
+        // 从课程目录的某个章节点「新增小节」时带上 chapterId，页面会默认选中该章节
+        mmap.put("chapterId", chapterId);
         return prefix + "/add";
     }
 

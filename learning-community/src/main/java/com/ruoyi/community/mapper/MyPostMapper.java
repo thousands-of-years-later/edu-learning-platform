@@ -47,13 +47,15 @@ public interface MyPostMapper
      * @param featured 是否只看精华文章（true 时过滤 is_featured='1'）
      * @param sortBy 排序方式：createTime / likeCount（控制层已归一化）
      * @param userId 作者ID；为 null 时查全部作者（他人主页传被查看人的 userId）
+     * @param topicId 话题ID；为 null 时不按话题过滤（设计稿 17_话题页）
      * @return 含 postId / postTitle / userName / avatar / isFeatured / createTime /
      *         viewCount / likeCount / favoriteCount / commentCount
      */
     public List<PostListSummary> selectPublishedList(@Param("categoryId") Long categoryId,
                                                      @Param("featured") Boolean featured,
                                                      @Param("sortBy") String sortBy,
-                                                     @Param("userId") Long userId);
+                                                     @Param("userId") Long userId,
+                                                     @Param("topicId") Long topicId);
 
     /**
      * 文章详情（设计稿 16_文章详情）

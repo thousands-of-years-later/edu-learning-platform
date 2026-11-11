@@ -35,6 +35,9 @@ public class CheckinRecord implements Serializable
     /** 用户ID（sys_user.user_id） */
     private Long userId;
 
+    /** 用户昵称（后台签到记录列表用，非本表列） */
+    private String userName;
+
     /** 签到日期 yyyy-MM-dd（东八区自然日） */
     private String signDate;
 
@@ -105,5 +108,15 @@ public class CheckinRecord implements Serializable
     public void setCreateTime(Date createTime)
     {
         this.createTime = createTime;
+    }
+
+    public String getUserName()
+    {
+        return userName;
+    }
+
+    public void setUserName(String userName)
+    {
+        this.userName = userName;
     }
 }

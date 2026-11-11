@@ -20,7 +20,8 @@
 				<div class="col-sm-8">
 					<select name="chapterId" class="form-control">
 						<option value="">无章节</option>
-						<option th:each="c : ${chapters}" th:text="${c.chapterTitle}" th:value="${c.chapterId}"></option>
+						<option th:each="c : ${chapters}" th:text="${c.chapterTitle}" th:value="${c.chapterId}"
+						        th:selected="${chapterId != null and c.chapterId == chapterId}"></option>
 					</select>
 				</div>
 			</div>

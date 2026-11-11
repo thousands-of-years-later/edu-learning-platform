@@ -3,6 +3,7 @@ package com.ruoyi.community.domain;
 import java.io.Serializable;
 import java.util.Date;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
  * 「社区 / 分类」文章列表项
@@ -29,6 +30,20 @@ public class PostListSummary implements Serializable
     private Long postId;
 
     private String postTitle;
+
+    /**
+     * 正文片段（列表查询时只取前 2000 字，供服务端算摘要和首图用）
+     *
+     * 不返回给客户端：@JsonIgnore，避免把正文片段塞进列表响应。
+     */
+    @JsonIgnore
+    private String contentBrief;
+
+    /** 一句话摘要（设计稿 17_话题页 / 05_社区页 卡片的副标题） */
+    private String summary;
+
+    /** 首图地址（从正文第一张图提取；没有图或没有权限时为 null） */
+    private String coverUrl;
 
     /** 作者昵称 */
     private String userName;
@@ -73,6 +88,36 @@ public class PostListSummary implements Serializable
     public void setPostTitle(String postTitle)
     {
         this.postTitle = postTitle;
+    }
+
+    public String getContentBrief()
+    {
+        return contentBrief;
+    }
+
+    public void setContentBrief(String contentBrief)
+    {
+        this.contentBrief = contentBrief;
+    }
+
+    public String getSummary()
+    {
+        return summary;
+    }
+
+    public void setSummary(String summary)
+    {
+        this.summary = summary;
+    }
+
+    public String getCoverUrl()
+    {
+        return coverUrl;
+    }
+
+    public void setCoverUrl(String coverUrl)
+    {
+        this.coverUrl = coverUrl;
     }
 
     public String getUserName()

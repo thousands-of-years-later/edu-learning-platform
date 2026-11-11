@@ -1,5 +1,6 @@
 package com.ruoyi.user.mapper;
 
+import java.util.List;
 import org.apache.ibatis.annotations.Param;
 import com.ruoyi.user.domain.PointsAccount;
 
@@ -53,4 +54,19 @@ public interface PointsAccountMapper
      * @return 影响行数（1 = 成功，0 = 余额不足或账户不存在）
      */
     public int exchangeAdFree(@Param("userId") Long userId, @Param("cost") int cost, @Param("minutes") int minutes);
+
+    /**
+     * 后台积分账户列表（分页由控制器驱动），带用户昵称
+     *
+     * @param userName 用户昵称模糊（可空）
+     */
+    public List<PointsAccount> selectAdminList(@Param("userName") String userName);
+
+    /**
+     * 后台按用户ID查积分账户（带昵称），给"积分记录 → 查看明细"的页面头部用
+     *
+     * @param userId 用户ID
+     * @return 账户不存在返回 null
+     */
+    public PointsAccount selectAdminAccountByUser(@Param("userId") Long userId);
 }

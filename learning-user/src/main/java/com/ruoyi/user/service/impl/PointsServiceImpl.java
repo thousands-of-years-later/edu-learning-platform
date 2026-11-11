@@ -1,6 +1,7 @@
 package com.ruoyi.user.service.impl;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -12,6 +13,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.user.domain.AdFreeRule;
 import com.ruoyi.user.domain.PointsAccount;
 import com.ruoyi.user.domain.PointsLog;
+import com.ruoyi.user.domain.PointsSource;
 import com.ruoyi.user.mapper.PointsAccountMapper;
 import com.ruoyi.user.mapper.PointsLogMapper;
 import com.ruoyi.user.service.IPointsService;
@@ -114,6 +116,91 @@ public class PointsServiceImpl implements IPointsService
         {
             throw new ServiceException("请先登录");
         }
+    }
+
+    @Override
+    public List<PointsAccount> selectAdminAccountList(String userName)
+    {
+        return pointsAccountMapper.selectAdminList(userName == null ? null : userName.trim());
+    }
+
+
+    @Override
+    public PointsAccount selectAdminAccount(Long userId)
+    {
+        if (userId == null)
+        {
+            return null;
+        }
+        return pointsAccountMapper.selectAdminAccountByUser(userId);
+    }
+
+    @Override
+    public List<PointsLog> selectLogsByUser(Long userId, String type)
+    {
+        if (userId == null)
+        {
+            return new ArrayList<>();
+        }
+        String source = type == null ? null : type.trim();
+        // 只接受已知来源，避免传乱七八糟的值查出空列表还以为是没数据
+        if (source != null && !source.isEmpty() && !PointsSource.isKnown(source))
+        {
+            source = null;
+        }
+        List<PointsLog> list = pointsLogMapper.selectByUser(userId, source);
+        fillSourceLabel(list);
+        return list;
+    }
+
+    /**
+     * 给每条明细补"来源中文名"
+     *
+     * 来源编码 -> 中文的映射统一放在 PointsSource，新增来源不用改这里和页面。
+     */
+    private void fillSourceLabel(List<PointsLog> list)
+    {
+        if (list == null)
+        {
+            return;
+        }
+        for (PointsLog log : list)
+        {
+            log.setSourceLabel(PointsSource.labelOf(log.getType()));
+        }
+    }
+
+    @Override
+    @Transactional
+    public int awardPoints(Long userId, String source, int points, Long refId, String remark)
+    {
+        if (userId == null)
+        {
+            throw new ServiceException("用户ID不能为空");
+        }
+        if (!PointsSource.isSource(source))
+        {
+            throw new ServiceException("积分来源不合法");
+        }
+        if (points <= 0)
+        {
+            throw new ServiceException("发放积分必须大于 0");
+        }
+
+        // 账户不存在就创建，然后原子累加（increasePoints 本身就是 upsert）
+        pointsAccountMapper.increasePoints(userId, points);
+        Integer balance = pointsAccountMapper.selectBalance(userId);
+        int after = balance == null ? points : balance;
+
+        PointsLog log = new PointsLog();
+        log.setUserId(userId);
+        log.setChangeAmount(points);
+        log.setBalance(after);
+        log.setType(source);
+        log.setRefId(refId);
+        log.setRemark(remark);
+        pointsLogMapper.insertLog(log);
+        return after;
     }
 
     /** 到期时间格式化成字符串给前端（null 原样返回 null） */

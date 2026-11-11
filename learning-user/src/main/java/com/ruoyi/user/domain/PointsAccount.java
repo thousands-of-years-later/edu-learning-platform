@@ -26,6 +26,9 @@ public class PointsAccount implements Serializable
     /** 用户ID（sys_user.user_id，主键） */
     private Long userId;
 
+    /** 用户昵称（后台积分账户列表用，非本表列） */
+    private String userName;
+
     /** 积分余额（页面上的"我的积分 / 总积分"） */
     private Integer balance;
 
@@ -113,5 +116,15 @@ public class PointsAccount implements Serializable
     public void setUpdateTime(Date updateTime)
     {
         this.updateTime = updateTime;
+    }
+
+    public String getUserName()
+    {
+        return userName;
+    }
+
+    public void setUserName(String userName)
+    {
+        this.userName = userName;
     }
 }

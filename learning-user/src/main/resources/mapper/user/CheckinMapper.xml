@@ -11,6 +11,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="points"         column="points"          />
 		<result property="continuousDays" column="continuous_days" />
 		<result property="createTime"     column="create_time"     />
+		<result property="userName"       column="user_name"       />
 	</resultMap>
 
 	<sql id="selectCheckinVo">
@@ -66,5 +67,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		insert into learning_checkin (user_id, sign_date, points, continuous_days, create_time)
 		values (#{userId}, #{signDate}, #{points}, #{continuousDays}, sysdate())
 	</insert>
+
 
 </mapper>

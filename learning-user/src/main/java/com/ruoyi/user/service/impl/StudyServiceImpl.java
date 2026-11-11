@@ -16,6 +16,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.user.domain.StudyDay;
 import com.ruoyi.user.domain.StudyRecord;
 import com.ruoyi.user.mapper.StudyMapper;
+import com.ruoyi.user.service.IPointsRewardService;
 import com.ruoyi.user.service.IStudyService;
 
 /**
@@ -57,6 +58,9 @@ public class StudyServiceImpl implements IStudyService
 
     @Autowired
     private StudyMapper studyMapper;
+
+    @Autowired
+    private IPointsRewardService pointsRewardService;
 
     @Override
     @Transactional
@@ -111,6 +115,14 @@ public class StudyServiceImpl implements IStudyService
         int todaySeconds = studyMapper.selectDaySeconds(userId, today);
         result.put("todaySeconds", todaySeconds);
         result.put("todayMinutes", toMinutes(todaySeconds));
+
+        // 课程小节：学习时长同时参与积分结算（累计满 30 秒 +5 分，同一小节每天只给一次）
+        if (TARGET_COURSE_VIDEO.equals(type))
+        {
+            Map<String, Object> award = pointsRewardService.watch(userId, "courseVideo", videoId, seconds);
+            result.put("awardedPoints", award.get("awardedPoints"));
+            result.put("todayContentPoints", award.get("todayContentPoints"));
+        }
         return result;
     }
 

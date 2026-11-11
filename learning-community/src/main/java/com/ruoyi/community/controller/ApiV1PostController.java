@@ -25,6 +25,8 @@ import com.ruoyi.community.domain.PostListSummary;
 import com.ruoyi.community.domain.PostSummary;
 import com.ruoyi.community.mapper.MyPostMapper;
 import com.ruoyi.community.service.IPostService;
+import com.ruoyi.community.service.ITopicService;
+import com.ruoyi.community.utils.PostContentUtils;
 import com.ruoyi.course.domain.Category;
 import com.ruoyi.course.service.ICategoryService;
 
@@ -67,6 +69,9 @@ public class ApiV1PostController extends BaseController
     @Autowired
     private ICategoryService categoryService;
 
+    @Autowired
+    private ITopicService topicService;
+
     /**
      * 发布文章（普通用户提交后进入待审核）
      *
@@ -77,18 +82,19 @@ public class ApiV1PostController extends BaseController
      * @param postTitle 标题（≤200 字）
      * @param categoryId 文章类别ID（category_type=article 且启用）
      * @param content Markdown 正文（≤65535 字；图片先调 /api/v1/upload，再内联）
+     * @param topicIds 话题ID，逗号分隔（可选，最多 5 个；话题列表见 GET /api/v1/topic/list）
      * @return {code:0, msg:"提交成功，等待审核", postId:新文章ID, status:"3"}
      */
     @PostMapping("/add")
-    public AjaxResult add(String postTitle, Long categoryId, String content)
+    public AjaxResult add(String postTitle, Long categoryId, String content, String topicIds)
     {
-        return publish(postTitle, categoryId, content);
+        return publish(postTitle, categoryId, content, topicIds);
     }
 
     /**
      * 发布文章（JSON 请求体）
      *
-     * @param body 请求体，字段同表单：postTitle、categoryId、content
+     * @param body 请求体，字段同表单：postTitle、categoryId、content、topicIds（可选，逗号分隔）
      */
     @PostMapping(value = "/add", consumes = MediaType.APPLICATION_JSON_VALUE)
     public AjaxResult addJson(@RequestBody Map<String, String> body)
@@ -100,7 +106,7 @@ public class ApiV1PostController extends BaseController
         {
             return AjaxResult.error("文章分类不合法");
         }
-        return publish(body.get("postTitle"), categoryId, body.get("content"));
+        return publish(body.get("postTitle"), categoryId, body.get("content"), body.get("topicIds"));
     }
 
     /**
@@ -119,14 +125,15 @@ public class ApiV1PostController extends BaseController
      * @param categoryId 类别ID（可选）
      * @param featured 是否只看精华文章：true/1 只看精华；不传/false 返回全部
      * @param sortBy 排序方式：createTime（缺省）/ likeCount
-     * @param userId 作者ID（可选）：他人主页传被查看人的 userId，只看他的文章；
-     *        不传 = 所有人的已发布文章
+     * @param userId 作者ID（可选）：他人主页传被查看人的 userId，只看他的文章
+     * @param topicId 话题ID（可选）：话题页传话题ID，只看挂了这个话题的文章
+     *        不传 userId / topicId = 所有人的已发布文章
      *        分页参数：pageNum / pageSize
-     * @return {code:0, rows:[{postId, postTitle, userName, avatar, isFeatured,
-     *         createTime, viewCount, likeCount, favoriteCount, commentCount}], total}
+     * @return {code:0, rows:[{postId, postTitle, summary, coverUrl, userName, avatar,
+     *         isFeatured, createTime, viewCount, likeCount, favoriteCount, commentCount}], total}
      */
     @GetMapping("/list")
-    public Object list(Long categoryId, Boolean featured, String sortBy, Long userId)
+    public Object list(Long categoryId, Boolean featured, String sortBy, Long userId, Long topicId)
     {
         // 校验必须在 startPage() 之前：PageHelper 的分页参数挂在 ThreadLocal 上，
         // 校验失败若发生在 startPage() 之后且没有查询消费它，参数会残留到本线程的下一条查询。
@@ -140,13 +147,24 @@ public class ApiV1PostController extends BaseController
             // /api/v1 只服务程序客户端，GET 校验失败也必须返回 JSON（不能抛 ServiceException）
             return AjaxResult.error("排序方式不合法，只支持 createTime、likeCount");
         }
+        if (topicId != null && topicService.selectTopicById(topicId) == null)
+        {
+            return AjaxResult.error("话题不存在或已下架");
+        }
 
         // 不用 BaseController.startPage()：它会读取请求里的 orderByColumn / isAsc 交给 PageHelper，
         // PageHelper 会用客户端排序替换 Mapper 里固定的 ORDER BY。这里只取分页参数。
         PageDomain page = TableSupport.buildPageRequest();
         PageHelper.startPage(page.getPageNum(), page.getPageSize()).setReasonable(page.getReasonable());
         List<PostListSummary> list = myPostMapper.selectPublishedList(
-                categoryId, Boolean.TRUE.equals(featured), sort, userId);
+                categoryId, Boolean.TRUE.equals(featured), sort, userId, topicId);
+        // 摘要与首图服务端算好（设计稿 17_话题页 的卡片要显示一句话摘要 + 右侧缩略图）
+        for (PostListSummary row : list)
+        {
+            row.setSummary(PostContentUtils.summarize(row.getContentBrief(),
+                    PostContentUtils.DEFAULT_SUMMARY_LENGTH));
+            row.setCoverUrl(PostContentUtils.firstImage(row.getContentBrief()));
+        }
         return getDataTable(list);
     }
 
@@ -189,6 +207,8 @@ public class ApiV1PostController extends BaseController
         {
             return AjaxResult.error("文章不存在或已下架");
         }
+        // 话题标签（设计稿 16_文章详情 标题下方 #Android #Kotlin）
+        detail.setTopics(topicService.selectTopicsByPostId(postId));
         return AjaxResult.success(detail);
     }
 
@@ -216,7 +236,7 @@ public class ApiV1PostController extends BaseController
      * 不直接绑定 Post：实体里的 userId / status / 计数 / isFeatured / auditRemark
      * 都可能被客户端伪造，这里只接收三个具名参数，其余全部服务端赋值。
      */
-    private AjaxResult publish(String postTitle, Long categoryId, String content)
+    private AjaxResult publish(String postTitle, Long categoryId, String content, String topicIds)
     {
         checkArticleCategory(categoryId);
 
@@ -237,6 +257,8 @@ public class ApiV1PostController extends BaseController
         {
             throw new ServiceException("帖子内容长度不能超过65535个字符");
         }
+        // 话题先校验（无效话题在写库之前就报错，避免文章已创建却没挂上话题）
+        topicService.parseAndCheckTopicIds(topicIds);
 
         Post post = new Post();
         post.setPostTitle(title);
@@ -254,6 +276,8 @@ public class ApiV1PostController extends BaseController
         {
             return AjaxResult.error("发布失败，请稍后重试");
         }
+        // 文章落库后再挂话题（insert ignore，重复提交不会报错）
+        topicService.bindTopics(post.getPostId(), topicIds);
         AjaxResult ajax = AjaxResult.success("提交成功，等待审核");
         ajax.put("postId", post.getPostId());
         ajax.put("status", post.getStatus());

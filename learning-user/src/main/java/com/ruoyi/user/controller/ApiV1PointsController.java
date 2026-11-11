@@ -3,7 +3,6 @@ package com.ruoyi.user.controller;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,20 +11,17 @@ import com.ruoyi.common.core.api.ApiContext;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.text.Convert;
-import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.user.service.IPointsService;
+import com.ruoyi.user.service.IPointsRewardService;
 
 /**
- * 积分 / 权益 接口 v1（Token 认证，给小程序用）
+ * 积分获取 接口 v1（Token 认证，给 App / 小程序用）
  *
- * 对应设计稿：
- *   08_任务中心  → /account（"当前无免广告权益"那块）+ /exchange/tiers（兑换列表）+ /exchange
- *   19_积分规则  → /exchange/tiers（"积分兑换规则"三段）
+ * 两个入口：
+ *   · POST /api/v1/points/watch      观看课程小节 / 帖子，上报本次新增秒数，满 30 秒发 5 分；
+ *   · POST /api/v1/points/ad/reward  看完广告领 10 分（每天最多 3 条）。
  *
- * 积分余额与签到共用同一个账户（见 learning-user 的 learning_points_account）：
- * 签到负责加、这里负责减；免广告权益就挂在账户行的 ad_free_expire_time 上。
- *
- * 用户ID一律取 ApiContext，绝不接受前端传入。
+ * 用户ID一律取 ApiContext（ApiTokenFilter 校验 Token 后写入），绝不接受前端传入。
+ * 去重、每日上限、并发抢占都在 IPointsRewardService 里处理。
  *
  * @author edu
  */
@@ -34,70 +30,59 @@ import com.ruoyi.user.service.IPointsService;
 public class ApiV1PointsController extends BaseController
 {
     @Autowired
-    private IPointsService pointsService;
+    private IPointsRewardService pointsRewardService;
 
     /**
-     * 我的积分账户（余额 + 免广告权益状态）
+     * 上报观看时长（表单）
      *
-     * adFree 由服务端按到期时间算好，客户端不要用本地时间自己判断（手机时间可以随便改）；
-     * 「免广告权益剩余 X 小时」也直接用 adFreeRemainMinutes，别拿 adFreeExpireTime 本地减。
-     *
-     * @return {balance, adFree, adFreeExpireTime, adFreeRemainMinutes}
-     *         （无权益时 adFreeExpireTime 为 null、adFreeRemainMinutes 为 0）
+     * @param targetType post（帖子）/ courseVideo（课程小节）
+     * @param targetId   帖子ID / 课程小节ID
+     * @param seconds    本次新增观看秒数（1~3600）
+     * @return {awardedPoints, todayContentPoints, todayContentLimit, watchedSeconds}
      */
-    @GetMapping("/account")
-    public AjaxResult account()
+    @PostMapping("/watch")
+    public AjaxResult watch(String targetType, Long targetId, Integer seconds)
     {
         AjaxResult ajax = AjaxResult.success();
-        ajax.putAll(pointsService.account(ApiContext.getUserId()));
+        ajax.putAll(pointsRewardService.watch(ApiContext.getUserId(), targetType, targetId, seconds));
         return ajax;
     }
 
     /**
-     * 免广告兑换档位
+     * 上报观看时长（JSON）
      *
-     * @return {tiers:[{tier:1, cost:10, minutes:30, label:"30 分钟"}, ...]}
+     * @param body 字段同表单：targetType、targetId、seconds
      */
-    @GetMapping("/exchange/tiers")
-    public AjaxResult exchangeTiers()
+    @PostMapping(value = "/watch", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public AjaxResult watchJson(@RequestBody Map<String, String> body)
+    {
+        return watch(body.get("targetType"), Convert.toLong(body.get("targetId")),
+                Convert.toInt(body.get("seconds")));
+    }
+
+    /**
+     * 看完广告领积分（表单）
+     *
+     * @param adId    广告唯一标识（最长 64）
+     * @param seconds 本次观看秒数（至少 15 秒）
+     * @return {awardedPoints, todayAdCount, todayAdLimit}
+     */
+    @PostMapping("/ad/reward")
+    public AjaxResult adReward(String adId, Integer seconds)
     {
         AjaxResult ajax = AjaxResult.success();
-        ajax.put("tiers", pointsService.exchangeTiers());
+        ajax.putAll(pointsRewardService.ad(ApiContext.getUserId(), adId, seconds));
         return ajax;
     }
 
     /**
-     * 兑换免广告（权益叠加：没过期就从原到期时间往后加，过期了从此刻开始算）
+     * 看完广告领积分（JSON）
      *
-     * @param tier 档位（1 = 10 积分/30 分钟，2 = 30 积分/2 小时，3 = 100 积分/24 小时）
-     * @return {balance:兑换后余额, adFree:true, adFreeExpireTime:新的到期时间,
-     *          adFreeRemainMinutes:兑换后的剩余分钟（含叠加）, cost, label}
-     *         积分不足 → code=500, msg="积分不足"（余额与权益都不变）
+     * @param body 字段同表单：adId、seconds
      */
-    @PostMapping("/exchange")
-    public AjaxResult exchange(Integer tier)
+    @PostMapping(value = "/ad/reward", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public AjaxResult adRewardJson(@RequestBody Map<String, String> body)
     {
-        AjaxResult ajax = AjaxResult.success("兑换成功");
-        ajax.putAll(pointsService.exchange(ApiContext.getUserId(), tier));
-        return ajax;
-    }
-
-    /**
-     * 兑换免广告（JSON 请求体）
-     *
-     * @param body 请求体，字段同表单：tier
-     */
-    @PostMapping(value = "/exchange", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public AjaxResult exchangeJson(@RequestBody Map<String, String> body)
-    {
-        String rawTier = body.get("tier");
-        Integer tier = Convert.toInt(rawTier);
-        // Convert.toInt 对「有值但转不动」是静默返回 null 的，null 会走到"档位不能为空"，
-        // 但那句文案对 "abc" 这种输入不够准确，这里先挡掉（与表单出口保持一致）
-        if (tier == null && StringUtils.isNotEmpty(rawTier))
-        {
-            return AjaxResult.error("兑换档位不合法");
-        }
-        return exchange(tier);
+        return adReward(body.get("adId"), Convert.toInt(body.get("seconds")));
     }
 }

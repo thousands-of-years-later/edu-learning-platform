@@ -123,4 +123,23 @@ public interface CommentMapper
                            @Param("idColumn") String idColumn,
                            @Param("targetId") Long targetId,
                            @Param("delta") int delta);
+
+    /**
+     * 内容简介（标题 + 阅读/点赞/收藏/评论数），给"从内容页查看评论"的页面头部用
+     *
+     * 三张内容表的列名不同，用 choose 按类型查；只查未删除的。
+     * 不 join、也不反向依赖 learning-community / learning-course / learning-video 模块。
+     *
+     * @return Map（title / viewCount / likeCount / favoriteCount / commentCount / createTime / status）；
+     *         内容不存在返回 null
+     */
+    public java.util.Map<String, Object> selectTargetBrief(@Param("targetType") String targetType,
+                                                           @Param("targetId") Long targetId);
+
+    /**
+     * 后台逻辑删除一条评论（不做 owner 校验，管理员可删任何人的评论）
+     *
+     * where 带 del_flag='0'：返回影响行数，调用方据此决定要不要减计数
+     */
+    public int softDeleteByAdmin(@Param("commentId") Long commentId);
 }

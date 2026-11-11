@@ -13,6 +13,22 @@ LOG="${LOG:-/var/log/edu-deploy.log}"
 LOCK="/tmp/edu-deploy.lock"
 TS="$(date '+%F %T')"
 
+# 通知结果单独记日志（原先用 >/dev/null 丢弃，失败时无从排查）
+NOTIFY_LOG="${NOTIFY_LOG:-/var/log/edu-deploy-notify.log}"
+mkdir -p "$(dirname "$NOTIFY_LOG")" 2>/dev/null || true
+touch "$NOTIFY_LOG" 2>/dev/null || NOTIFY_LOG="/tmp/edu-deploy-notify.log"
+
+notify() {
+  local title="$1" body="$2"
+  [ -f deploy/notify.sh ] || return 0
+  printf '[%s] %s -> ' "$(date '+%F %T')" "$title" >>"$NOTIFY_LOG" 2>/dev/null || true
+  if bash deploy/notify.sh "$title" "$body" >>"$NOTIFY_LOG" 2>&1; then
+    echo "[ok]" >>"$NOTIFY_LOG" 2>/dev/null || true
+  else
+    echo "[失败] 退出码 $?" >>"$NOTIFY_LOG" 2>/dev/null || true
+  fi
+}
+
 mkdir -p "$(dirname "$LOG")"
 exec 9>"$LOCK"
 if ! flock -n 9; then
@@ -53,7 +69,7 @@ fi
 
 if ! git reset --hard FETCH_HEAD >>"$LOG" 2>&1; then
   echo "[$TS] [失败] 切换到最新代码失败" >>"$LOG"
-  bash deploy/notify.sh "部署失败" "提交 ${NEW:0:8} 切换代码失败，已保留现场" >/dev/null 2>&1 || true
+  notify "部署失败" "提交 ${NEW:0:8} 切换代码失败，已保留现场"
   exit 1
 fi
 
@@ -64,13 +80,12 @@ fi
 
 echo "[$TS] [部署] 执行 deploy/deploy.sh（变更文件 ${FILE_COUNT} 个）" >>"$LOG"
 DEPLOY_START=$(date +%s)
-if bash deploy/deploy.sh >>"$LOG" 2>&1; then
+# 成功/失败的通知统一由 deploy.sh 发（带上版本号与耗时），这里只通过环境变量补充变更文件数
+if NOTIFY_FROM_AUTO=1 NOTIFY_EXTRA="变更文件 ${FILE_COUNT} 个" bash deploy/deploy.sh >>"$LOG" 2>&1; then
   COST=$(( $(date +%s) - DEPLOY_START ))
   echo "[$TS] [完成] 部署成功 ${NEW:0:8}，耗时 ${COST} 秒" >>"$LOG"
-  bash deploy/notify.sh "部署成功" "提交 ${NEW:0:8} 已上线\n耗时 ${COST} 秒\n变更文件 ${FILE_COUNT} 个" >/dev/null 2>&1 || true
 else
   echo "[$TS] [失败] 部署失败，已保留现场（镜像与容器未清理），请查看上方日志" >>"$LOG"
-  bash deploy/notify.sh "部署失败" "提交 ${NEW:0:8} 部署失败，已自动回滚到上一版本\n详见 /var/log/edu-deploy.log" >/dev/null 2>&1 || true
   exit 1
 fi
 

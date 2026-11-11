@@ -54,6 +54,12 @@ chmod 600 /etc/edu-deploy/notify.conf
 bash /www/wwwroot/edu-smart-learning/deploy/notify.sh "测试通知" "配置成功"
 ```
 
+通知范围与日志：
+
+- `deploy.sh`（手动部署）和 `auto-deploy.sh`（定时部署）在成功、构建失败、启动失败、回滚时都会发通知，两条路径都能收到
+- 每次推送的实际返回（飞书/企微/钉钉的 JSON）记录在 `/var/log/edu-deploy-notify.log`，格式为 `时间 标题 -> {"code":0,...} [ok]`；失败会写 `[失败] 退出码 N`
+- 通知发送失败不影响部署流程，只影响你能否收到消息
+
 ## 版本与回滚
 
 - 每次构建自动打标签 `edu-learning-platform/backend:YYYYMMDD-HHMMSS`

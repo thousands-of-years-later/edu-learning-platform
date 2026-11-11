@@ -23,10 +23,31 @@ BACKEND_LOG_LINES=20
 HEALTH_RETRY=20
 HEALTH_SLEEP=3
 
+DEPLOY_START=$(date +%s)
+# 通知结果记日志，失败可查；未配置 notify.conf 时 notify.sh 会静默返回 0
+NOTIFY_LOG="${NOTIFY_LOG:-/var/log/edu-deploy-notify.log}"
+mkdir -p "$(dirname "$NOTIFY_LOG")" 2>/dev/null || true
+touch "$NOTIFY_LOG" 2>/dev/null || NOTIFY_LOG="/tmp/edu-deploy-notify.log"
+
+notify() {
+  local title="$1" body="$2"
+  [ -f deploy/notify.sh ] || return 0
+  printf '[%s] %s -> ' "$(date '+%F %T')" "$title" >>"$NOTIFY_LOG" 2>/dev/null || true
+  if bash deploy/notify.sh "$title" "$body" >>"$NOTIFY_LOG" 2>&1; then
+    echo "[ok]" >>"$NOTIFY_LOG" 2>/dev/null || true
+  else
+    echo "[失败] 退出码 $?" >>"$NOTIFY_LOG" 2>/dev/null || true
+  fi
+}
+
+SHORT_SHA() {
+  git rev-parse --short HEAD 2>/dev/null || echo unknown
+}
+
 # ---------- 0. 前置校验 ----------
-[ -f "$ENV_FILE" ]    || { echo "[错误] 缺少 $ENV_FILE（请确认 OSS/MySQL 配置存在）"; exit 1; }
-[ -f "$COMPOSE_FILE" ] || { echo "[错误] 缺少 $COMPOSE_FILE"; exit 1; }
-command -v docker >/dev/null 2>&1 || { echo "[错误] docker 不可用"; exit 1; }
+[ -f "$ENV_FILE" ]    || { echo "[错误] 缺少 $ENV_FILE（请确认 OSS/MySQL 配置存在）"; notify "部署失败" "缺少 $ENV_FILE，部署未开始\n提交 $(SHORT_SHA)"; exit 1; }
+[ -f "$COMPOSE_FILE" ] || { echo "[错误] 缺少 $COMPOSE_FILE"; notify "部署失败" "缺少 $COMPOSE_FILE，部署未开始\n提交 $(SHORT_SHA)"; exit 1; }
+command -v docker >/dev/null 2>&1 || { echo "[错误] docker 不可用"; notify "部署失败" "docker 不可用，部署未开始"; exit 1; }
 
 health_check() {
   local code
@@ -57,7 +78,7 @@ if [ "${1:-}" = "--sql" ]; then
     echo "  -> $f"
     docker exec -i edu-mysql sh -c \
       'mysql --default-character-set=utf8mb4 -uroot -p"'"$MYSQL_ROOT_PASSWORD"'" learning_platform' < "$f" \
-      && echo "      [OK]" || { echo "      [失败] 请检查脚本"; exit 1; }
+      && echo "      [OK]" || { echo "      [失败] 请检查脚本"; notify "部署失败" "数据库脚本 $name 执行失败，部署已中止\n提交 $(SHORT_SHA)"; exit 1; }
   done
 else
   echo "[1/4] 跳过数据库变更（如需应用请加 --sql 并指定文件名）"
@@ -65,19 +86,22 @@ fi
 
 # ---------- 2. 构建并打版本标签 ----------
 echo "[2/4] 构建后端镜像"
-docker compose -p "$PROJECT" -f "$COMPOSE_FILE" build backend
+docker compose -p "$PROJECT" -f "$COMPOSE_FILE" build backend \
+  || { echo "[错误] 镜像构建失败"; notify "部署失败" "镜像构建失败，未影响线上容器\n提交 $(SHORT_SHA)"; exit 1; }
 
 TS_TAG="$(date '+%Y%m%d-%H%M%S')"
 docker tag "$IMAGE_REPO:latest" "$IMAGE_REPO:$TS_TAG"
 echo "  已打版本标签: $IMAGE_REPO:$TS_TAG"
 
 echo "[3/4] 启动服务（使用刚构建的镜像，不再重复构建）"
-docker compose -p "$PROJECT" -f "$COMPOSE_FILE" up -d --no-build
+docker compose -p "$PROJECT" -f "$COMPOSE_FILE" up -d --no-build \
+  || { echo "[错误] 容器启动失败"; notify "部署失败" "容器启动失败\n版本 ${TS_TAG}\n提交 $(SHORT_SHA)\n详见 /var/log/edu-deploy.log"; exit 1; }
 
 # ---------- 3. 健康检查 + 失败回滚 ----------
 echo "[4/4] 等待后端就绪（最多 $((HEALTH_RETRY * HEALTH_SLEEP)) 秒）"
 if health_check; then
   echo "  [OK] 后端 HTTP 响应正常，当前版本 $TS_TAG"
+  notify "部署成功" "版本 ${TS_TAG} 已上线\n提交 $(SHORT_SHA)\n耗时 $(( $(date +%s) - DEPLOY_START )) 秒\n${NOTIFY_EXTRA:-}"
 else
   echo "  [失败] 新版本未就绪，最近日志："
   docker logs --tail "$BACKEND_LOG_LINES" edu-backend 2>&1 || true
@@ -90,12 +114,15 @@ else
     docker compose -p "$PROJECT" -f "$COMPOSE_FILE" up -d --no-build --force-recreate backend
     if health_check; then
       echo "  [回滚成功] 已恢复到 $PREV_TAG，请排查 $TS_TAG 的构建日志"
+      notify "部署失败" "版本 ${TS_TAG} 启动失败，已回滚到 ${PREV_TAG}\n提交 $(SHORT_SHA)\n详见 /var/log/edu-deploy.log"
       exit 1
     fi
     echo "  [回滚失败] 旧版本 $PREV_TAG 也无法启动，需人工介入"
+    notify "部署失败" "版本 ${TS_TAG} 启动失败，回滚到 ${PREV_TAG} 也失败，需人工介入\n提交 $(SHORT_SHA)"
     exit 1
   fi
   echo "  [无可用回滚版本] 首版部署失败，请检查构建与配置"
+  notify "部署失败" "首版部署失败，无可回滚版本\n版本 ${TS_TAG}\n提交 $(SHORT_SHA)"
   exit 1
 fi
 

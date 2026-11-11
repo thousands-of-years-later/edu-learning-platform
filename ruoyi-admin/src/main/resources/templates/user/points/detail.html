@@ -69,7 +69,8 @@
 							<form class="form-inline" method="get" th:action="@{/user/points/detail}" style="margin-bottom: 12px;">
 								<input type="hidden" name="userId" th:value="${userId}"/>
 								<label for="sourceType">获取来源：</label>
-								<select id="sourceType" name="type" class="form-control input-sm">
+								<select id="sourceType" name="type" class="form-control input-sm"
+								        onchange="this.form.submit()">
 									<option value="">全部来源</option>
 									<option th:each="s : ${sources}" th:value="${s.key}" th:text="${s.value}"
 									        th:selected="${type != null and type == s.key}"></option>

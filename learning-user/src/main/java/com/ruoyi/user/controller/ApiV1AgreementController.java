@@ -21,10 +21,10 @@ import com.ruoyi.user.service.IAgreementService;
  * 只返回 status='0' 且未删除的记录；停用/删除与不存在一样返回错误，避免探测。
  * 后台维护入口在 /user/agreement（AgreementController）。
  *
- * 这里【不加】@Anonymous 注解 —— /api/v1/** 在 ShiroConfig 里整体放行，
- * 真正的鉴权由 ApiTokenFilter 完成；标上反而会让人误以为这个接口不需要登录。
- * 如果登录/注册页需要在未登录时展示协议，需要把 /api/v1/agreement 加进
- * ApiTokenFilter 的免登录白名单（当前按仓库约定仍要求 Token）。
+ * 这两个接口是【免登录】的：ApiTokenFilter 已把 /api/v1/agreement/** 加进前缀白名单，
+ * 登录页/注册页在尚未拿到 Token 时也能展示协议；带 Token 访问同样可以。
+ * 之所以不标 @Anonymous：该注解只影响 Shiro 的 anon 链（/api/v1/** 本来就整体放行），
+ * 真正的 Token 校验在 ApiTokenFilter 里，标了反而误导。
  *
  * 错误一律直接返回 AjaxResult：普通 GET 抛 ServiceException 会被全局异常处理器
  * 导向 HTML 错误页，客户端解析 JSON 会直接失败。

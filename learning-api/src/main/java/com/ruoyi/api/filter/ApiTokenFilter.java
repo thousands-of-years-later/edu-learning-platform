@@ -39,12 +39,23 @@ public class ApiTokenFilter implements Filter
     private static final Logger log = LoggerFactory.getLogger(ApiTokenFilter.class);
 
     /**
-     * 免登录白名单
+     * 免登录白名单（精确匹配）
      *
      * logout 也在里面：Token 已经过期时，「退出登录」也应该能成功
      * （删不到就算了，接口做成幂等的），否则客户端会卡在退不出去的状态。
      */
     private static final List<String> WHITE_LIST = Arrays.asList("/api/v1/login", "/api/v1/register", "/api/v1/logout");
+
+    /**
+     * 免登录白名单（前缀匹配）
+     *
+     * 平台协议（用户协议 / 隐私政策 / 关于我们）是公开内容：
+     * 登录页、注册页在还没拿到 Token 时就要能展示，所以整段放行。
+     *
+     * 只匹配「前缀本身」和「前缀 + / 子路径」，不是裸 startsWith ——
+     * 否则 /api/v1/agreement-foo 这类同前缀的其他接口也会被误放行。
+     */
+    private static final List<String> WHITE_PREFIX_LIST = Arrays.asList("/api/v1/agreement");
 
     private final IApiTokenService apiTokenService;
 
@@ -79,7 +90,7 @@ public class ApiTokenFilter implements Filter
                 chain.doFilter(request, response);
                 return;
             }
-            // 登录、注册、退出：不需要 Token
+            // 登录、注册、退出、平台协议：不需要 Token
             if (isWhiteList(req))
             {
                 chain.doFilter(request, response);
@@ -133,6 +144,9 @@ public class ApiTokenFilter implements Filter
      *
      * servletPath 天然不含 context-path，直接比就行；
      * 末尾多一个 "/" 也当同一个地址，免得客户端多个斜杠就 401。
+     *
+     * 精确白名单（登录/注册/退出）+ 前缀白名单（平台协议）。
+     * 前缀只匹配「本身」和「以 前缀/ 开头」，避免 /api/v1/agreement-foo 被误放行。
      */
     private boolean isWhiteList(HttpServletRequest request)
     {
@@ -145,6 +159,17 @@ public class ApiTokenFilter implements Filter
         {
             path = path.substring(0, path.length() - 1);
         }
-        return WHITE_LIST.contains(path);
+        if (WHITE_LIST.contains(path))
+        {
+            return true;
+        }
+        for (String prefix : WHITE_PREFIX_LIST)
+        {
+            if (path.equals(prefix) || path.startsWith(prefix + "/"))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -3,25 +3,32 @@
 ## 架构
 
 ```
-本地仓库 --git push--> 服务器裸仓库 /www/git/edu-learning-platform.git
+本地仓库 --git push--> GitHub deploy 分支（主来源）
                               |
                      cron 每 10 分钟（0:00-8:50）
                               |
-                     deploy/auto-deploy.sh  (git fetch -> 有变化才部署)
+                     deploy/auto-deploy.sh
+                       git fetch origin deploy（走 mihomo 代理）
+                       失败则回退 mirror -> 服务器裸仓库 /www/git/edu-learning-platform.git
                               |
                      deploy/deploy.sh       (构建 -> 打版本标签 -> 启动 -> 健康检查 -> 失败回滚)
                               |
                      deploy/maintenance.sh  (部署成功后清理日志/缓存/旧镜像)
 ```
 
-服务器不直接访问 GitHub。实测服务器到 github.com 的 git 连接 3/3 超时，codeload 60 秒仅完成 2.7MB，
-因此改用「本地推送 + 服务器本地裸仓库」方式，全程不依赖外网。
+服务器已由「只认本地裸仓库」改为 **GitHub 优先、裸仓库兜底**：
+
+- 主来源：`origin` = `https://github.com/thousands-of-years-later/edu-learning-platform.git`，
+  通过 `/etc/gitconfig` 的 `http.https://github.com.proxy = http://127.0.0.1:7890` 走 mihomo 代理；
+- 兜底来源：`mirror` = `/www/git/edu-learning-platform.git`，GitHub 拉取失败时自动改拉它，
+  保证代理节点抖动时定时部署不会卡死；
+- 两个来源都失败才中止并推送「部署失败」通知，且不做任何代码变更。
 
 ## 常用命令
 
 | 场景 | 命令 |
 |---|---|
-| 推送并部署（本地） | `git push server deploy` |
+| 推送并部署（本地） | `git push origin deploy`（GitHub 为准；如需同步兜底仓库再执行 `git push server deploy`） |
 | 立即检查并部署（服务器） | `bash /www/wwwroot/edu-smart-learning/deploy/auto-deploy.sh` |
 | 强制重新部署 | 服务器：`cd /www/wwwroot/edu-smart-learning && bash deploy/deploy.sh` |
 | 应用增量 SQL | `bash deploy/deploy.sh --sql 文件名.sql` |
@@ -91,7 +98,8 @@ bash /www/wwwroot/edu-smart-learning/deploy/notify.sh "测试通知" "配置成�
 | 配置 | `/opt/mihomo/config.yaml`（权限 600，含节点凭据，不进仓库） |
 | 代理端口 | `127.0.0.1:7890`（mixed，仅本机监听，防火墙未放行） |
 | 控制面 | `127.0.0.1:9090`，需 `secret`（在配置文件里） |
-| 作用范围 | git 仅对 github.com；docker daemon 全局 |
+| 作用范围 | git：`/etc/gitconfig` 已配 `http.https://github.com.proxy`；docker daemon 全局 |
+| 当前选中节点 | `PROXY` 组 = 🇯🇵【亚洲】日本04丨测试（18.183.33.230:443，234 ms）；选择已持久化（`store-selected: true`） |
 
 实测对比：
 
@@ -113,7 +121,8 @@ docker 的代理在 `/etc/docker/daemon.json`，改动前的备份在 `/root/dae
 注意事项：
 - 订阅到期 2026-12-07，到期前更新订阅链接或续费
 - 没有设置全局 `http_proxy`，容器内和 Maven 构建不会被带偏
-- 代理挂掉不影响部署：部署走服务器本地裸仓库，不走外网
+- 节点池只有 2 个地址可达（日本04、新加坡02），香港/新加坡 Hysteria2 多数超时；节点失效时
+  `auto-deploy.sh` 的 GitHub 拉取会失败，会自动回退 `mirror` 裸仓库，部署不中断但可能落后一个提交
 
 ## 注意事项
 

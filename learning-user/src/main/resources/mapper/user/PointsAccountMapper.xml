@@ -64,6 +64,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		   and balance &gt;= #{cost}
 	</update>
 
+	<!--
+	  商城/权益扣积分：一条 UPDATE 原子完成「余额够才扣」。
+	  - where 的 balance >= #{points} 是防超扣的闸门：余额不够影响 0 行，服务层据此报「积分不足」，
+	    永远不会把余额扣成负数；并发双击时行锁让第二条看到扣完后的余额，同样影响 0 行。
+	-->
+	<update id="deductPoints">
+		update learning_points_account
+		   set balance = balance - #{points},
+		       update_time = sysdate()
+		 where user_id = #{userId}
+		   and balance &gt;= #{points}
+	</update>
+
 	<!-- 后台积分账户列表：带用户昵称（标量子查询，不 join） -->
 	<select id="selectAdminList" resultMap="PointsAccountResult">
 		select a.user_id, a.balance, a.total_earned, a.ad_free_expire_time, a.create_time, a.update_time,

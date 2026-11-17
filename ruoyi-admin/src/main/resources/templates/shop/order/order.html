@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+	<th:block th:include="include :: header('商城兑换记录')" />
+</head>
+<body class="gray-bg">
+	<div class="container-div">
+		<div class="row">
+			<div class="col-sm-12 search-collapse">
+				<form id="shop-order-form">
+					<div class="select-list">
+						<ul>
+							<li>
+								用户昵称：<input type="text" name="userName"/>
+							</li>
+							<li>
+								商品名称：<input type="text" name="productName"/>
+							</li>
+							<li>
+								兑换码：<input type="text" name="redemptionCode"/>
+							</li>
+							<li>
+								<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+							    <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+							</li>
+						</ul>
+					</div>
+				</form>
+			</div>
+
+			<!-- 兑换记录只读：没有新增/修改/删除按钮 -->
+
+	        <div class="col-sm-12 select-table table-striped">
+			    <table id="bootstrap-table"></table>
+			</div>
+		</div>
+	</div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+		var prefix = ctx + "shop/order";
+
+		$(function() {
+		    var options = {
+		        url: prefix + "/list",
+		        sortName: "orderId",
+		        sortOrder: "desc",
+		        modalName: "兑换记录",
+		        uniqueId: "orderId",
+		        columns: [{
+		            field: 'orderId',
+		            title: '订单编号',
+		            sortable: true
+		        },
+		        {
+		            field: 'redemptionCode',
+		            title: '兑换码'
+		        },
+		        {
+		            field: 'userName',
+		            title: '用户'
+		        },
+		        {
+		            field: 'productName',
+		            title: '商品'
+		        },
+		        {
+		            field: 'coverUrl',
+		            title: '封面',
+		            align: 'center',
+		            formatter: function(value, row, index) {
+		                return $.common.isEmpty(value) ? '<span class="text-muted">无</span>' : $.table.imageView(value, 40, 40);
+		            }
+		        },
+		        {
+		            field: 'pointsCost',
+		            title: '消耗积分',
+		            sortable: true
+		        },
+		        {
+		            field: 'createTime',
+		            title: '兑换时间',
+		            sortable: true
+		        }]
+		    };
+		    $.table.init(options);
+		});
+	</script>
+</body>
+</html>

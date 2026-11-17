@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.shopping.mapper.ShopOrderMapper">
+
+	<resultMap type="ShopOrder" id="ShopOrderResult">
+		<id     property="orderId"        column="order_id"        />
+		<result property="redemptionCode" column="redemption_code" />
+		<result property="userId"         column="user_id"         />
+		<result property="userName"       column="user_name"       />
+		<result property="productId"      column="product_id"      />
+		<result property="productName"    column="product_name"    />
+		<result property="coverUrl"       column="cover_url"       />
+		<result property="pointsCost"     column="points_cost"     />
+		<result property="createTime"     column="create_time"     />
+	</resultMap>
+
+	<!--
+	  后台兑换记录列表：用户昵称用标量子查询，不 join sys_user，
+	  避免 PageHelper 按客户端排序字段拼 order by 时出现 user_name 歧义。
+	-->
+	<select id="selectShopOrderList" parameterType="ShopOrder" resultMap="ShopOrderResult">
+		select o.order_id, o.redemption_code, o.user_id, o.product_id, o.product_name,
+		       o.cover_url, o.points_cost, o.create_time,
+		       (select u.user_name from sys_user u where u.user_id = o.user_id) as user_name
+		  from learning_shop_order o
+		<where>
+			<if test="userName != null and userName != ''">
+				and exists (select 1
+				              from sys_user u
+				             where u.user_id = o.user_id
+				               and u.user_name like concat('%', #{userName}, '%'))
+			</if>
+			<if test="productName != null and productName != ''">
+				and o.product_name like concat('%', #{productName}, '%')
+			</if>
+			<if test="redemptionCode != null and redemptionCode != ''">
+				and o.redemption_code = #{redemptionCode}
+			</if>
+		</where>
+		order by o.order_id desc
+	</select>
+
+	<!-- 用户端「我的兑换」：只按 userId 查，绝不接受前端传 userId -->
+	<select id="selectByUser" parameterType="java.lang.Long" resultMap="ShopOrderResult">
+		select o.order_id, o.redemption_code, o.user_id, o.product_id, o.product_name,
+		       o.cover_url, o.points_cost, o.create_time
+		  from learning_shop_order o
+		 where o.user_id = #{userId}
+		 order by o.order_id desc
+	</select>
+
+	<insert id="insertShopOrder" parameterType="ShopOrder" useGeneratedKeys="true" keyProperty="orderId">
+		insert into learning_shop_order (
+			redemption_code, user_id, product_id, product_name, cover_url, points_cost, create_time
+		) values (
+			#{redemptionCode}, #{userId}, #{productId}, #{productName},
+			#{coverUrl,jdbcType=VARCHAR}, #{pointsCost}, sysdate()
+		)
+	</insert>
+
+</mapper>

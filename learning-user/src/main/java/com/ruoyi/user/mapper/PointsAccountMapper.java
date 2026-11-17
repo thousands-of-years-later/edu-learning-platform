@@ -56,6 +56,18 @@ public interface PointsAccountMapper
     public int exchangeAdFree(@Param("userId") Long userId, @Param("cost") int cost, @Param("minutes") int minutes);
 
     /**
+     * 扣减积分（商城兑换等）：余额够才扣，一条 UPDATE 原子完成
+     *
+     * where 里的 balance >= points 是防超扣的闸门：余额不够就影响 0 行，调用方据此报「积分不足」，
+     * 绝不会扣成负数；并发时数据库行锁会让第二条看到扣完后的余额，同样影响 0 行。
+     *
+     * @param userId 用户ID
+     * @param points 扣减积分（> 0）
+     * @return 影响行数（1 = 成功，0 = 余额不足或账户不存在）
+     */
+    public int deductPoints(@Param("userId") Long userId, @Param("points") int points);
+
+    /**
      * 后台积分账户列表（分页由控制器驱动），带用户昵称
      *
      * @param userName 用户昵称模糊（可空）

@@ -95,6 +95,13 @@
             <version>${ruoyi.version}</version>
         </dependency>
 
+        <!-- 学习平台-积分商城模块（商品分类、商品、兑换码、收货地址）-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>shopping</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>

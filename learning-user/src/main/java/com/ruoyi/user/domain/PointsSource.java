@@ -74,6 +74,9 @@ public class PointsSource
     /** 兑换（老版本免广告兑换，消耗，负向） */
     public static final String EXCHANGE = "exchange";
 
+    /** 商城兑换（消耗，负向；兑换码由 shopping 模块生成） */
+    public static final String SHOP_EXCHANGE = "shopExchange";
+
     /** 管理员手工调整（正负都可以） */
     public static final String ADJUST = "adjust";
 
@@ -100,6 +103,7 @@ public class PointsSource
 
         Map<String, String> others = new LinkedHashMap<>();
         others.put(EXCHANGE, "兑换");
+        others.put(SHOP_EXCHANGE, "商城兑换");
         others.put(ADJUST, "手工调整");
         others.put(WATCH_VIDEO, "观看短视频（已停用）");
         OTHER_TYPES = Collections.unmodifiableMap(others);

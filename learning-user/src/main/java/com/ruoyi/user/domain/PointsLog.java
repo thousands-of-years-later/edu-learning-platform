@@ -11,7 +11,8 @@ import com.fasterxml.jackson.annotation.JsonFormat;
  * 用于对账和排查「我的积分怎么少了」。
  * balance 存【变动后的余额快照】：任意一条流水都能看出当时余额，不必重放全表。
  *
- * type 目前只有 checkin（本模块），兑换模块以后写 exchange，后台手工调整写 adjust。
+ * type 见 PointsSource：checkin / watchCourse / watchPost / watchAd 是获取来源，
+ * exchange / shopExchange / adjust 是消耗或手工调整类型。
  *
  * @author edu
  */
@@ -24,6 +25,9 @@ public class PointsLog implements Serializable
 
     /** 流水类型：兑换（消耗，非来源） */
     public static final String TYPE_EXCHANGE = PointsSource.EXCHANGE;
+
+    /** 流水类型：商城兑换（消耗，非来源） */
+    public static final String TYPE_SHOP_EXCHANGE = PointsSource.SHOP_EXCHANGE;
 
     /** 流水类型：手工调整（非来源） */
     public static final String TYPE_ADJUST = PointsSource.ADJUST;

@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.shopping.mapper.ShopProductMapper">
+
+	<resultMap type="ShopProduct" id="ShopProductResult">
+		<id     property="productId"    column="product_id"    />
+		<result property="categoryId"   column="category_id"   />
+		<result property="productName"  column="product_name"  />
+		<result property="coverUrl"     column="cover_url"     />
+		<result property="pointsPrice"  column="points_price"  />
+		<result property="stock"        column="stock"         />
+		<result property="soldCount"    column="sold_count"    />
+		<result property="description"  column="description"   />
+		<result property="orderNum"     column="order_num"     />
+		<result property="status"       column="status"        />
+		<result property="delFlag"      column="del_flag"      />
+		<result property="createBy"     column="create_by"     />
+		<result property="createTime"   column="create_time"   />
+		<result property="updateBy"     column="update_by"     />
+		<result property="updateTime"   column="update_time"   />
+		<result property="remark"       column="remark"        />
+		<result property="categoryName" column="category_name" />
+	</resultMap>
+
+	<!--
+	  分类名称用标量子查询，不 join learning_shop_category：
+	  join 后 order_num / status 等列名会重复，PageHelper 按客户端传的排序字段拼 order by 时容易歧义报错。
+	-->
+	<sql id="selectShopProductVo">
+		select p.product_id, p.category_id, p.product_name, p.cover_url, p.points_price,
+		       p.stock, p.sold_count, p.description, p.order_num, p.status, p.del_flag,
+		       p.create_by, p.create_time, p.update_by, p.update_time, p.remark,
+		       (select c.category_name
+		          from learning_shop_category c
+		         where c.category_id = p.category_id) as category_name
+		  from learning_shop_product p
+	</sql>
+
+	<!-- 后台列表：未删除商品（下架也显示，方便重新上架） -->
+	<select id="selectShopProductList" parameterType="ShopProduct" resultMap="ShopProductResult">
+		<include refid="selectShopProductVo"/>
+		<where>
+			p.del_flag = '0'
+			<if test="productName != null and productName != ''">
+				and p.product_name like concat('%', #{productName}, '%')
+			</if>
+			<if test="categoryId != null">
+				and p.category_id = #{categoryId}
+			</if>
+			<if test="status != null and status != ''">
+				and p.status = #{status}
+			</if>
+		</where>
+		order by p.order_num, p.product_id desc
+	</select>
+
+	<select id="selectShopProductById" parameterType="java.lang.Long" resultMap="ShopProductResult">
+		<include refid="selectShopProductVo"/>
+		 where p.product_id = #{productId}
+		   and p.del_flag = '0'
+	</select>
+
+	<!--
+	  用户端可见商品：上架 + 未删除 + 分类启用且未删除。
+	  用 exists 而不是 join，避免出现重复行和排序歧义。
+	-->
+	<sql id="visibleProductWhere">
+		p.status = '0'
+		and p.del_flag = '0'
+		and exists (select 1
+		              from learning_shop_category c
+		             where c.category_id = p.category_id
+		               and c.status = '0'
+		               and c.del_flag = '0')
+	</sql>
+
+	<select id="selectVisibleProductList" parameterType="ShopProduct" resultMap="ShopProductResult">
+		<include refid="selectShopProductVo"/>
+		<where>
+			<include refid="visibleProductWhere"/>
+			<if test="categoryId != null">
+				and p.category_id = #{categoryId}
+			</if>
+			<if test="keyword != null and keyword != ''">
+				and p.product_name like concat('%', #{keyword}, '%')
+			</if>
+		</where>
+		order by p.order_num, p.product_id desc
+	</select>
+
+	<select id="selectVisibleProductById" parameterType="java.lang.Long" resultMap="ShopProductResult">
+		<include refid="selectShopProductVo"/>
+		 where p.product_id = #{productId}
+		   and <include refid="visibleProductWhere"/>
+	</select>
+
+	<insert id="insertShopProduct" parameterType="ShopProduct" useGeneratedKeys="true" keyProperty="productId">
+		insert into learning_shop_product (
+			category_id, product_name, cover_url, points_price, stock, sold_count,
+			description, order_num, status, del_flag, create_by, create_time, remark
+		) values (
+			#{categoryId}, #{productName}, #{coverUrl,jdbcType=VARCHAR}, #{pointsPrice}, #{stock}, 0,
+			#{description,jdbcType=VARCHAR}, #{orderNum}, #{status}, '0', #{createBy}, sysdate(), #{remark,jdbcType=VARCHAR}
+		)
+	</insert>
+
+	<update id="updateShopProduct" parameterType="ShopProduct">
+		update learning_shop_product
+		<set>
+			category_id = #{categoryId},
+			product_name = #{productName},
+			cover_url = #{coverUrl,jdbcType=VARCHAR},
+			points_price = #{pointsPrice},
+			stock = #{stock},
+			<if test="description != null">
+				description = #{description,jdbcType=VARCHAR},
+			</if>
+			<if test="orderNum != null">
+				order_num = #{orderNum},
+			</if>
+			<if test="status != null and status != ''">
+				status = #{status},
+			</if>
+			<if test="remark != null">
+				remark = #{remark,jdbcType=VARCHAR},
+			</if>
+			<if test="updateBy != null">
+				update_by = #{updateBy},
+			</if>
+			update_time = sysdate()
+		</set>
+		 where product_id = #{productId}
+		   and del_flag = '0'
+	</update>
+
+	<update id="deleteShopProductByIds" parameterType="java.lang.Long">
+		update learning_shop_product
+		   set del_flag = '2', update_time = sysdate()
+		 where product_id in
+		<foreach collection="array" item="productId" open="(" separator="," close=")">
+			#{productId}
+		</foreach>
+	</update>
+
+	<select id="countByCategoryId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+		select count(1)
+		  from learning_shop_product
+		 where category_id = #{categoryId}
+		   and del_flag = '0'
+	</select>
+
+	<!--
+	  兑换扣库存：一条 UPDATE 同时完成「库存 -1」与「已兑换 +1」。
+	  - stock >= 1：防超卖，库存不足影响 0 行；
+	  - status/del_flag/exists(category)：商品或分类在兑换瞬间被下架/删除也会影响 0 行；
+	  - points_price = 入参：后台改价后旧价格下单影响 0 行，避免按旧价兑换。
+	-->
+	<update id="decreaseStock">
+		update learning_shop_product
+		   set stock = stock - 1,
+		       sold_count = sold_count + 1,
+		       update_time = sysdate()
+		 where product_id = #{productId}
+		   and stock &gt;= 1
+		   and status = '0'
+		   and del_flag = '0'
+		   and points_price = #{pointsPrice}
+		   and points_price &gt; 0
+		   and exists (select 1
+		                 from learning_shop_category c
+		                where c.category_id = learning_shop_product.category_id
+		                  and c.status = '0'
+		                  and c.del_flag = '0')
+	</update>
+
+</mapper>

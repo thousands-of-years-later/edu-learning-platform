@@ -22,6 +22,7 @@ COPY learning-interation/pom.xml learning-interation/
 COPY learning-user/pom.xml learning-user/
 COPY learning-video/pom.xml learning-video/
 COPY learning-api/pom.xml learning-api/
+COPY shopping/pom.xml shopping/
 # 使用阿里云镜像，绕开 Maven 3.9 的 HTTP 仓库拦截，加速依赖下载
 COPY deploy/maven-settings.xml /build/maven-settings.xml
 RUN mvn -s /build/maven-settings.xml -B dependency:go-offline

@@ -203,6 +203,46 @@ public class PointsServiceImpl implements IPointsService
         return after;
     }
 
+    @Override
+    @Transactional
+    public int deductPoints(Long userId, int points, String source, Long refId, String remark)
+    {
+        if (userId == null)
+        {
+            throw new ServiceException("用户ID不能为空");
+        }
+        if (points <= 0)
+        {
+            throw new ServiceException("扣减积分必须大于 0");
+        }
+        // 只接受消耗/调整类型（exchange/shopExchange/adjust 等），
+        // 获取来源（签到、观看课程……）走 awardPoints，不能在这里扣
+        if (!PointsSource.isKnown(source) || PointsSource.isSource(source))
+        {
+            throw new ServiceException("积分类型不合法");
+        }
+
+        // 一条 UPDATE 完成原子扣减：where 的 balance >= points 是防超扣闸门，
+        // 余额不够影响 0 行；并发双击时行锁让第二条看到扣完后的余额，同样影响 0 行。
+        if (pointsAccountMapper.deductPoints(userId, points) == 0)
+        {
+            throw new ServiceException("积分不足");
+        }
+        Integer balance = pointsAccountMapper.selectBalance(userId);
+        int after = balance == null ? 0 : balance;
+
+        // 积分流水：负数表示消耗；balance 存变动后的余额快照
+        PointsLog log = new PointsLog();
+        log.setUserId(userId);
+        log.setChangeAmount(-points);
+        log.setBalance(after);
+        log.setType(source);
+        log.setRefId(refId);
+        log.setRemark(remark);
+        pointsLogMapper.insertLog(log);
+        return after;
+    }
+
     /** 到期时间格式化成字符串给前端（null 原样返回 null） */
     private String format(Date time)
     {

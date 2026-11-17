@@ -208,6 +208,7 @@
         <module>learning-user</module>
     <module>learning-video</module>
         <module>learning-api</module>
+        <module>shopping</module>
     </modules>
     <packaging>pom</packaging>
 

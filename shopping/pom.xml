@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.ruoyi</groupId>
+        <artifactId>ruoyi</artifactId>
+        <version>4.8.3</version>
+    </parent>
+
+    <artifactId>shopping</artifactId>
+
+    <description>
+        学习平台-积分商城模块（商品分类 / 商品 / 兑换码 / 收货地址）
+    </description>
+
+    <properties>
+        <!-- 不要在这里写 maven.compiler.*：编译版本统一由父 pom 的 java.version(17) 控制 -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- 通用工具 / BaseController / AjaxResult -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-common</artifactId>
+        </dependency>
+
+        <!-- 积分账户扣减（IPointsService#deductPoints） -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>learning-user</artifactId>
+            <version>${ruoyi.version}</version>
+        </dependency>
+    </dependencies>
+
+</project>

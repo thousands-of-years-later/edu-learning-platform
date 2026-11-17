@@ -83,4 +83,19 @@ public interface IPointsService
      * @return 变动后的余额
      */
     public int awardPoints(Long userId, String source, int points, Long refId, String remark);
+
+    /**
+     * 扣减积分（统一入口）——商城兑换等消耗场景都调这里
+     *
+     * 同一事务内完成：原子扣账户余额（余额够才扣）+ 写一条负向明细。
+     * 余额不足会抛业务异常，余额与流水都不会变。
+     *
+     * @param userId 用户ID
+     * @param points 扣减积分（必须 > 0）
+     * @param source 消耗类型编码（PointsSource 里的消耗/调整类型，不能是获取来源）
+     * @param refId  关联业务ID（如商城订单ID，可空）
+     * @param remark 说明（如"兑换商品：xxx"，可空）
+     * @return 变动后的余额
+     */
+    public int deductPoints(Long userId, int points, String source, Long refId, String remark);
 }

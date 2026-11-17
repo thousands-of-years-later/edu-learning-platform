@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # ============================================================
 # 服务器定时自动部署（由 crontab 调用，不建议手动执行）
-# 逻辑：拉取远端 deploy 分支 -> 有变化才部署 -> 失败保留现场并记录
+# 逻辑：拉取远端 category 分支 -> 有变化才部署 -> 失败保留现场并记录
 # 日志：/var/log/edu-deploy.log
 # 手动触发：bash deploy/auto-deploy.sh
 # ============================================================
 set -uo pipefail
 
 REPO_DIR="${REPO_DIR:-/www/wwwroot/edu-smart-learning}"
-BRANCH="${BRANCH:-deploy}"
+BRANCH="${BRANCH:-category}"
 LOG="${LOG:-/var/log/edu-deploy.log}"
 LOCK="/tmp/edu-deploy.lock"
 TS="$(date '+%F %T')"

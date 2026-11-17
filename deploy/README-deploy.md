@@ -3,12 +3,12 @@
 ## 架构
 
 ```
-本地仓库 --git push--> GitHub deploy 分支（主来源）
+本地仓库 --git push--> GitHub category 分支（主分支 / 主来源；deploy 为发布基线）
                               |
                      cron 每 10 分钟（0:00-8:50）
                               |
                      deploy/auto-deploy.sh
-                       git fetch origin deploy（走 mihomo 代理）
+                       git fetch origin category（走 mihomo 代理）
                        失败则回退 mirror -> 服务器裸仓库 /www/git/edu-learning-platform.git
                               |
                      deploy/deploy.sh       (构建 -> 打版本标签 -> 启动 -> 健康检查 -> 失败回滚)

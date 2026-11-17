@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.user.mapper.AgreementMapper">
+
+	<resultMap type="Agreement" id="AgreementResult">
+		<id     property="agreementId"   column="agreement_id"   />
+		<result property="agreementType" column="agreement_type" />
+		<result property="title"         column="title"          />
+		<result property="content"       column="content"        />
+		<result property="orderNum"      column="order_num"      />
+		<result property="status"        column="status"         />
+		<result property="delFlag"       column="del_flag"       />
+		<result property="createBy"      column="create_by"      />
+		<result property="createTime"    column="create_time"    />
+		<result property="updateBy"      column="update_by"      />
+		<result property="updateTime"    column="update_time"    />
+		<result property="remark"        column="remark"         />
+	</resultMap>
+
+	<!--
+	  列表【故意不查 content】：协议正文是 longtext，一页十几条全带出来没有意义，
+	  后台列表和 App 列表都用不到。编辑页走 selectAgreementById 单独取正文。
+	-->
+	<sql id="selectAgreementVo">
+		select agreement_id, agreement_type, title, order_num, status, del_flag,
+		       create_by, create_time, update_by, update_time, remark
+		  from learning_agreement
+	</sql>
+
+	<select id="selectAgreementList" parameterType="Agreement" resultMap="AgreementResult">
+		<include refid="selectAgreementVo"/>
+		<where>
+			del_flag = '0'
+			<if test="agreementType != null and agreementType != ''">
+				and agreement_type = #{agreementType}
+			</if>
+			<if test="title != null and title != ''">
+				and title like concat('%', #{title}, '%')
+			</if>
+			<if test="status != null and status != ''">
+				and status = #{status}
+			</if>
+		</where>
+		order by order_num asc, agreement_id asc
+	</select>
+
+	<select id="selectAgreementById" parameterType="java.lang.Long" resultMap="AgreementResult">
+		select agreement_id, agreement_type, title, content, order_num, status, del_flag,
+		       create_by, create_time, update_by, update_time, remark
+		  from learning_agreement
+		 where agreement_id = #{agreementId}
+		   and del_flag = '0'
+	</select>
+
+	<!--
+	  类型查重：软删除的记录不算占用，删掉后可以重新新增同类型。
+	  修改时传了 agreementId 就排除自己。
+	-->
+	<select id="selectAgreementByType" parameterType="Agreement" resultMap="AgreementResult">
+		<include refid="selectAgreementVo"/>
+		 where del_flag = '0'
+		   and agreement_type = #{agreementType}
+		<if test="agreementId != null">
+		   and agreement_id != #{agreementId}
+		</if>
+		 limit 1
+	</select>
+
+	<!--
+	  App 端列表：只返回正常状态 + 未删除的行，不查 content。
+	  客户端传什么筛选参数都不进 SQL，可见性条件写死在这里。
+	-->
+	<select id="selectEnabledAgreementList" resultMap="AgreementResult">
+		select agreement_id, agreement_type, title, order_num, status, update_time
+		  from learning_agreement
+		 where del_flag = '0'
+		   and status = '0'
+		 order by order_num asc, agreement_id asc
+	</select>
+
+	<!-- App 端详情：停用/删除与不存在一样返回 null，避免探测 -->
+	<select id="selectEnabledAgreementByType" parameterType="java.lang.String" resultMap="AgreementResult">
+		select agreement_id, agreement_type, title, content, order_num, status, create_time, update_time
+		  from learning_agreement
+		 where del_flag = '0'
+		   and status = '0'
+		   and agreement_type = #{agreementType}
+		 order by order_num asc, agreement_id asc
+		 limit 1
+	</select>
+
+	<insert id="insertAgreement" parameterType="Agreement" useGeneratedKeys="true" keyProperty="agreementId">
+		insert into learning_agreement (
+			agreement_type, title, content, order_num, status, del_flag,
+			create_by, create_time, remark
+		) values (
+			#{agreementType}, #{title}, #{content}, #{orderNum}, #{status}, '0',
+			#{createBy}, sysdate(), #{remark}
+		)
+	</insert>
+
+	<update id="updateAgreement" parameterType="Agreement">
+		update learning_agreement
+		<set>
+			agreement_type = #{agreementType},
+			title = #{title},
+			content = #{content},
+			<if test="orderNum != null">order_num = #{orderNum},</if>
+			<if test="status != null and status != ''">status = #{status},</if>
+			<if test="remark != null">remark = #{remark},</if>
+			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+			update_time = sysdate()
+		</set>
+		 where agreement_id = #{agreementId}
+		   and del_flag = '0'
+	</update>
+
+	<!-- where 带 del_flag = '0'：重复删除不会反复改写已删行的 update_time -->
+	<update id="deleteAgreementByIds" parameterType="java.lang.Long">
+		update learning_agreement
+		   set del_flag = '2', update_time = sysdate()
+		 where agreement_id in
+		<foreach collection="array" item="agreementId" open="(" separator="," close=")">
+			#{agreementId}
+		</foreach>
+		   and del_flag = '0'
+	</update>
+
+</mapper>

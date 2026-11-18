@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.community.mapper.SensitiveWordMapper">
+
+	<resultMap type="SensitiveWord" id="SensitiveWordResult">
+		<id     property="wordId"      column="word_id"      />
+		<result property="word"        column="word"         />
+		<result property="status"      column="status"       />
+		<result property="remark"      column="remark"       />
+		<result property="createBy"    column="create_by"    />
+		<result property="createTime"  column="create_time"  />
+		<result property="updateBy"    column="update_by"    />
+		<result property="updateTime"  column="update_time"  />
+	</resultMap>
+
+	<sql id="selectSensitiveWordVo">
+		select word_id, word, status, remark, create_by, create_time, update_by, update_time
+		  from learning_sensitive_word
+	</sql>
+
+	<select id="selectSensitiveWordList" parameterType="SensitiveWord" resultMap="SensitiveWordResult">
+		<include refid="selectSensitiveWordVo"/>
+		<where>
+			<if test="word != null and word != ''">
+				and word like concat('%', #{word}, '%')
+			</if>
+			<if test="status != null and status != ''">
+				and status = #{status}
+			</if>
+		</where>
+		order by word_id desc
+	</select>
+
+	<select id="selectSensitiveWordById" resultMap="SensitiveWordResult">
+		<include refid="selectSensitiveWordVo"/>
+		where word_id = #{wordId}
+	</select>
+
+	<select id="selectByWord" resultMap="SensitiveWordResult">
+		<include refid="selectSensitiveWordVo"/>
+		where word = #{word} limit 1
+	</select>
+
+	<select id="selectEnabledWords" resultType="java.lang.String">
+		select word from learning_sensitive_word where status = '0'
+	</select>
+
+	<insert id="insertSensitiveWord" parameterType="SensitiveWord" useGeneratedKeys="true" keyProperty="wordId">
+		insert into learning_sensitive_word (word, status, remark, create_by, create_time)
+		values (#{word}, #{status}, #{remark}, #{createBy}, sysdate())
+	</insert>
+
+	<update id="updateSensitiveWord" parameterType="SensitiveWord">
+		update learning_sensitive_word
+		   set word = #{word},
+		       status = #{status},
+		       remark = #{remark},
+		       update_by = #{updateBy},
+		       update_time = sysdate()
+		 where word_id = #{wordId}
+	</update>
+
+	<delete id="deleteSensitiveWordByIds">
+		delete from learning_sensitive_word where word_id in
+		<foreach collection="wordIds" item="wordId" open="(" separator="," close=")">
+			#{wordId}
+		</foreach>
+	</delete>
+
+</mapper>

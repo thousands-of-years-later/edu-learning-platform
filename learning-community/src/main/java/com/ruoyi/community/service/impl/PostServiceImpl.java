@@ -11,6 +11,7 @@ import com.ruoyi.community.domain.Post;
 import com.ruoyi.community.mapper.PostMapper;
 import com.ruoyi.community.mapper.TopicMapper;
 import com.ruoyi.community.service.IPostService;
+import com.ruoyi.community.service.ISensitiveWordService;
 
 /**
  * 社区帖子 服务层处理
@@ -29,6 +30,10 @@ public class PostServiceImpl implements IPostService
     /** 话题关联：文章删除时级联清掉（见 deletePostByIds 第 3 步） */
     @Autowired
     private TopicMapper topicMapper;
+
+    /** 帖子标题/正文的违禁词校验（只拦帖子，评论不处理） */
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
 
     /**
      * 查询帖子列表
@@ -77,6 +82,8 @@ public class PostServiceImpl implements IPostService
             post.setStatus(Post.STATUS_DRAFT);
         }
         checkContentRequired(post.getStatus(), post.getContent());
+        // 违禁词：标题 + 正文，命中直接拒绝保存
+        sensitiveWordService.checkText(post.getPostTitle(), post.getContent());
         return postMapper.insertPost(post);
     }
 
@@ -106,7 +113,11 @@ public class PostServiceImpl implements IPostService
         post.setCreateBy(old.getCreateBy());
         post.setStatus(resolveStatus(post.getStatus(), old.getStatus(), canManageAll));
         // 表单没提交正文时（content 为 null）沿用库里的，再判断发布态是否为空
-        checkContentRequired(post.getStatus(), post.getContent() != null ? post.getContent() : old.getContent());
+        String content = post.getContent() != null ? post.getContent() : old.getContent();
+        checkContentRequired(post.getStatus(), content);
+        // 违禁词：标题取本次提交的，没提交就用库里的；正文用最终生效的内容
+        String title = post.getPostTitle() != null ? post.getPostTitle() : old.getPostTitle();
+        sensitiveWordService.checkText(title, content);
         return postMapper.updatePost(post);
     }
 

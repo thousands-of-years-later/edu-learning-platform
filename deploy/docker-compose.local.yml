@@ -1,0 +1,14 @@
+# 本地开发用 override（不影响服务器部署）
+# 用法：在项目根目录执行  .\deploy\start-local.ps1
+#   或手动：docker-compose -p edu-local -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml up -d
+#   本机 3306 被 MySQL80 占用，start-local.ps1 会把容器 MySQL 映射到 3307
+# 作用：
+#   1. 首次启动自动执行 deploy/init/local-schema.sql 建表（仅空数据卷时执行）
+#   2. 本地关闭 OSS，测试上传不落生产 bucket
+services:
+  mysql:
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d/:ro
+  backend:
+    environment:
+      OSS_ENABLED: "false"

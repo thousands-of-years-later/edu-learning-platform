@@ -2,6 +2,7 @@ package com.ruoyi.interaction.service.impl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -135,12 +136,13 @@ public class CommentServiceImpl implements ICommentService
         if (parentId == null)
         {
             // 一级评论：通知内容归属人（与加回复功能之前完全一样）
-            notificationService.notifyComment(userId, targetType, targetId, text);
+            notificationService.notifyComment(userId, targetType, targetId, comment.getCommentId(), text);
         }
         else
         {
             // 二级评论：通知被回复人；内容归属人由通知服务内部去重后决定要不要一起通知
-            notificationService.notifyReply(userId, targetType, targetId, replyUserId, text);
+            notificationService.notifyReply(userId, targetType, targetId, replyUserId,
+                    comment.getCommentId(), text);
         }
 
         Map<String, Object> result = new HashMap<String, Object>();
@@ -298,6 +300,37 @@ public class CommentServiceImpl implements ICommentService
             return 0;
         }
         return commentMapper.countByTarget(targetType, targetId);
+    }
+
+    @Override
+    public Map<String, Object> locateComment(Long commentId, Integer pageSize)
+    {
+        if (commentId == null)
+        {
+            throw new ServiceException("评论ID不能为空");
+        }
+        // 这里必须查"含已删除"的评论：评论被删了也要能拿到它挂在哪个内容下
+        Comment comment = commentMapper.selectCommentByIdIncludeDeleted(commentId);
+        if (comment == null)
+        {
+            throw new ServiceException("评论不存在");
+        }
+
+        // 回复挂在一级评论下：parent_id 就是 rootId；一级评论的 rootId 是自己
+        Long rootId = comment.getParentId() == null ? comment.getCommentId() : comment.getParentId();
+        int size = (pageSize == null || pageSize < 1) ? 20 : Math.min(pageSize, 100);
+        // 一级评论按 comment_id desc 分页：比 rootId 新的条数 = 它在列表里的下标
+        int rootIndex = commentMapper.countRootNewer(comment.getTargetType(), comment.getTargetId(), rootId);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("commentId", comment.getCommentId());
+        result.put("targetType", comment.getTargetType());
+        result.put("targetId", comment.getTargetId());
+        result.put("rootId", rootId);
+        result.put("rootIndex", rootIndex);
+        result.put("pageNum", rootIndex / size + 1);
+        result.put("deleted", !"0".equals(comment.getDelFlag()));
+        return result;
     }
 
     @Override

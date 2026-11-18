@@ -76,6 +76,13 @@ public class Notification implements Serializable
     /** 目标ID（关注类为 null） */
     private Long targetId;
 
+    /**
+     * 关联评论ID（评论 type=3 / 回复 type=5 才有；点赞、收藏、关注、历史通知为 null）
+     *
+     * 客户端从通知列表点进来时，用它定位到具体那条评论。
+     */
+    private Long commentId;
+
     /** 评论摘要（仅评论类有值，最长500字） */
     private String content;
 
@@ -167,6 +174,16 @@ public class Notification implements Serializable
     public void setTargetId(Long targetId)
     {
         this.targetId = targetId;
+    }
+
+    public Long getCommentId()
+    {
+        return commentId;
+    }
+
+    public void setCommentId(Long commentId)
+    {
+        this.commentId = commentId;
     }
 
     public String getContent()

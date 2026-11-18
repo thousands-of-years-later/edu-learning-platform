@@ -72,7 +72,7 @@ public class NotificationServiceImpl implements INotificationService
     }
 
     @Override
-    public void notifyComment(Long fromUserId, String targetType, Long targetId, String content)
+    public void notifyComment(Long fromUserId, String targetType, Long targetId, Long commentId, String content)
     {
         Long toUserId = ownerOf(targetType, targetId);
         if (toUserId == null || toUserId.equals(fromUserId))
@@ -93,12 +93,14 @@ public class NotificationServiceImpl implements INotificationService
         n.setType(Notification.TYPE_COMMENT);
         n.setTargetType(targetType);
         n.setTargetId(targetId);
+        n.setCommentId(commentId);
         n.setContent(content);
         notificationMapper.insertNotification(n);
     }
 
     @Override
-    public void notifyReply(Long fromUserId, String targetType, Long targetId, Long toUserId, String content)
+    public void notifyReply(Long fromUserId, String targetType, Long targetId, Long toUserId,
+                            Long commentId, String content)
     {
         // 与 notifyComment 完全相同的长度纪律：调用方已保证 trim 且不超长，
         // 这里【不做 Java substring 截断】兜底（substring 按 UTF-16 切，可能切坏 emoji 的代理对）
@@ -116,6 +118,7 @@ public class NotificationServiceImpl implements INotificationService
             n.setType(Notification.TYPE_REPLY);
             n.setTargetType(targetType);
             n.setTargetId(targetId);
+            n.setCommentId(commentId);
             n.setContent(content);
             notificationMapper.insertNotification(n);
         }
@@ -135,6 +138,7 @@ public class NotificationServiceImpl implements INotificationService
             n.setType(Notification.TYPE_COMMENT);
             n.setTargetType(targetType);
             n.setTargetId(targetId);
+            n.setCommentId(commentId);
             n.setContent(content);
             notificationMapper.insertNotification(n);
         }

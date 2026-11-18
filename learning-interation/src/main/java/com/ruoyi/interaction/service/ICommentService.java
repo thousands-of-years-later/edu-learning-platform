@@ -89,4 +89,17 @@ public interface ICommentService
      * @param commentId 评论ID
      */
     public void deleteCommentByAdmin(Long commentId);
+
+    /**
+     * 从通知定位评论（客户端点"评论/回复"通知时用）
+     *
+     * 一级评论按 comment_id desc 分页，这里算出目标评论所在页；
+     * 回复会返回它所属的一级评论 rootId，客户端先展开父评论再滚动。
+     * 评论已删除时 deleted=true，但仍返回原 targetType/targetId，供客户端停在内容页。
+     *
+     * @param commentId 评论ID
+     * @param pageSize  客户端评论列表每页条数（默认 20，范围 1~100）
+     * @return {commentId, targetType, targetId, rootId, rootIndex, pageNum, deleted}
+     */
+    public Map<String, Object> locateComment(Long commentId, Integer pageSize);
 }

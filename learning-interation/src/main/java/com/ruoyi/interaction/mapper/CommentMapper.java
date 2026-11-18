@@ -67,6 +67,23 @@ public interface CommentMapper
     public Comment selectCommentById(@Param("commentId") Long commentId);
 
     /**
+     * 按ID查评论，包含已删除的（del_flag=2）
+     *
+     * 给"从通知定位评论"用：评论被删了也要能返回它的 targetType/targetId，
+     * 客户端才能提示"评论已删除"并停在内容页。
+     */
+    public Comment selectCommentByIdIncludeDeleted(@Param("commentId") Long commentId);
+
+    /**
+     * 统计同一内容下比 rootId 更新的一级评论数（用于算目标评论在第几页）
+     *
+     * 一级评论按 comment_id desc 分页，所以"更新的条数"就是它的下标。
+     */
+    public int countRootNewer(@Param("targetType") String targetType,
+                              @Param("targetId") Long targetId,
+                              @Param("rootId") Long rootId);
+
+    /**
      * 逻辑删除一条评论（CAS）
      *
      * where 里带上 user_id 与 del_flag = '0'，把「只能删自己的」和「已删过的不再删」

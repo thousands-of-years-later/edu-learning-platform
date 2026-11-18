@@ -9,6 +9,7 @@
 		<result property="type"           column="type"             />
 		<result property="targetType"     column="target_type"      />
 		<result property="targetId"       column="target_id"        />
+		<result property="commentId"      column="comment_id"       />
 		<result property="content"        column="content"          />
 		<result property="isRead"         column="is_read"          />
 		<result property="readTime"       column="read_time"        />
@@ -19,8 +20,8 @@
 	</resultMap>
 
 	<insert id="insertNotification" parameterType="Notification">
-		insert into learning_notification (user_id, from_user_id, type, target_type, target_id, content, is_read, create_time)
-		values (#{userId}, #{fromUserId}, #{type}, #{targetType}, #{targetId}, #{content}, '0', sysdate())
+		insert into learning_notification (user_id, from_user_id, type, target_type, target_id, comment_id, content, is_read, create_time)
+		values (#{userId}, #{fromUserId}, #{type}, #{targetType}, #{targetId}, #{commentId}, #{content}, '0', sysdate())
 	</insert>
 
 	<!--
@@ -30,7 +31,7 @@
 	-->
 	<sql id="selectNotificationVo">
 		select n.notification_id, n.user_id, n.from_user_id, n.type, n.target_type,
-		       n.target_id, n.content, n.is_read, n.read_time, n.create_time,
+		       n.target_id, n.comment_id, n.content, n.is_read, n.read_time, n.create_time,
 		       (select u.user_name from sys_user u where u.user_id = n.from_user_id) as from_user_name,
 		       (select u.avatar    from sys_user u where u.user_id = n.from_user_id) as from_user_avatar,
 		       <!-- 设计稿 09_通知页 的卡片要显示「（文章标题）收到一个赞」；

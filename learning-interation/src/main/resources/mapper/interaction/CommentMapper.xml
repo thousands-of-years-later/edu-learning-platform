@@ -73,6 +73,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		where c.comment_id = #{commentId} and c.del_flag = '0'
 	</select>
 
+	<!-- 定位用：不过滤 del_flag，已删除的评论也要能返回它挂在哪个内容下 -->
+	<select id="selectCommentByIdIncludeDeleted" parameterType="Long" resultMap="CommentResult">
+		<include refid="selectCommentVo"/>
+		where c.comment_id = #{commentId}
+	</select>
+
+	<!-- 一级评论按 comment_id desc 分页：比 rootId 新的条数就是它的下标 -->
+	<select id="countRootNewer" resultType="int">
+		select count(*)
+		  from learning_comment
+		 where target_type = #{targetType}
+		   and target_id = #{targetId}
+		   and parent_id is null
+		   and del_flag = '0'
+		   and comment_id &gt; #{rootId}
+	</select>
+
 	<!-- 一级评论的 parent_id / reply_user_id 写 NULL；不拆 <if>，单条语句更简单 -->
 	<insert id="insertComment" parameterType="Comment" useGeneratedKeys="true" keyProperty="commentId">
 		insert into learning_comment (user_id, target_type, target_id, content, parent_id, reply_user_id, del_flag, create_time)

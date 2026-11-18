@@ -106,6 +106,24 @@ public class ApiV1CommentController extends BaseController
     }
 
     /**
+     * 从通知定位评论（客户端点"评论/回复"通知时调用）
+     *
+     * 返回目标内容、所属一级评论、所在页码；评论已删除时 deleted=true，
+     * 客户端据此提示"评论已删除"并停在内容页。
+     *
+     * @param commentId 评论ID
+     * @param pageSize  评论列表每页条数（可空，默认 20）
+     * @return {commentId, targetType, targetId, rootId, rootIndex, pageNum, deleted}
+     */
+    @GetMapping("/locate")
+    public AjaxResult locate(Long commentId, Integer pageSize)
+    {
+        AjaxResult ajax = AjaxResult.success();
+        ajax.putAll(commentService.locateComment(commentId, pageSize));
+        return ajax;
+    }
+
+    /**
      * 删除自己发表的评论（一级评论会级联删掉它名下的全部回复）
      *
      * 只收 commentId：目标类型/ID 由后端从评论本身取，

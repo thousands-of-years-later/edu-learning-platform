@@ -28,9 +28,10 @@ public interface INotificationService
     /**
      * 评论成功后调用（一级评论）
      *
-     * @param content 评论原文（调用方保证已 trim 且不超过 Notification.MAX_CONTENT_LENGTH）
+     * @param commentId 新评论ID（客户端点通知时用它定位到具体评论）
+     * @param content   评论原文（调用方保证已 trim 且不超过 Notification.MAX_CONTENT_LENGTH）
      */
-    public void notifyComment(Long fromUserId, String targetType, Long targetId, String content);
+    public void notifyComment(Long fromUserId, String targetType, Long targetId, Long commentId, String content);
 
     /**
      * 回复（二级评论）成功后调用
@@ -42,10 +43,12 @@ public interface INotificationService
      * 课程没有归属人：回复课程评论只通知被回复人。
      * 回复自己的评论：两边条件都不成立，零通知。
      *
-     * @param toUserId 被回复评论的作者（由服务端从被回复评论推导，不接受前端传入）
-     * @param content  回复原文（调用方保证已 trim 且不超过 Notification.MAX_CONTENT_LENGTH）
+     * @param toUserId  被回复评论的作者（由服务端从被回复评论推导，不接受前端传入）
+     * @param commentId 新回复的评论ID（客户端点通知时用它定位到具体回复）
+     * @param content   回复原文（调用方保证已 trim 且不超过 Notification.MAX_CONTENT_LENGTH）
      */
-    public void notifyReply(Long fromUserId, String targetType, Long targetId, Long toUserId, String content);
+    public void notifyReply(Long fromUserId, String targetType, Long targetId, Long toUserId,
+                            Long commentId, String content);
 
     /**
      * 新增关注后调用（重复关注是幂等重放，不调用）

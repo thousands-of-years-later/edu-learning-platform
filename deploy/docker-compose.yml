@@ -71,9 +71,10 @@ services:
         condition: service_healthy
     environment:
       # 覆盖 application-druid.yml 默认值（容器内用服务名连接 MySQL）
-      MYSQL_HOST: mysql
-      MYSQL_USER: ${MYSQL_USER:-edu_dev_03}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-12345678}
+      # 变量名用 LEARNING_DB_*，避免和宿主机/其他项目常见的 MYSQL_HOST 冲突
+      LEARNING_DB_HOST: mysql
+      LEARNING_DB_USER: ${MYSQL_USER:-edu_dev_03}
+      LEARNING_DB_PASSWORD: ${MYSQL_PASSWORD:-12345678}
       UPLOAD_PATH: /home/ruoyi/uploadPath
       OSS_ENABLED: ${OSS_ENABLED:-false}
       OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID:-}

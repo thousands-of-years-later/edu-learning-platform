@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.user.mapper.AgentSessionMapper">
+
+	<resultMap type="AgentSession" id="AgentSessionResult">
+		<id     property="sessionId"       column="session_id" />
+		<result property="userId"          column="user_id" />
+		<result property="title"           column="title" />
+		<result property="scene"           column="scene" />
+		<result property="status"          column="status" />
+		<result property="lastMessageTime" column="last_message_time" />
+		<result property="createTime"      column="create_time" />
+		<result property="updateTime"      column="update_time" />
+	</resultMap>
+
+	<insert id="insertSession" parameterType="AgentSession" useGeneratedKeys="true" keyProperty="sessionId">
+		insert into learning_agent_session (user_id, title, scene, status, last_message_time, create_time, update_time)
+		values (#{userId}, #{title}, #{scene}, '0', sysdate(), sysdate(), sysdate())
+	</insert>
+
+	<select id="selectSession" resultMap="AgentSessionResult">
+		select session_id, user_id, title, scene, status, last_message_time, create_time, update_time
+		  from learning_agent_session
+		 where session_id = #{sessionId} and user_id = #{userId} and status = '0'
+	</select>
+
+	<select id="selectSessions" resultMap="AgentSessionResult">
+		select session_id, user_id, title, scene, status, last_message_time, create_time, update_time
+		  from learning_agent_session
+		 where user_id = #{userId} and status = '0'
+		 order by last_message_time desc, session_id desc
+	</select>
+
+	<update id="touchSession">
+		update learning_agent_session
+		   set title = ifnull(#{title}, title),
+		       last_message_time = sysdate(),
+		       update_time = sysdate()
+		 where session_id = #{sessionId}
+	</update>
+
+</mapper>

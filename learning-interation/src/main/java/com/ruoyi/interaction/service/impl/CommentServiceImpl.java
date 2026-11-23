@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.ws.WsEventPublisher;
 import com.ruoyi.interaction.domain.Comment;
 import com.ruoyi.interaction.mapper.CommentMapper;
 import com.ruoyi.interaction.service.ICommentService;
@@ -49,6 +50,10 @@ public class CommentServiceImpl implements ICommentService
 
     @Autowired
     private INotificationService notificationService;
+
+    /** 论坛评论事件推送：评论成功广播给订阅该帖子的会话 */
+    @Autowired
+    private WsEventPublisher wsEventPublisher;
 
     @Override
     @Transactional
@@ -145,10 +150,26 @@ public class CommentServiceImpl implements ICommentService
                     comment.getCommentId(), text);
         }
 
+        int count = commentMapper.countByTarget(targetType, targetId);
         Map<String, Object> result = new HashMap<String, Object>();
         result.put("commentId", comment.getCommentId());
-        result.put("count", commentMapper.countByTarget(targetType, targetId));
+        result.put("count", count);
+
+        if (Comment.TARGET_POST.equals(targetType))
+        {
+            publishCommentCreated(targetId, comment.getCommentId(), count);
+        }
         return result;
+    }
+
+    /** 评论写库并提交后，广播给订阅 post:{id} 的会话 */
+    private void publishCommentCreated(Long postId, Long commentId, int count)
+    {
+        Map<String, Object> data = new HashMap<>();
+        data.put("targetId", postId);
+        data.put("commentId", commentId);
+        data.put("count", count);
+        wsEventPublisher.publishAfterCommit("comment.created", data, "post:" + postId);
     }
 
     @Override

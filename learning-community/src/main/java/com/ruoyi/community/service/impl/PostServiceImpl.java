@@ -1,12 +1,15 @@
 package com.ruoyi.community.service.impl;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.ws.WsEventPublisher;
 import com.ruoyi.community.domain.Post;
 import com.ruoyi.community.mapper.PostMapper;
 import com.ruoyi.community.mapper.TopicMapper;
@@ -34,6 +37,10 @@ public class PostServiceImpl implements IPostService
     /** 帖子标题/正文的违禁词校验（只拦帖子，评论不处理） */
     @Autowired
     private ISensitiveWordService sensitiveWordService;
+
+    /** 论坛事件推送：发帖/审核通过后广播给订阅者 */
+    @Autowired
+    private WsEventPublisher wsEventPublisher;
 
     /**
      * 查询帖子列表
@@ -84,7 +91,12 @@ public class PostServiceImpl implements IPostService
         checkContentRequired(post.getStatus(), post.getContent());
         // 违禁词：标题 + 正文，命中直接拒绝保存
         sensitiveWordService.checkText(post.getPostTitle(), post.getContent());
-        return postMapper.insertPost(post);
+        int rows = postMapper.insertPost(post);
+        if (rows > 0 && Post.STATUS_PUBLISHED.equals(post.getStatus()))
+        {
+            publishPostCreated(post);
+        }
+        return rows;
     }
 
     /**
@@ -265,7 +277,22 @@ public class PostServiceImpl implements IPostService
             // 走到这里说明查库与 update 之间帖子被改/被删（并发审核兜底）
             throw new ServiceException("该帖子已被审核或状态已变更，请刷新后重试");
         }
+        if (Post.STATUS_PUBLISHED.equals(result))
+        {
+            publishPostCreated(old);
+        }
         return rows;
+    }
+
+    /** 帖子进入公开状态后广播给 forum:all 订阅者 */
+    private void publishPostCreated(Post post)
+    {
+        Map<String, Object> data = new HashMap<>();
+        data.put("postId", post.getPostId());
+        data.put("postTitle", post.getPostTitle());
+        data.put("userId", post.getUserId());
+        data.put("categoryId", post.getCategoryId());
+        wsEventPublisher.publishAfterCommit("post.created", data, "forum:all");
     }
 
     /**

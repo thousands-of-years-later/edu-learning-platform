@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.ws.WsEventPublisher;
 import com.ruoyi.interaction.domain.Interaction;
 import com.ruoyi.interaction.domain.MyInteraction;
 import com.ruoyi.interaction.mapper.InteractionMapper;
@@ -46,6 +47,10 @@ public class InteractionServiceImpl implements IInteractionService
 
     @Autowired
     private INotificationService notificationService;
+
+    /** 论坛点赞/收藏事件推送：广播给订阅该帖子的会话 */
+    @Autowired
+    private WsEventPublisher wsEventPublisher;
 
     @Override
     @Transactional
@@ -123,10 +128,28 @@ public class InteractionServiceImpl implements IInteractionService
             }
         }
 
+        int count = interactionMapper.countByTarget(targetType, targetId, type);
         Map<String, Object> result = new HashMap<String, Object>();
         result.put("active", active);
-        result.put("count", interactionMapper.countByTarget(targetType, targetId, type));
+        result.put("count", count);
+
+        if (Interaction.TARGET_POST.equals(targetType))
+        {
+            publishLikeChanged(targetId, type, active, count);
+        }
         return result;
+    }
+
+    /** 点赞/收藏写库并提交后，广播给订阅 post:{id} 的会话 */
+    private void publishLikeChanged(Long postId, String actionType, boolean active, int count)
+    {
+        Map<String, Object> data = new HashMap<>();
+        data.put("targetId", postId);
+        data.put("type", actionType);
+        data.put("active", active);
+        data.put("count", count);
+        String eventType = Interaction.TYPE_FAVORITE.equals(actionType) ? "favorite.changed" : "like.changed";
+        wsEventPublisher.publishAfterCommit(eventType, data, "post:" + postId);
     }
 
     @Override

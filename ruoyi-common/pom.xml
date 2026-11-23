@@ -36,6 +36,12 @@
             <artifactId>spring-web</artifactId>
         </dependency>
 
+        <!-- WebSocket 与事件中心：论坛实时推送 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!--Shiro核心框架 -->
         <dependency>
             <groupId>org.apache.shiro</groupId>

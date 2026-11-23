@@ -192,3 +192,8 @@ csrf:
   enabled: false
   # 白名单（多个用逗号分隔）
   whites: /druid
+
+# Python 智能体服务（内网）
+agent:
+  base-url: ${AGENT_BASE_URL:http://127.0.0.1:8100}
+  internal-token: ${AGENT_INTERNAL_TOKEN:}

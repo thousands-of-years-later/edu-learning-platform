@@ -48,3 +48,4 @@ deploy/.env
 !*/build/*.java
 !*/build/*.html
 !*/build/*.xml
+agent-service/data/

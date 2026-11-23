@@ -20,10 +20,10 @@ public interface IStudyService
      * 上报学习时长
      *
      * @param userId     用户ID（从 Token 上下文取）
-     * @param targetType courseVideo 课程小节 / shortVideo 短视频
-     * @param videoId    小节ID 或 短视频ID
+     * @param targetType 只支持 courseVideo（课程小节）；短视频不计入学习数据
+     * @param videoId    课程小节ID
      * @param seconds    本次新增学习秒数（1~3600）
-     * @param finished   是否学完（仅课程小节有效：0 否 / 1 是；短视频忽略）
+     * @param finished   是否学完（0 否 / 1 是）
      * @param duration   视频总时长（秒，可选）：课程小节时长为空时补填一次，已有值不覆盖
      * @return {todayMinutes: 今日累计分钟, todaySeconds: 今日累计秒数}
      */

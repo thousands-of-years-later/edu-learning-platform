@@ -75,11 +75,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 where video_id = #{videoId} and duration is null and del_flag = '0'
 	</update>
 
-	<select id="countShortVideo" resultType="int">
-		select count(*) from learning_short_video
-		 where video_id = #{videoId} and del_flag = '0' and status = '0'
-	</select>
-
 	<!--
 	  已完成课程：课程下所有未删除的小节都学完。
 	  用 left join + having count(*) = count(p.video_id)：count(*) 是小节总数，

@@ -75,9 +75,6 @@ public interface StudyMapper
      */
     public int fillVideoDurationIfEmpty(@Param("videoId") Long videoId, @Param("duration") int duration);
 
-    /** 短视频是否存在且可看（短视频观看也计入学习时长，但不记小节进度） */
-    public int countShortVideo(@Param("videoId") Long videoId);
-
     /**
      * 已完成课程数：该课程下所有未删除的小节都 finished=1（至少有一个小节）
      */

@@ -42,8 +42,8 @@ public class ApiV1StudyController extends BaseController
     /**
      * 上报学习时长（播放中周期调用）
      *
-     * @param targetType courseVideo（课程小节）/ shortVideo（短视频）
-     * @param videoId    课程小节ID 或 短视频ID
+     * @param targetType courseVideo（课程小节）；短视频已不再接入学习数据
+     * @param videoId    课程小节ID
      * @param seconds    本次新增学习秒数（1~3600）
      * @param finished   是否学完（仅课程小节有效：0/1，置 1 后不会回退）
      * @param duration   视频总时长（秒，可选）：课程小节时长为空时补填一次，已有值不覆盖

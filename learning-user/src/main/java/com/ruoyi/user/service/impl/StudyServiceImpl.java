@@ -29,6 +29,7 @@ import com.ruoyi.user.service.IStudyService;
  *   4) "连续学习天数"允许今天还没学：从今天往前数，今天没有就从昨天开始数，
  *      这样早上打开 App 不会看到"连续 0 天"；
  *   5) "待办"= 已经开始看但没学完的小节数；"已完成课程"= 整门课所有小节都学完。
+ *   6) 学习时长只含课程小节 + 文章阅读，短视频不计入（/report 只接受 courseVideo）。
  *
  * @author edu
  */
@@ -53,9 +54,6 @@ public class StudyServiceImpl implements IStudyService
     /** 内容类型：课程小节 */
     private static final String TARGET_COURSE_VIDEO = "courseVideo";
 
-    /** 内容类型：短视频 */
-    private static final String TARGET_SHORT_VIDEO = "shortVideo";
-
     @Autowired
     private StudyMapper studyMapper;
 
@@ -69,9 +67,10 @@ public class StudyServiceImpl implements IStudyService
     {
         checkUser(userId);
         String type = StringUtils.trim(targetType);
-        if (!TARGET_COURSE_VIDEO.equals(type) && !TARGET_SHORT_VIDEO.equals(type))
+        // 学习时长只统计课程小节与文章阅读；短视频不再计入，也不接受上报
+        if (!TARGET_COURSE_VIDEO.equals(type))
         {
-            throw new ServiceException("内容类型不合法（只支持 courseVideo / shortVideo）");
+            throw new ServiceException("内容类型不合法（只支持 courseVideo）");
         }
         if (videoId == null)
         {
@@ -102,10 +101,6 @@ public class StudyServiceImpl implements IStudyService
             {
                 studyMapper.fillVideoDurationIfEmpty(videoId, duration);
             }
-        }
-        else if (studyMapper.countShortVideo(videoId) == 0)
-        {
-            throw new ServiceException("短视频不存在或已下架");
         }
 
         LocalDate today = LocalDate.now(ZONE);

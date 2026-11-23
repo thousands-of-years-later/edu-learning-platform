@@ -49,3 +49,6 @@ deploy/.env
 !*/build/*.html
 !*/build/*.xml
 agent-service/data/
+
+__pycache__/
+*.pyc

@@ -1,5 +1,6 @@
 package com.ruoyi.user.service;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -32,8 +33,19 @@ public interface IStudyService
     /**
      * 学习数据总览
      *
-     * @return {todayMinutes, continuousDays, weekMinutes:[{date, weekday, minutes} × 7],
-     *          completedCourses, noteCount, todoCount}
+     * @return {todayMinutes, todayCourseMinutes, todayArticleMinutes, continuousDays,
+     *          weekMinutes:[{date, weekday, minutes, courseMinutes, articleMinutes} × 7],
+     *          completedCourses, learningCourses, totalCourseMinutes,
+     *          readPostsToday, readPostsWeek, articleMinutesWeek, noteCount}
      */
     public Map<String, Object> stats(Long userId);
+
+    /**
+     * 我的课程列表
+     *
+     * @param status learning=在学（有进度、未学完）；completed=已完成
+     * @return courseId/courseTitle/coverUrl/totalLessons/finishedLessons/
+     *         progressPercent/lastLessonTitle/lastStudyTime
+     */
+    public List<Map<String, Object>> learningCourses(Long userId, String status);
 }

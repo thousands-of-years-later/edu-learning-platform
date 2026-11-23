@@ -2,6 +2,7 @@ package com.ruoyi.user.mapper;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Param;
 import com.ruoyi.user.domain.StudyRecord;
 
@@ -34,6 +35,9 @@ public interface StudyMapper
 
     /** 某天的学习秒数；没有记录返回 0 */
     public int selectDaySeconds(@Param("userId") Long userId, @Param("studyDate") LocalDate studyDate);
+
+    /** 某天的文章阅读秒数；没有记录返回 0 */
+    public int selectDayArticleSeconds(@Param("userId") Long userId, @Param("studyDate") LocalDate studyDate);
 
     /**
      * 某个区间内每天的学习秒数（本周柱状图用）
@@ -86,4 +90,32 @@ public interface StudyMapper
 
     /** 我的笔记数（未删除） */
     public int countNotes(@Param("userId") Long userId);
+
+    /** 区间内文章阅读秒数（本周文章分钟） */
+    public int sumArticleSecondsBetween(@Param("userId") Long userId,
+                                        @Param("start") LocalDate start,
+                                        @Param("end") LocalDate end);
+
+    /** 累计课程秒数（总秒数减去文章阅读秒数） */
+    public int sumCourseSeconds(@Param("userId") Long userId);
+
+    /**
+     * 在学课程数：有学习进度，但课程下还有未完成的小节。
+     */
+    public int countLearningCourses(@Param("userId") Long userId);
+
+    /**
+     * 区间内阅读满 30 秒的帖子数（learning_points_watch）。
+     */
+    public int countReadPostsBetween(@Param("userId") Long userId,
+                                     @Param("start") LocalDate start,
+                                     @Param("end") LocalDate end);
+
+    /**
+     * 我的课程列表（在学 / 已完成），带小节完成数与最近学习小节。
+     *
+     * @param status learning=在学（有进度但未全部完成）；completed=已完成
+     */
+    public List<Map<String, Object>> selectLearningCourses(@Param("userId") Long userId,
+                                                           @Param("status") String status);
 }

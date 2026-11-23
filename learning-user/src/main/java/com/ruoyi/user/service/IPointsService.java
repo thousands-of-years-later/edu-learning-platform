@@ -19,12 +19,12 @@ import com.ruoyi.user.domain.PointsLog;
 public interface IPointsService
 {
     /**
-     * 免广告兑换档位（10 积分/30 分钟、30 积分/2 小时、100 积分/24 小时）
+     * 免广告兑换档位（已下线，前端已无调用；保留用于历史流水/账户到期逻辑）
      */
     public List<Map<String, Object>> exchangeTiers();
 
     /**
-     * 兑换免广告
+     * 兑换免广告（已下线，前端已无调用；保留用于历史流水/账户到期逻辑）
      *
      * 同一事务内：一条 UPDATE 完成「余额够才扣 + 权益叠加延长」→ 写积分流水。
      * 余额不足会抛业务异常，余额与权益都不会变。

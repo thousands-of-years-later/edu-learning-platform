@@ -131,11 +131,19 @@ public class StudyServiceImpl implements IStudyService
     {
         checkUser(userId);
         LocalDate today = LocalDate.now(ZONE);
+        LocalDate monday = today.with(DayOfWeek.MONDAY);
+        LocalDate sunday = monday.plusDays(6);
 
         Map<String, Object> result = new LinkedHashMap<>();
-        // 1) 今日学习
+
+        // 1) 今日：课程 + 文章，todayMinutes 等于两项之和
         int todaySeconds = studyMapper.selectDaySeconds(userId, today);
-        result.put("todayMinutes", toMinutes(todaySeconds));
+        int todayArticleSeconds = studyMapper.selectDayArticleSeconds(userId, today);
+        int todayCourseMinutes = toMinutes(courseSeconds(todaySeconds, todayArticleSeconds));
+        int todayArticleMinutes = toMinutes(todayArticleSeconds);
+        result.put("todayMinutes", todayCourseMinutes + todayArticleMinutes);
+        result.put("todayCourseMinutes", todayCourseMinutes);
+        result.put("todayArticleMinutes", todayArticleMinutes);
 
         // 2) 连续学习天数
         result.put("continuousDays", calcContinuousDays(userId, today));
@@ -143,11 +151,27 @@ public class StudyServiceImpl implements IStudyService
         // 3) 本周 7 天柱状图（周一到周日，没学的补 0）
         result.put("weekMinutes", buildWeek(userId, today));
 
-        // 4) 底部三个数字
+        // 4) 底部数字 + 文章阅读统计
         result.put("completedCourses", studyMapper.countCompletedCourses(userId));
+        result.put("learningCourses", studyMapper.countLearningCourses(userId));
+        result.put("totalCourseMinutes", toMinutes(studyMapper.sumCourseSeconds(userId)));
+        result.put("readPostsToday", studyMapper.countReadPostsBetween(userId, today, today));
+        result.put("readPostsWeek", studyMapper.countReadPostsBetween(userId, monday, sunday));
+        result.put("articleMinutesWeek", toMinutes(studyMapper.sumArticleSecondsBetween(userId, monday, sunday)));
         result.put("noteCount", studyMapper.countNotes(userId));
-        result.put("todoCount", studyMapper.countTodoVideos(userId));
         return result;
+    }
+
+    @Override
+    public List<Map<String, Object>> learningCourses(Long userId, String status)
+    {
+        checkUser(userId);
+        String queryStatus = StringUtils.trim(status);
+        if (!"learning".equals(queryStatus) && !"completed".equals(queryStatus))
+        {
+            throw new ServiceException("课程状态不合法（只支持 learning / completed）");
+        }
+        return studyMapper.selectLearningCourses(userId, queryStatus);
     }
 
     /**
@@ -184,12 +208,12 @@ public class StudyServiceImpl implements IStudyService
         LocalDate sunday = monday.plusDays(6);
         List<StudyRecord> records = studyMapper.selectBetween(userId, monday, sunday);
 
-        Map<LocalDate, Integer> secondsByDate = new HashMap<>();
+        Map<LocalDate, StudyRecord> recordByDate = new HashMap<>();
         if (records != null)
         {
             for (StudyRecord record : records)
             {
-                secondsByDate.put(record.getStudyDate(), record.getSeconds() == null ? 0 : record.getSeconds());
+                recordByDate.put(record.getStudyDate(), record);
             }
         }
 
@@ -197,10 +221,21 @@ public class StudyServiceImpl implements IStudyService
         for (int i = 0; i < 7; i++)
         {
             LocalDate date = monday.plusDays(i);
-            int seconds = secondsByDate.getOrDefault(date, 0);
-            week.add(new StudyDay(date.toString(), WEEKDAY_LABELS[i], toMinutes(seconds)));
+            StudyRecord record = recordByDate.get(date);
+            int totalSeconds = record == null || record.getSeconds() == null ? 0 : record.getSeconds();
+            int articleSeconds = record == null || record.getArticleSeconds() == null ? 0 : record.getArticleSeconds();
+            int courseMinutes = toMinutes(courseSeconds(totalSeconds, articleSeconds));
+            int articleMinutes = toMinutes(articleSeconds);
+            week.add(new StudyDay(date.toString(), WEEKDAY_LABELS[i],
+                    courseMinutes + articleMinutes, courseMinutes, articleMinutes));
         }
         return week;
+    }
+
+    /** 总秒数里减去文章阅读秒数，得到课程秒数；异常数据不允许为负 */
+    private int courseSeconds(int totalSeconds, int articleSeconds)
+    {
+        return Math.max(totalSeconds - articleSeconds, 0);
     }
 
     /** 秒 -> 分钟（四舍五入；不足 1 分钟按 0 算） */

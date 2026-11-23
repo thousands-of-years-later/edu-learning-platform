@@ -31,7 +31,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<if test="type != null and type != ''">
 		   and l.type = #{type}
 		</if>
-		 order by l.log_id desc
+		 order by l.create_time desc, l.log_id desc
 	</select>
 
 	<!-- 课程 + 帖子的当日已得积分：上限判断用，直接 sum 流水 -->

@@ -9,6 +9,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="userId"    column="user_id"    />
 		<result property="studyDate" column="study_date" />
 		<result property="seconds"   column="seconds"    />
+		<result property="articleSeconds" column="article_seconds" />
 	</resultMap>
 
 	<!--
@@ -34,9 +35,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 where user_id = #{userId} and study_date = #{studyDate}
 	</select>
 
+	<select id="selectDayArticleSeconds" resultType="int">
+		select ifnull(sum(article_seconds), 0) from learning_study_record
+		 where user_id = #{userId} and study_date = #{studyDate}
+	</select>
+
 	<!-- 本周柱状图：一次取回 7 天（缺的天由服务层补 0） -->
 	<select id="selectBetween" resultMap="StudyRecordResult">
-		select study_date, seconds from learning_study_record
+		select study_date, seconds, article_seconds from learning_study_record
 		 where user_id = #{userId} and study_date between #{start} and #{end}
 		 order by study_date
 	</select>
@@ -100,6 +106,70 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
 	<select id="countNotes" resultType="int">
 		select count(*) from learning_note where user_id = #{userId} and del_flag = '0'
+	</select>
+
+	<select id="sumArticleSecondsBetween" resultType="int">
+		select ifnull(sum(article_seconds), 0) from learning_study_record
+		 where user_id = #{userId} and study_date between #{start} and #{end}
+	</select>
+
+	<select id="sumCourseSeconds" resultType="int">
+		select ifnull(sum(greatest(seconds - article_seconds, 0)), 0)
+		  from learning_study_record
+		 where user_id = #{userId}
+	</select>
+
+	<!-- 在学课程：有进度（watched_seconds > 0），但并非所有小节都 finished -->
+	<select id="countLearningCourses" resultType="int">
+		select count(*) from (
+			select c.course_id
+			  from learning_course c
+			  join learning_course_video v on v.course_id = c.course_id and v.del_flag = '0'
+			  left join learning_course_progress p
+			         on p.user_id = #{userId} and p.video_id = v.video_id
+			 where c.del_flag = '0'
+			 group by c.course_id
+			having sum(case when p.watched_seconds &gt; 0 then 1 else 0 end) &gt; 0
+			   and sum(case when p.finished = 1 then 1 else 0 end) &lt; count(*)
+		) t
+	</select>
+
+	<select id="countReadPostsBetween" resultType="int">
+		select count(*) from learning_points_watch
+		 where user_id = #{userId} and target_type = 'post' and watched_seconds &gt;= 30
+		   and award_date between #{start} and #{end}
+	</select>
+
+	<select id="selectLearningCourses" resultType="java.util.LinkedHashMap">
+		select c.course_id as courseId,
+		       c.course_name as courseTitle,
+		       c.cover_url as coverUrl,
+		       count(v.video_id) as totalLessons,
+		       count(case when p.finished = 1 then 1 end) as finishedLessons,
+		       cast(round(count(case when p.finished = 1 then 1 end) * 100.0
+		                  / nullif(count(v.video_id), 0)) as signed) as progressPercent,
+		       (select v2.video_title
+		          from learning_course_progress p2
+		          join learning_course_video v2 on v2.video_id = p2.video_id and v2.del_flag = '0'
+		         where p2.user_id = #{userId} and p2.course_id = c.course_id
+		         order by p2.update_time desc, p2.progress_id desc
+		         limit 1) as lastLessonTitle,
+		       date_format(max(p.update_time), '%Y-%m-%d %H:%i:%s') as lastStudyTime
+		  from learning_course c
+		  join learning_course_video v on v.course_id = c.course_id and v.del_flag = '0'
+		  left join learning_course_progress p
+		         on p.user_id = #{userId} and p.video_id = v.video_id
+		 where c.del_flag = '0'
+		 group by c.course_id, c.course_name, c.cover_url
+		having count(v.video_id) &gt; 0
+		   and sum(case when p.watched_seconds &gt; 0 then 1 else 0 end) &gt; 0
+		<if test="status == 'learning'">
+		   and count(case when p.finished = 1 then 1 end) &lt; count(v.video_id)
+		</if>
+		<if test="status == 'completed'">
+		   and count(case when p.finished = 1 then 1 end) = count(v.video_id)
+		</if>
+		 order by max(p.update_time) desc
 	</select>
 
 </mapper>

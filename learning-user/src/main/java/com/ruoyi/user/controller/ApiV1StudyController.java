@@ -1,5 +1,6 @@
 package com.ruoyi.user.controller;
 
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -8,6 +9,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.ruoyi.common.core.api.ApiContext;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -86,15 +89,49 @@ public class ApiV1StudyController extends BaseController
     /**
      * 学习数据总览（设计稿 20_学习数据 一屏的全部数字）
      *
-     * @return {todayMinutes, continuousDays,
-     *          weekMinutes:[{date, weekday, minutes} × 7（周一~周日）],
-     *          completedCourses, noteCount, todoCount}
+     * @return {todayMinutes, todayCourseMinutes, todayArticleMinutes, continuousDays,
+     *          weekMinutes:[{date, weekday, minutes, courseMinutes, articleMinutes} × 7],
+     *          completedCourses, learningCourses, totalCourseMinutes,
+     *          readPostsToday, readPostsWeek, articleMinutesWeek, noteCount}
      */
     @GetMapping("/stats")
     public AjaxResult stats()
     {
         AjaxResult ajax = AjaxResult.success();
         ajax.putAll(studyService.stats(ApiContext.getUserId()));
+        return ajax;
+    }
+
+    /**
+     * 我的课程列表
+     *
+     * @param status   learning=在学；completed=已完成
+     * @param pageNum  页码，默认 1
+     * @param pageSize 每页条数，默认 20，最大 50
+     * @return {total, rows:[{courseId, courseTitle, coverUrl, totalLessons,
+     *          finishedLessons, progressPercent, lastLessonTitle, lastStudyTime}]}
+     */
+    @GetMapping("/courses")
+    public AjaxResult courses(String status, Integer pageNum, Integer pageSize)
+    {
+        int page = pageNum == null ? 1 : pageNum;
+        int size = pageSize == null ? 20 : pageSize;
+        if (page < 1)
+        {
+            return AjaxResult.error("页码不合法");
+        }
+        if (size < 1 || size > 50)
+        {
+            return AjaxResult.error("每页条数不合法（1~50）");
+        }
+
+        PageHelper.startPage(page, size);
+        List<Map<String, Object>> list = studyService.learningCourses(ApiContext.getUserId(), status);
+        PageInfo<Map<String, Object>> pageInfo = new PageInfo<>(list);
+
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("total", pageInfo.getTotal());
+        ajax.put("rows", list);
         return ajax;
     }
 }

@@ -25,6 +25,9 @@ public class StudyRecord implements Serializable
     /** 当天累计学习秒数 */
     private Integer seconds;
 
+    /** 当天累计文章阅读秒数（属于 seconds 的一部分） */
+    private Integer articleSeconds;
+
     public Long getRecordId()
     {
         return recordId;
@@ -63,5 +66,15 @@ public class StudyRecord implements Serializable
     public void setSeconds(Integer seconds)
     {
         this.seconds = seconds;
+    }
+
+    public Integer getArticleSeconds()
+    {
+        return articleSeconds;
+    }
+
+    public void setArticleSeconds(Integer articleSeconds)
+    {
+        this.articleSeconds = articleSeconds;
     }
 }

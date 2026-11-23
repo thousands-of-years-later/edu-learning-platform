@@ -1,5 +1,6 @@
 package com.ruoyi.user.controller;
 
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -8,11 +9,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.ruoyi.common.core.api.ApiContext;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.user.domain.PointsLog;
+import com.ruoyi.user.domain.PointsSource;
 import com.ruoyi.user.service.IPointsRewardService;
 import com.ruoyi.user.service.IPointsService;
 
@@ -21,8 +26,8 @@ import com.ruoyi.user.service.IPointsService;
  *
  * 现有入口：
  *   · GET  /api/v1/points/account         我的积分账户（余额 + 免广告权益）
- *   · GET  /api/v1/points/exchange/tiers  免广告兑换档位（老功能，商城上线前保留）
- *   · POST /api/v1/points/exchange        兑换免广告（老功能）
+ *   · GET  /api/v1/points/exchange/tiers  免广告兑换档位（已下线，前端已无调用；保留用于历史数据/到期逻辑）
+ *   · POST /api/v1/points/exchange        兑换免广告（已下线，前端已无调用；保留服务层）
  *   · POST /api/v1/points/watch           观看课程小节 / 帖子，上报秒数（满 30 秒 +5）
  *   · POST /api/v1/points/ad/reward       看完广告领 10 分（每天最多 3 条）
  *
@@ -58,7 +63,46 @@ public class ApiV1PointsController extends BaseController
     }
 
     /**
-     * 免广告兑换档位（老功能，商城上线前保留）
+     * 商城积分明细（分页）
+     *
+     * @param pageNum  页码，默认 1
+     * @param pageSize 每页条数，默认 20，最大 50
+     * @param type     积分类型编码，可选；非法编码直接报错
+     * @return {total, rows:[{logId, changeAmount, balance, type, sourceLabel, remark, refId, createTime}]}
+     */
+    @GetMapping("/logs")
+    public AjaxResult logs(Integer pageNum, Integer pageSize, String type)
+    {
+        int page = pageNum == null ? 1 : pageNum;
+        int size = pageSize == null ? 20 : pageSize;
+        if (page < 1)
+        {
+            return AjaxResult.error("页码不合法");
+        }
+        if (size < 1 || size > 50)
+        {
+            return AjaxResult.error("每页条数不合法（1~50）");
+        }
+        String source = StringUtils.trim(type);
+        if (StringUtils.isNotEmpty(source) && !PointsSource.isKnown(source))
+        {
+            return AjaxResult.error("积分类型不合法");
+        }
+
+        PageHelper.startPage(page, size);
+        List<PointsLog> list = pointsService.selectLogsByUser(ApiContext.getUserId(), source);
+        PageInfo<PointsLog> pageInfo = new PageInfo<>(list);
+
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("total", pageInfo.getTotal());
+        ajax.put("rows", list);
+        return ajax;
+    }
+
+    /**
+     * 免广告兑换档位（已下线）
+     *
+     * 前端已彻底删除调用；接口与服务层保留，历史流水展示和积分账户到期逻辑仍在使用。
      *
      * @return {tiers:[{tier:1, cost:10, minutes:30, label:"30 分钟"}, ...]}
      */
@@ -71,7 +115,9 @@ public class ApiV1PointsController extends BaseController
     }
 
     /**
-     * 兑换免广告（权益叠加：没过期就从原到期时间往后加，过期了从此刻开始算）
+     * 兑换免广告（已下线）
+     *
+     * 前端已彻底删除调用；接口与服务层保留，历史流水与积分账户到期逻辑仍在使用。
      *
      * @param tier 档位（1 = 10 积分/30 分钟，2 = 30 积分/2 小时，3 = 100 积分/24 小时）
      */
@@ -84,7 +130,7 @@ public class ApiV1PointsController extends BaseController
     }
 
     /**
-     * 兑换免广告（JSON 请求体）
+     * 兑换免广告（JSON 请求体，已下线）
      *
      * @param body 请求体，字段同表单：tier
      */

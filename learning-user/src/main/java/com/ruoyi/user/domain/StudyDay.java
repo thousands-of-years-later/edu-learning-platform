@@ -22,15 +22,28 @@ public class StudyDay implements Serializable
     /** 当天学习分钟数（秒数四舍五入到分钟） */
     private Integer minutes;
 
+    /** 当天课程分钟数 */
+    private Integer courseMinutes;
+
+    /** 当天文章阅读分钟数 */
+    private Integer articleMinutes;
+
     public StudyDay()
     {
     }
 
     public StudyDay(String date, String weekday, Integer minutes)
     {
+        this(date, weekday, minutes, 0, 0);
+    }
+
+    public StudyDay(String date, String weekday, Integer minutes, Integer courseMinutes, Integer articleMinutes)
+    {
         this.date = date;
         this.weekday = weekday;
         this.minutes = minutes;
+        this.courseMinutes = courseMinutes;
+        this.articleMinutes = articleMinutes;
     }
 
     public String getDate()
@@ -61,5 +74,25 @@ public class StudyDay implements Serializable
     public void setMinutes(Integer minutes)
     {
         this.minutes = minutes;
+    }
+
+    public Integer getCourseMinutes()
+    {
+        return courseMinutes;
+    }
+
+    public void setCourseMinutes(Integer courseMinutes)
+    {
+        this.courseMinutes = courseMinutes;
+    }
+
+    public Integer getArticleMinutes()
+    {
+        return articleMinutes;
+    }
+
+    public void setArticleMinutes(Integer articleMinutes)
+    {
+        this.articleMinutes = articleMinutes;
     }
 }

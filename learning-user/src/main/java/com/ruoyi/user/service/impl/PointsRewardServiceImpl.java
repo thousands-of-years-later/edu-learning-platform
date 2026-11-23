@@ -108,12 +108,14 @@ public class PointsRewardServiceImpl implements IPointsRewardService
         int awardedPoints = 0;
         int watchedSeconds = 0;
 
-        // 每天 50 分封顶：已经满了就不再累计，直接返回 0（前端不用提示）
+        // 观看/阅读秒数无条件记录：即使当天内容积分已封顶，阅读行为仍要写入，
+        // 学习数据里的 readPostsToday/readPostsWeek 依赖这里的 watched_seconds。
+        pointsWatchMapper.upsertSeconds(userId, type, targetId, awardDate, seconds);
+        watchedSeconds = pointsWatchMapper.selectWatchedSeconds(userId, type, targetId, awardDate);
+
+        // 每天 50 分封顶：已经满了就不再发分（秒数上面已经记录）
         if (todayPoints + PointsSource.CONTENT_POINTS <= PointsSource.CONTENT_DAILY_CAP)
         {
-            pointsWatchMapper.upsertSeconds(userId, type, targetId, awardDate, seconds);
-            watchedSeconds = pointsWatchMapper.selectWatchedSeconds(userId, type, targetId, awardDate);
-
             // 看满 30 秒才有资格；claimAward 并发安全，只有一方能拿到 1
             if (watchedSeconds >= PointsSource.CONTENT_MIN_SECONDS
                     && pointsWatchMapper.claimAward(userId, type, targetId, awardDate,

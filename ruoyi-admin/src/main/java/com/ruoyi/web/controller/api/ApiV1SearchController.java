@@ -1,10 +1,12 @@
 package com.ruoyi.web.controller.api;
 
+import java.util.Collections;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.ruoyi.common.core.controller.BaseController;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.community.domain.Post;
@@ -99,5 +101,27 @@ public class ApiV1SearchController extends BaseController
         query.setSortBy(Course.SORT_BY_LIKE_COUNT);
         startPage();
         return getDataTable(courseService.selectCourseList(query));
+    }
+
+    /**
+     * 搜索热词
+     *
+     * 当前没有独立的搜索日志表，热词列表为空数组；后续接入搜索行为采集后
+     * 从采集表按关键词聚合 count，按 count 倒序取前 size 条即可，接口契约不变。
+     *
+     * @param size 返回条数，默认 10，最大 50
+     * @return {hotWordList:[{keyword, count}]}
+     */
+    @GetMapping("/hot-words")
+    public AjaxResult hotWords(Integer size)
+    {
+        int limit = size == null ? 10 : size;
+        if (limit < 1 || limit > 50)
+        {
+            return AjaxResult.error("热词条数不合法（1~50）");
+        }
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("hotWordList", Collections.emptyList());
+        return ajax;
     }
 }

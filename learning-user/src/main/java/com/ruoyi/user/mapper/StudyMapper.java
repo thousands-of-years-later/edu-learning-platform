@@ -24,6 +24,14 @@ public interface StudyMapper
                           @Param("studyDate") LocalDate studyDate,
                           @Param("seconds") int seconds);
 
+    /**
+     * 累加「帖子阅读」学习时长：同时计入当天总时长与文章时长。
+     * 与课程视频分开记 article_seconds，便于区分学习内容结构。
+     */
+    public int addArticleSeconds(@Param("userId") Long userId,
+                                 @Param("studyDate") LocalDate studyDate,
+                                 @Param("seconds") int seconds);
+
     /** 某天的学习秒数；没有记录返回 0 */
     public int selectDaySeconds(@Param("userId") Long userId, @Param("studyDate") LocalDate studyDate);
 

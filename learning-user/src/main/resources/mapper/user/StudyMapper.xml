@@ -21,6 +21,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		on duplicate key update seconds = seconds + #{seconds}, update_time = sysdate()
 	</insert>
 
+	<insert id="addArticleSeconds">
+		insert into learning_study_record (user_id, study_date, seconds, article_seconds, create_time, update_time)
+		values (#{userId}, #{studyDate}, #{seconds}, #{seconds}, sysdate(), sysdate())
+		on duplicate key update seconds = seconds + #{seconds},
+		                        article_seconds = article_seconds + #{seconds},
+		                        update_time = sysdate()
+	</insert>
+
 	<select id="selectDaySeconds" resultType="int">
 		select ifnull(sum(seconds), 0) from learning_study_record
 		 where user_id = #{userId} and study_date = #{studyDate}

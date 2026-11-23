@@ -16,6 +16,7 @@ import com.ruoyi.user.domain.PointsSource;
 import com.ruoyi.user.mapper.PointsAdMapper;
 import com.ruoyi.user.mapper.PointsLogMapper;
 import com.ruoyi.user.mapper.PointsWatchMapper;
+import com.ruoyi.user.mapper.StudyMapper;
 import com.ruoyi.user.service.IPointsRewardService;
 import com.ruoyi.user.service.IPointsService;
 
@@ -55,6 +56,9 @@ public class PointsRewardServiceImpl implements IPointsRewardService
     @Autowired
     private IPointsService pointsService;
 
+    @Autowired
+    private StudyMapper studyMapper;
+
     @Override
     @Transactional
     public Map<String, Object> watch(Long userId, String targetType, Long targetId, Integer seconds)
@@ -89,6 +93,13 @@ public class PointsRewardServiceImpl implements IPointsRewardService
 
         String source = "post".equals(type) ? PointsSource.WATCH_POST : PointsSource.WATCH_COURSE;
         LocalDate today = LocalDate.now(ZONE);
+
+        // 帖子阅读与课程播放一致：先计入当天学习时长（不受积分每日上限影响）
+        if ("post".equals(type))
+        {
+            studyMapper.addArticleSeconds(userId, today, seconds);
+        }
+
         Date awardDate = Date.valueOf(today);
         Date begin = Date.valueOf(today);
         Date end = Date.valueOf(today.plusDays(1));

@@ -22,10 +22,14 @@ public class AgentClient
     private static final Logger log = LoggerFactory.getLogger(AgentClient.class);
 
     private final RestClient restClient;
+    private final String baseUrl;
+    private final String internalToken;
 
     public AgentClient(@Value("${agent.base-url:http://127.0.0.1:8100}") String baseUrl,
                        @Value("${agent.internal-token:}") String internalToken)
     {
+        this.baseUrl = baseUrl;
+        this.internalToken = internalToken;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(3));
         factory.setReadTimeout(Duration.ofSeconds(120));
@@ -34,6 +38,16 @@ public class AgentClient
                 .requestFactory(factory)
                 .defaultHeader("x-internal-token", internalToken)
                 .build();
+    }
+
+    public String getBaseUrl()
+    {
+        return baseUrl;
+    }
+
+    public String getInternalToken()
+    {
+        return internalToken;
     }
 
     public Map<String, Object> post(String path, Object body)

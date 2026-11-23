@@ -1,8 +1,18 @@
 package com.ruoyi.web.controller.api;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClientResponseException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
@@ -21,8 +32,8 @@ import com.ruoyi.common.core.api.ApiContext;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.text.Convert;
-import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.ws.WsEventPublisher;
 import com.ruoyi.user.domain.AgentMessage;
 import com.ruoyi.user.domain.AgentSession;
 import com.ruoyi.user.domain.AgentTask;
@@ -47,7 +58,14 @@ public class ApiV1AgentController extends BaseController
     @Autowired
     private IAgentService agentService;
 
+    @Autowired
+    private WsEventPublisher wsEventPublisher;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
 
     /** SQL 问答：{question} -> {answer, sql, rows, rowCount, error} */
     @PostMapping("/sql/ask")
@@ -169,6 +187,160 @@ public class ApiV1AgentController extends BaseController
         {
             log.error("Agent chat 调用失败", e);
             return AjaxResult.error("智能体服务暂不可用");
+        }
+    }
+
+    /**
+     * 课程问答（WebSocket 流式）
+     *
+     * 请求：{sessionId?, question, courseId?}
+     * 立即返回：{requestId, sessionId}
+     * 后续通过 WS 推送：agent.start / agent.delta / agent.done / agent.error
+     */
+    @PostMapping("/chat/stream")
+    public AjaxResult chatStream(@RequestBody Map<String, Object> body)
+    {
+        String question = body == null ? null : Convert.toStr(body.get("question"));
+        if (StringUtils.isEmpty(question))
+        {
+            return AjaxResult.error("问题不能为空");
+        }
+        if (StringUtils.isEmpty(agentClient.getInternalToken()))
+        {
+            return AjaxResult.error("智能体内部令牌未配置");
+        }
+
+        Long userId = ApiContext.getUserId();
+        Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
+        Long courseId = body == null ? null : Convert.toLong(body.get("courseId"));
+
+        AgentSession session = sessionId == null
+                ? agentService.createSession(userId, question)
+                : agentService.requireSession(userId, sessionId);
+
+        agentService.addMessage(userId, session.getSessionId(), "user", question, "text", null, 0);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("question", question);
+        if (courseId != null)
+        {
+            payload.put("courseId", courseId);
+        }
+
+        String requestId = UUID.randomUUID().toString();
+        CompletableFuture.runAsync(() -> streamChat(userId, session.getSessionId(), payload, requestId));
+
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("requestId", requestId);
+        ajax.put("sessionId", session.getSessionId());
+        return ajax;
+    }
+
+    private void streamChat(Long userId, Long sessionId, Map<String, Object> payload, String requestId)
+    {
+        Map<String, Object> start = new LinkedHashMap<>();
+        start.put("requestId", requestId);
+        start.put("sessionId", sessionId);
+        wsEventPublisher.publish("agent.start", start, "user:" + userId);
+
+        StringBuilder answer = new StringBuilder();
+        Object refsObject = null;
+        boolean finished = false;
+
+        try
+        {
+            String requestBody = objectMapper.writeValueAsString(payload);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(agentClient.getBaseUrl() + "/internal/chat/stream"))
+                    .timeout(Duration.ofSeconds(120))
+                    .header("Content-Type", "application/json")
+                    .header("x-internal-token", agentClient.getInternalToken())
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
+                    .build();
+
+            HttpResponse<Stream<String>> response = httpClient.send(request, HttpResponse.BodyHandlers.ofLines());
+            if (response.statusCode() != 200)
+            {
+                throw new IllegalStateException("Agent 流式接口返回 " + response.statusCode());
+            }
+
+            int seq = 0;
+            try (Stream<String> lines = response.body())
+            {
+                Iterator<String> iterator = lines.iterator();
+                while (iterator.hasNext())
+                {
+                    String line = iterator.next().trim();
+                    if (line.isEmpty())
+                    {
+                        continue;
+                    }
+                    Map<String, Object> event;
+                    try
+                    {
+                        event = objectMapper.readValue(line, new TypeReference<Map<String, Object>>() {});
+                    }
+                    catch (Exception parseError)
+                    {
+                        log.warn("忽略无法解析的 Agent 流式片段: {}", line);
+                        continue;
+                    }
+
+                    Object error = event.get("error");
+                    if (error != null)
+                    {
+                        throw new IllegalStateException(String.valueOf(error));
+                    }
+
+                    Object delta = event.get("delta");
+                    if (delta != null)
+                    {
+                        answer.append(delta);
+                        seq++;
+                        Map<String, Object> data = new LinkedHashMap<>();
+                        data.put("requestId", requestId);
+                        data.put("seq", seq);
+                        data.put("content", String.valueOf(delta));
+                        wsEventPublisher.publish("agent.delta", data, "user:" + userId);
+                    }
+
+                    if (Boolean.TRUE.equals(event.get("done")))
+                    {
+                        refsObject = event.get("refs");
+                        finished = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!finished)
+            {
+                throw new IllegalStateException("Agent 流式响应提前结束");
+            }
+
+            List<Map<String, Object>> refs = refsObject == null
+                    ? List.of()
+                    : objectMapper.convertValue(refsObject, new TypeReference<List<Map<String, Object>>>() {});
+            String refsJson = objectMapper.writeValueAsString(refs);
+            AgentMessage assistant = agentService.addMessage(userId, sessionId, "assistant",
+                    answer.toString(), "text", refsJson, 0);
+
+            Map<String, Object> done = new LinkedHashMap<>();
+            done.put("requestId", requestId);
+            done.put("sessionId", sessionId);
+            done.put("messageId", assistant.getMessageId());
+            done.put("answer", answer.toString());
+            done.put("refs", refs);
+            wsEventPublisher.publish("agent.done", done, "user:" + userId);
+        }
+        catch (Exception e)
+        {
+            log.error("Agent 流式问答失败: requestId={}", requestId, e);
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("requestId", requestId);
+            error.put("code", "STREAM_FAILED");
+            error.put("message", "智能体服务暂不可用");
+            wsEventPublisher.publish("agent.error", error, "user:" + userId);
         }
     }
 

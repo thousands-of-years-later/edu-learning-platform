@@ -1,9 +1,11 @@
 """Agent 服务入口：只对内网提供 /internal/** 接口。"""
 import asyncio
+import json
 import logging
 from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -61,6 +63,19 @@ async def chat_ask(body: ChatAskRequest):
     except Exception as exc:
         logger.exception("chat ask failed")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/internal/chat/stream", dependencies=[Depends(verify_token)])
+async def chat_stream(body: ChatAskRequest):
+    async def generate():
+        try:
+            async for item in rag.stream_answer(body.courseId, body.question):
+                yield json.dumps(item, ensure_ascii=False) + "\n"
+        except Exception as exc:
+            logger.exception("chat stream failed")
+            yield json.dumps({"error": str(exc)}, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
 @app.post("/internal/video/summary", dependencies=[Depends(verify_token)])

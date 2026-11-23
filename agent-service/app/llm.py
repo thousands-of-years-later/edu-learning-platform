@@ -54,6 +54,47 @@ async def chat(
         raise LlmError(f"模型返回格式异常: {data}") from exc
 
 
+async def chat_stream(
+    messages: List[Dict[str, str]],
+    temperature: float = 0.2,
+    max_tokens: int = 1200,
+):
+    """流式调用 DeepSeek，逐段 yield 文本增量。"""
+    config.require("DEEPSEEK_API_KEY", config.DEEPSEEK_API_KEY)
+    headers = {
+        "Authorization": f"Bearer {config.DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": config.DEEPSEEK_MODEL,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": True,
+    }
+    timeout = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        async with client.stream("POST", f"{config.DEEPSEEK_BASE_URL}/chat/completions",
+                                 headers=headers, json=payload) as response:
+            if response.status_code >= 400:
+                body = await response.aread()
+                raise LlmError(f"HTTP {response.status_code}: {body[:300]!r}")
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    obj = json.loads(data)
+                    delta = obj["choices"][0].get("delta", {}).get("content")
+                except (json.JSONDecodeError, KeyError, IndexError):
+                    continue
+                if delta:
+                    yield delta
+
+
+
 async def embed(texts: List[str]) -> List[List[float]]:
     """DashScope OpenAI 兼容 embeddings，按 10 条一批。"""
     config.require("DASHSCOPE_API_KEY", config.DASHSCOPE_API_KEY)

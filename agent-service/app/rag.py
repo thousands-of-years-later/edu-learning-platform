@@ -156,20 +156,23 @@ async def ask(course_id: Optional[int], question: str) -> Dict[str, Any]:
             "retrieved": 0,
         }
 
+    messages = _build_messages(question, chunks)
+    answer = await llm.chat(messages, temperature=0.2, max_tokens=1000)
+    return {"answer": answer.strip(), "refs": _refs_of(chunks), "retrieved": len(chunks)}
+
+
+def _build_messages(question: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     context = "\n\n".join(
         f"[来源: {c['metadata'].get('course', '')}-{c['metadata'].get('chapter', '')}]\n{c['text']}"
         for c in chunks
     )
-    prompt = f"课程资料：\n{context}\n\n用户问题：{question}"
-    answer = await llm.chat(
-        [
-            {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.2,
-        max_tokens=1000,
-    )
+    return [
+        {"role": "system", "content": SYSTEM},
+        {"role": "user", "content": f"课程资料：\n{context}\n\n用户问题：{question}"},
+    ]
 
+
+def _refs_of(chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     refs: List[Dict[str, str]] = []
     seen = set()
     for chunk in chunks:
@@ -178,5 +181,24 @@ async def ask(course_id: Optional[int], question: str) -> Dict[str, Any]:
         if key not in seen:
             seen.add(key)
             refs.append({"course": meta.get("course", ""), "chapter": meta.get("chapter", "")})
+    return refs
 
-    return {"answer": answer.strip(), "refs": refs, "retrieved": len(chunks)}
+
+async def stream_answer(course_id: Optional[int], question: str):
+    """逐段产出 {"delta": ...}，最后产出 {"done": True, "refs": [...]}。"""
+    question = (question or "").strip()
+    if not question:
+        yield {"error": "问题不能为空"}
+        return
+
+    chunks = await search(question, course_id=course_id, top_k=5)
+    if not chunks:
+        text = "课程资料中没有相关内容。请先确认课程知识库已入库。"
+        yield {"delta": text}
+        yield {"done": True, "refs": [], "retrieved": 0}
+        return
+
+    async for delta in llm.chat_stream(_build_messages(question, chunks), temperature=0.2, max_tokens=1000):
+        yield {"delta": delta}
+    yield {"done": True, "refs": _refs_of(chunks), "retrieved": len(chunks)}
+

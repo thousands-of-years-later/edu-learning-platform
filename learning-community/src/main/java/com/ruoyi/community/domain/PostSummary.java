@@ -36,6 +36,9 @@ public class PostSummary implements Serializable
     /** 收藏数 */
     private Integer favoriteCount;
 
+    /** 分类名（我的文章列表展示） */
+    private String categoryName;
+
     public Long getPostId()
     {
         return postId;
@@ -94,5 +97,15 @@ public class PostSummary implements Serializable
     public void setFavoriteCount(Integer favoriteCount)
     {
         this.favoriteCount = favoriteCount;
+    }
+
+    public String getCategoryName()
+    {
+        return categoryName;
+    }
+
+    public void setCategoryName(String categoryName)
+    {
+        this.categoryName = categoryName;
     }
 }

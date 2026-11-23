@@ -70,6 +70,9 @@ public class PostListSummary implements Serializable
     /** 评论数（按评论表实时 count(*)） */
     private Integer commentCount;
 
+    /** 分类名（社区 / 分类列表卡片展示） */
+    private String categoryName;
+
     public Long getPostId()
     {
         return postId;
@@ -198,5 +201,15 @@ public class PostListSummary implements Serializable
     public void setCommentCount(Integer commentCount)
     {
         this.commentCount = commentCount;
+    }
+
+    public String getCategoryName()
+    {
+        return categoryName;
+    }
+
+    public void setCategoryName(String categoryName)
+    {
+        this.categoryName = categoryName;
     }
 }

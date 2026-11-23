@@ -11,6 +11,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="auditRemark"   column="audit_remark"   />
 		<result property="likeCount"     column="like_count"     />
 		<result property="favoriteCount" column="favorite_count" />
+		<result property="categoryName"  column="category_name"  />
 	</resultMap>
 
 	<!-- 社区 / 分类列表项：比「我的文章」多作者（昵称/头像）、精华标志、发布时间、阅读数、评论数 -->
@@ -26,6 +27,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="likeCount"     column="like_count"     />
 		<result property="favoriteCount" column="favorite_count" />
 		<result property="commentCount"  column="comment_count"  />
+		<result property="categoryName"  column="category_name"  />
 	</resultMap>
 
 	<resultMap type="PostDetail" id="PostDetailResult">
@@ -51,7 +53,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	-->
 	<select id="selectMyList" resultMap="PostSummaryResult">
 		select p.post_id, p.post_title, p.status, p.audit_remark,
-		       p.like_count, p.favorite_count
+		       p.like_count, p.favorite_count,
+		       (select c.category_name from learning_category c
+		         where c.category_id = p.category_id and c.del_flag = '0') as category_name
 		  from learning_post p
 		 where p.user_id = #{userId} and p.del_flag = '0'
 		 order by p.create_time desc, p.post_id desc
@@ -86,6 +90,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		       left(p.content, 2000) as content_brief,
 		       (select u.user_name from sys_user u where u.user_id = p.user_id) as user_name,
 		       (select nullif(trim(u.avatar), '') from sys_user u where u.user_id = p.user_id) as avatar,
+		       (select c.category_name from learning_category c
+		         where c.category_id = p.category_id and c.del_flag = '0') as category_name,
 		       ifnull(p.view_count, 0) as view_count,
 		       p.like_count, p.favorite_count,
 		       (select count(*) from learning_comment c

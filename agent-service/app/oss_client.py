@@ -1,5 +1,5 @@
 """阿里云 OSS：签名 URL 与 PPT 上传。"""
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import oss2
 
@@ -23,10 +23,14 @@ def sign_url(url_or_key: str, expires: int = 3600) -> str:
 
     if url_or_key.startswith("http://") or url_or_key.startswith("https://"):
         parsed = urlparse(url_or_key)
+        # 项目里的 /oss-preview/{key} 是后端代理地址，真实对象 key 在 /oss-preview/ 后面
+        if parsed.path.startswith("/oss-preview/"):
+            key = unquote(parsed.path[len("/oss-preview/"):])
+            return _bucket().sign_url("GET", key, expires)
         expected_host = f"{config.OSS_BUCKET}.{config.OSS_ENDPOINT}"
         if parsed.netloc != expected_host and not parsed.netloc.endswith("." + config.OSS_ENDPOINT):
             return url_or_key
-        key = parsed.path.lstrip("/")
+        key = unquote(parsed.path.lstrip("/"))
         return _bucket().sign_url("GET", key, expires)
 
     return _bucket().sign_url("GET", url_or_key.lstrip("/"), expires)

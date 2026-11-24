@@ -29,6 +29,7 @@ class SqlAskRequest(BaseModel):
 class ChatAskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     courseId: Optional[int] = None
+    history: list[dict] = []
 
 
 class VideoSummaryRequest(BaseModel):
@@ -66,7 +67,7 @@ async def sql_ask(body: SqlAskRequest):
 @app.post("/internal/chat/ask", dependencies=[Depends(verify_token)])
 async def chat_ask(body: ChatAskRequest):
     try:
-        return await rag.ask(body.courseId, body.question)
+        return await rag.ask(body.courseId, body.question, body.history)
     except Exception as exc:
         logger.exception("chat ask failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -76,7 +77,7 @@ async def chat_ask(body: ChatAskRequest):
 async def chat_stream(body: ChatAskRequest):
     async def generate():
         try:
-            async for item in rag.stream_answer(body.courseId, body.question):
+            async for item in rag.stream_answer(body.courseId, body.question, body.history):
                 yield json.dumps(item, ensure_ascii=False) + "\n"
         except Exception as exc:
             logger.exception("chat stream failed")

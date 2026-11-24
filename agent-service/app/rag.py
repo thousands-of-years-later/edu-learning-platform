@@ -11,9 +11,10 @@ from . import config, db, llm
 
 SYSTEM = """你是学习平台的课程答疑助手。只能根据提供的课程资料回答，不要使用资料之外的知识。
 要求：
-1. 回答末尾用 [来源: 课程名-章节名] 标注出处；
-2. 资料里没有的内容，明确说“课程资料中没有相关内容”，不要编造；
-3. 用简洁的中文回答，适合学生阅读。
+1. 结合对话历史理解“它/这门课/上面说的”等指代；
+2. 回答末尾用 [来源: 课程名-章节名] 标注出处；
+3. 资料里没有的内容，明确说“课程资料中没有相关内容”，不要编造；
+4. 用简洁的中文回答，适合学生阅读。
 """
 
 
@@ -174,7 +175,7 @@ async def search(question: str, course_id: Optional[int] = None, top_k: int = 5)
     return scored[:top_k]
 
 
-async def ask(course_id: Optional[int], question: str) -> Dict[str, Any]:
+async def ask(course_id: Optional[int], question: str, history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
     question = (question or "").strip()
     if not question:
         raise ValueError("问题不能为空")
@@ -187,20 +188,37 @@ async def ask(course_id: Optional[int], question: str) -> Dict[str, Any]:
             "retrieved": 0,
         }
 
-    messages = _build_messages(question, chunks)
+    messages = _build_messages(question, chunks, history)
     answer = await llm.chat(messages, temperature=0.2, max_tokens=1000)
     return {"answer": answer.strip(), "refs": _refs_of(chunks), "retrieved": len(chunks)}
 
 
-def _build_messages(question: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+def _build_messages(question: str, chunks: List[Dict[str, Any]],
+                    history: Optional[List[Dict[str, str]]] = None) -> List[Dict[str, str]]:
     context = "\n\n".join(
         f"[来源: {c['metadata'].get('course', '')}-{c['metadata'].get('chapter', '')}]\n{c['text']}"
         for c in chunks
     )
-    return [
-        {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": f"课程资料：\n{context}\n\n用户问题：{question}"},
-    ]
+    messages: List[Dict[str, str]] = [{"role": "system", "content": SYSTEM}]
+
+    # 只带最近 8 条，单条截断，避免历史把上下文撑爆
+    total_chars = 0
+    for item in (history or [])[-8:]:
+        role = (item.get("role") or "").strip()
+        content = (item.get("content") or "").strip()
+        if role not in ("user", "assistant") or not content:
+            continue
+        content = content[:1200]
+        total_chars += len(content)
+        if total_chars > 6000:
+            break
+        messages.append({"role": role, "content": content})
+
+    messages.append({
+        "role": "user",
+        "content": f"课程资料：\n{context}\n\n用户问题：{question}",
+    })
+    return messages
 
 
 def _refs_of(chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
@@ -215,7 +233,8 @@ def _refs_of(chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     return refs
 
 
-async def stream_answer(course_id: Optional[int], question: str):
+async def stream_answer(course_id: Optional[int], question: str,
+                        history: Optional[List[Dict[str, str]]] = None):
     """逐段产出 {"delta": ...}，最后产出 {"done": True, "refs": [...]}。"""
     question = (question or "").strip()
     if not question:
@@ -229,7 +248,7 @@ async def stream_answer(course_id: Optional[int], question: str):
         yield {"done": True, "refs": [], "retrieved": 0}
         return
 
-    async for delta in llm.chat_stream(_build_messages(question, chunks), temperature=0.2, max_tokens=1000):
+    async for delta in llm.chat_stream(_build_messages(question, chunks, history), temperature=0.2, max_tokens=1000):
         yield {"delta": delta}
     yield {"done": True, "refs": _refs_of(chunks), "retrieved": len(chunks)}
 

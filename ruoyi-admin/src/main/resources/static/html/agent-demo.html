@@ -144,6 +144,7 @@
       <!-- 课程问答 -->
       <section class="card panel active" data-panel="chat">
         <div class="label">问题（课程 RAG，可选 courseId）</div>
+        <div class="hint" style="margin-bottom:8px">同一页面继续提问会带上下文；刷新页面即新会话。</div>
         <textarea id="chatQuestion">Java 第一章主要讲什么？</textarea>
         <div class="row" style="margin-top:10px">
           <input id="chatCourseId" value="201" placeholder="courseId（可空）" style="width:150px"/>
@@ -158,6 +159,7 @@
       <!-- 流式问答 -->
       <section class="card panel" data-panel="stream">
         <div class="label">问题（通过 WebSocket 逐字返回）</div>
+        <div class="hint" style="margin-bottom:8px">同一页面继续提问会带上下文；刷新页面即新会话。</div>
         <textarea id="streamQuestion">Java 课程主要讲什么？</textarea>
         <div class="row" style="margin-top:10px">
           <button id="streamBtn" disabled>开始流式提问</button>
@@ -224,7 +226,7 @@
 </div>
 
 <script>
-const state = { token: "", userId: null, ws: null, streamRequest: null, streamBuffer: [], busy: {} };
+const state = { token: "", userId: null, ws: null, streamRequest: null, streamBuffer: [], chatSessionId: null, streamSessionId: null, busy: {} };
 const $ = (id) => document.getElementById(id);
 
 function log(text, cls) {
@@ -316,6 +318,7 @@ function handleStreamEvent(type, data) {
     $("streamRefs").innerHTML = (data.refs || []).map(r =>
       `<span class="ref">${escapeHtml(r.course)} · ${escapeHtml(r.chapter)}</span>`).join("");
     $("streamMeta").textContent = `sessionId=${data.sessionId} messageId=${data.messageId}`;
+    state.streamSessionId = data.sessionId;
     setStatus("streamStatus", "完成", "ok");
     state.streamRequest = null;
     state.streamBuffer = [];
@@ -336,11 +339,14 @@ async function startStreamChat() {
   state.streamRequest = null;
   state.streamBuffer = [];
   setStatus("streamStatus", "提交中…", "warn");
+  const body = { question };
+  if (state.streamSessionId) body.sessionId = state.streamSessionId;
   const result = await api("/api/v1/agent/chat/stream", {
     method: "POST",
-    body: JSON.stringify({ question })
+    body: JSON.stringify(body)
   });
   state.streamRequest = result.requestId;
+  state.streamSessionId = result.sessionId;
   $("streamMeta").textContent = `requestId=${result.requestId} sessionId=${result.sessionId}`;
   const buffered = state.streamBuffer;
   state.streamBuffer = [];
@@ -357,11 +363,13 @@ async function chat() {
   $("chatRefs").innerHTML = "";
   const body = { question };
   if (courseId) body.courseId = Number(courseId);
+  if (state.chatSessionId) body.sessionId = state.chatSessionId;
   const data = await api("/api/v1/agent/chat", { method: "POST", body: JSON.stringify(body) });
   $("chatAnswer").textContent = data.answer || "";
   $("chatRefs").innerHTML = (data.refs || []).map(r =>
     `<span class="ref">${escapeHtml(r.course)} · ${escapeHtml(r.chapter)}</span>`).join("");
   $("chatMeta").textContent = `sessionId=${data.sessionId} messageId=${data.messageId}`;
+  state.chatSessionId = data.sessionId;
   setStatus("chatStatus", "完成", "ok");
 }
 

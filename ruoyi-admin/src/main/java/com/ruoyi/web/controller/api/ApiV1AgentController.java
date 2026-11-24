@@ -6,6 +6,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -151,6 +152,8 @@ public class ApiV1AgentController extends BaseController
             session = agentService.requireSession(ApiContext.getUserId(), sessionId);
         }
 
+        List<Map<String, String>> history = buildHistory(
+                agentService.listMessages(ApiContext.getUserId(), session.getSessionId()));
         agentService.addMessage(ApiContext.getUserId(), session.getSessionId(),
                 "user", question, "text", null, 0);
 
@@ -159,6 +162,10 @@ public class ApiV1AgentController extends BaseController
         if (courseId != null)
         {
             payload.put("courseId", courseId);
+        }
+        if (!history.isEmpty())
+        {
+            payload.put("history", history);
         }
 
         try
@@ -218,6 +225,8 @@ public class ApiV1AgentController extends BaseController
                 ? agentService.createSession(userId, question)
                 : agentService.requireSession(userId, sessionId);
 
+        List<Map<String, String>> history = buildHistory(
+                agentService.listMessages(userId, session.getSessionId()));
         agentService.addMessage(userId, session.getSessionId(), "user", question, "text", null, 0);
 
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -225,6 +234,10 @@ public class ApiV1AgentController extends BaseController
         if (courseId != null)
         {
             payload.put("courseId", courseId);
+        }
+        if (!history.isEmpty())
+        {
+            payload.put("history", history);
         }
 
         String requestId = UUID.randomUUID().toString();
@@ -450,6 +463,42 @@ public class ApiV1AgentController extends BaseController
         AjaxResult ajax = AjaxResult.success();
         ajax.put("task", task);
         return ajax;
+    }
+
+    private List<Map<String, String>> buildHistory(List<AgentMessage> messages)
+    {
+        List<Map<String, String>> history = new ArrayList<>();
+        if (messages == null || messages.isEmpty())
+        {
+            return history;
+        }
+        int start = Math.max(0, messages.size() - 8);
+        int totalChars = 0;
+        for (int i = start; i < messages.size(); i++)
+        {
+            AgentMessage message = messages.get(i);
+            String role = message.getRole();
+            String content = message.getContent();
+            if (content == null || content.isBlank()
+                    || (!"user".equals(role) && !"assistant".equals(role)))
+            {
+                continue;
+            }
+            if (content.length() > 1200)
+            {
+                content = content.substring(0, 1200);
+            }
+            if (totalChars + content.length() > 6000)
+            {
+                break;
+            }
+            totalChars += content.length();
+            Map<String, String> item = new LinkedHashMap<>();
+            item.put("role", role);
+            item.put("content", content);
+            history.add(item);
+        }
+        return history;
     }
 
     private AjaxResult proxy(String path, Map<String, Object> body)

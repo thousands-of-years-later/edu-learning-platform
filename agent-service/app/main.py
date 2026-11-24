@@ -27,9 +27,11 @@ class SqlAskRequest(BaseModel):
 
 
 class ChatAskRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=1000)
+    # 允许空问题：只发图片时由 rag 侧补默认提问
+    question: str = Field(default="", max_length=1000)
     courseId: Optional[int] = None
     history: list[dict] = []
+    imageUrls: list[str] = []
 
 
 class VideoSummaryRequest(BaseModel):
@@ -67,7 +69,7 @@ async def sql_ask(body: SqlAskRequest):
 @app.post("/internal/chat/ask", dependencies=[Depends(verify_token)])
 async def chat_ask(body: ChatAskRequest):
     try:
-        return await rag.ask(body.courseId, body.question, body.history)
+        return await rag.ask(body.courseId, body.question, body.history, body.imageUrls)
     except Exception as exc:
         logger.exception("chat ask failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -77,7 +79,7 @@ async def chat_ask(body: ChatAskRequest):
 async def chat_stream(body: ChatAskRequest):
     async def generate():
         try:
-            async for item in rag.stream_answer(body.courseId, body.question, body.history):
+            async for item in rag.stream_answer(body.courseId, body.question, body.history, body.imageUrls):
                 yield json.dumps(item, ensure_ascii=False) + "\n"
         except Exception as exc:
             logger.exception("chat stream failed")

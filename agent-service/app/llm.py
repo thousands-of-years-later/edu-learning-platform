@@ -29,7 +29,7 @@ async def _post_with_retry(url: str, headers: Dict[str, str], payload: Dict[str,
 
 
 async def chat(
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, Any]],
     temperature: float = 0.2,
     max_tokens: int = 1200,
 ) -> str:
@@ -46,6 +46,9 @@ async def chat(
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": False,
+            # deepseek-flash 默认开启思考模式，思考 token 也计入 max_tokens；
+            # 课程问答不需要思维链，关掉避免被截断和延迟翻倍
+            "thinking": {"type": "disabled"},
         },
     )
     try:
@@ -55,7 +58,7 @@ async def chat(
 
 
 async def chat_stream(
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, Any]],
     temperature: float = 0.2,
     max_tokens: int = 1200,
 ):
@@ -71,6 +74,8 @@ async def chat_stream(
         "temperature": temperature,
         "max_tokens": max_tokens,
         "stream": True,
+        # 与非流式保持一致：关闭思考模式
+        "thinking": {"type": "disabled"},
     }
     timeout = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
     async with httpx.AsyncClient(timeout=timeout) as client:

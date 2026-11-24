@@ -14,7 +14,8 @@ SYSTEM = """你是学习平台的课程答疑助手。只能根据提供的课�
 1. 结合对话历史理解“它/这门课/上面说的”等指代；
 2. 回答末尾用 [来源: 课程名-章节名] 标注出处；
 3. 资料里没有的内容，明确说“课程资料中没有相关内容”，不要编造；
-4. 用简洁的中文回答，适合学生阅读。
+4. 用简洁的中文回答，适合学生阅读；
+5. 用户附带图片时，先如实描述图片中可见的内容（文字、报错、图表），再结合课程资料解答；看不清就说明看不清，不要猜测。
 """
 
 
@@ -175,31 +176,36 @@ async def search(question: str, course_id: Optional[int] = None, top_k: int = 5)
     return scored[:top_k]
 
 
-async def ask(course_id: Optional[int], question: str, history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+async def ask(course_id: Optional[int], question: str,
+              history: Optional[List[Dict[str, str]]] = None,
+              images: Optional[List[str]] = None) -> Dict[str, Any]:
     question = (question or "").strip()
-    if not question:
+    images = [url for url in (images or []) if url]
+    if not question and not images:
         raise ValueError("问题不能为空")
 
-    chunks = await search(question, course_id=course_id, top_k=5)
-    if not chunks:
+    # 纯图片提问没有可检索的文本，跳过向量检索，直接把图片交给模型
+    chunks = await search(question, course_id=course_id, top_k=5) if question else []
+    if not chunks and not images:
         return {
             "answer": "课程资料中没有相关内容。请先确认课程知识库已入库。",
             "refs": [],
             "retrieved": 0,
         }
 
-    messages = _build_messages(question, chunks, history)
+    messages = _build_messages(question, chunks, history, images)
     answer = await llm.chat(messages, temperature=0.2, max_tokens=1000)
     return {"answer": answer.strip(), "refs": _refs_of(chunks), "retrieved": len(chunks)}
 
 
 def _build_messages(question: str, chunks: List[Dict[str, Any]],
-                    history: Optional[List[Dict[str, str]]] = None) -> List[Dict[str, str]]:
+                    history: Optional[List[Dict[str, str]]] = None,
+                    images: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     context = "\n\n".join(
         f"[来源: {c['metadata'].get('course', '')}-{c['metadata'].get('chapter', '')}]\n{c['text']}"
         for c in chunks
     )
-    messages: List[Dict[str, str]] = [{"role": "system", "content": SYSTEM}]
+    messages: List[Dict[str, Any]] = [{"role": "system", "content": SYSTEM}]
 
     # 只带最近 8 条，单条截断，避免历史把上下文撑爆
     total_chars = 0
@@ -214,10 +220,21 @@ def _build_messages(question: str, chunks: List[Dict[str, Any]],
             break
         messages.append({"role": role, "content": content})
 
-    messages.append({
-        "role": "user",
-        "content": f"课程资料：\n{context}\n\n用户问题：{question}",
-    })
+    if chunks:
+        prompt = f"课程资料：\n{context}\n\n用户问题：{question}"
+    elif question:
+        prompt = f"用户问题：{question}"
+    else:
+        prompt = "请描述这张图片的内容，并说明它与课程内容的关系。"
+
+    if images:
+        # OpenAI 兼容块数组：文本 + 多张图片 URL，一次调用同时理解图文
+        content_parts: List[Dict[str, Any]] = [{"type": "text", "text": prompt}]
+        for url in images:
+            content_parts.append({"type": "image_url", "image_url": {"url": url}})
+        messages.append({"role": "user", "content": content_parts})
+    else:
+        messages.append({"role": "user", "content": prompt})
     return messages
 
 
@@ -234,21 +251,24 @@ def _refs_of(chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
 
 
 async def stream_answer(course_id: Optional[int], question: str,
-                        history: Optional[List[Dict[str, str]]] = None):
+                        history: Optional[List[Dict[str, str]]] = None,
+                        images: Optional[List[str]] = None):
     """逐段产出 {"delta": ...}，最后产出 {"done": True, "refs": [...]}。"""
     question = (question or "").strip()
-    if not question:
+    images = [url for url in (images or []) if url]
+    if not question and not images:
         yield {"error": "问题不能为空"}
         return
 
-    chunks = await search(question, course_id=course_id, top_k=5)
-    if not chunks:
+    chunks = await search(question, course_id=course_id, top_k=5) if question else []
+    if not chunks and not images:
         text = "课程资料中没有相关内容。请先确认课程知识库已入库。"
         yield {"delta": text}
         yield {"done": True, "refs": [], "retrieved": 0}
         return
 
-    async for delta in llm.chat_stream(_build_messages(question, chunks, history), temperature=0.2, max_tokens=1000):
+    async for delta in llm.chat_stream(_build_messages(question, chunks, history, images),
+                                       temperature=0.2, max_tokens=1000):
         yield {"delta": delta}
     yield {"done": True, "refs": _refs_of(chunks), "retrieved": len(chunks)}
 

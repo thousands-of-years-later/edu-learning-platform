@@ -17,9 +17,11 @@ import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,9 +32,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.ruoyi.common.core.api.ApiContext;
+import com.ruoyi.common.config.OssConfig;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.ws.WsEventPublisher;
 import com.ruoyi.user.domain.AgentMessage;
@@ -52,6 +56,12 @@ import com.ruoyi.user.service.IAgentService;
 public class ApiV1AgentController extends BaseController
 {
     private static final Logger log = LoggerFactory.getLogger(ApiV1AgentController.class);
+
+    /** 单次对话最多带 3 张图，控制延迟与费用 */
+    private static final int MAX_CHAT_IMAGES = 3;
+
+    /** 只传图不带文字时，用于落库展示与会话标题 */
+    private static final String DEFAULT_IMAGE_QUESTION = "请描述这张图片的内容";
 
     @Autowired
     private AgentClient agentClient;
@@ -115,13 +125,36 @@ public class ApiV1AgentController extends BaseController
         return ajax;
     }
 
-    /** 某个会话的消息列表 */
+    /** 某个会话的消息列表（游标分页，默认最近 30 条） */
     @GetMapping("/sessions/{sessionId}/messages")
-    public AjaxResult messages(@PathVariable Long sessionId)
+    public AjaxResult messages(@PathVariable Long sessionId,
+                               @RequestParam(required = false) Long beforeMessageId,
+                               @RequestParam(defaultValue = "30") Integer pageSize)
     {
-        List<AgentMessage> messages = agentService.listMessages(ApiContext.getUserId(), sessionId);
+        List<AgentMessage> messages = agentService.listMessagesPage(
+                ApiContext.getUserId(), sessionId, beforeMessageId, pageSize);
         AjaxResult ajax = AjaxResult.success();
         ajax.put("rows", messages);
+        return ajax;
+    }
+
+    /** 删除会话（软删，消息一起软删，重复删除幂等） */
+    @DeleteMapping("/sessions/{sessionId}")
+    public AjaxResult deleteSession(@PathVariable Long sessionId)
+    {
+        agentService.deleteSession(ApiContext.getUserId(), sessionId);
+        return AjaxResult.success();
+    }
+
+    /** 重命名会话 */
+    @PutMapping("/sessions/{sessionId}")
+    public AjaxResult renameSession(@PathVariable Long sessionId,
+                                    @RequestBody(required = false) Map<String, Object> body)
+    {
+        String title = body == null ? null : Convert.toStr(body.get("title"));
+        AgentSession session = agentService.renameSession(ApiContext.getUserId(), sessionId, title);
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("session", session);
         return ajax;
     }
 
@@ -135,17 +168,28 @@ public class ApiV1AgentController extends BaseController
     public AjaxResult chat(@RequestBody Map<String, Object> body)
     {
         String question = body == null ? null : Convert.toStr(body.get("question"));
-        if (StringUtils.isEmpty(question))
+
+        List<String> imageUrls;
+        try
+        {
+            imageUrls = parseImageUrls(body);
+        }
+        catch (ServiceException e)
+        {
+            return AjaxResult.error(e.getMessage());
+        }
+        if (StringUtils.isEmpty(question) && imageUrls.isEmpty())
         {
             return AjaxResult.error("问题不能为空");
         }
+        String displayContent = StringUtils.isEmpty(question) ? DEFAULT_IMAGE_QUESTION : question;
         Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
         Long courseId = body == null ? null : Convert.toLong(body.get("courseId"));
 
         AgentSession session;
         if (sessionId == null)
         {
-            session = agentService.createSession(ApiContext.getUserId(), question);
+            session = agentService.createSession(ApiContext.getUserId(), displayContent);
         }
         else
         {
@@ -155,13 +199,18 @@ public class ApiV1AgentController extends BaseController
         List<Map<String, String>> history = buildHistory(
                 agentService.listMessages(ApiContext.getUserId(), session.getSessionId()));
         agentService.addMessage(ApiContext.getUserId(), session.getSessionId(),
-                "user", question, "text", null, 0);
+                "user", displayContent, imageUrls.isEmpty() ? "text" : "image_text",
+                imagesRefsJson(imageUrls), 0);
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("question", question);
+        payload.put("question", question == null ? "" : question);
         if (courseId != null)
         {
             payload.put("courseId", courseId);
+        }
+        if (!imageUrls.isEmpty())
+        {
+            payload.put("imageUrls", imageUrls);
         }
         if (!history.isEmpty())
         {
@@ -208,7 +257,17 @@ public class ApiV1AgentController extends BaseController
     public AjaxResult chatStream(@RequestBody Map<String, Object> body)
     {
         String question = body == null ? null : Convert.toStr(body.get("question"));
-        if (StringUtils.isEmpty(question))
+
+        List<String> imageUrls;
+        try
+        {
+            imageUrls = parseImageUrls(body);
+        }
+        catch (ServiceException e)
+        {
+            return AjaxResult.error(e.getMessage());
+        }
+        if (StringUtils.isEmpty(question) && imageUrls.isEmpty())
         {
             return AjaxResult.error("问题不能为空");
         }
@@ -217,23 +276,29 @@ public class ApiV1AgentController extends BaseController
             return AjaxResult.error("智能体内部令牌未配置");
         }
 
+        String displayContent = StringUtils.isEmpty(question) ? DEFAULT_IMAGE_QUESTION : question;
         Long userId = ApiContext.getUserId();
         Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
         Long courseId = body == null ? null : Convert.toLong(body.get("courseId"));
 
         AgentSession session = sessionId == null
-                ? agentService.createSession(userId, question)
+                ? agentService.createSession(userId, displayContent)
                 : agentService.requireSession(userId, sessionId);
 
         List<Map<String, String>> history = buildHistory(
                 agentService.listMessages(userId, session.getSessionId()));
-        agentService.addMessage(userId, session.getSessionId(), "user", question, "text", null, 0);
+        agentService.addMessage(userId, session.getSessionId(), "user", displayContent,
+                imageUrls.isEmpty() ? "text" : "image_text", imagesRefsJson(imageUrls), 0);
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("question", question);
+        payload.put("question", question == null ? "" : question);
         if (courseId != null)
         {
             payload.put("courseId", courseId);
+        }
+        if (!imageUrls.isEmpty())
+        {
+            payload.put("imageUrls", imageUrls);
         }
         if (!history.isEmpty())
         {
@@ -463,6 +528,89 @@ public class ApiV1AgentController extends BaseController
         AjaxResult ajax = AjaxResult.success();
         ajax.put("task", task);
         return ajax;
+    }
+
+    /**
+     * 解析并校验图片地址：只允许本平台 OSS 上 agent/chat/ 前缀的对象。
+     *
+     * 不能让前端传任意 URL，否则服务端/模型会替调用方去拉内网或第三方地址。
+     */
+    private List<String> parseImageUrls(Map<String, Object> body)
+    {
+        Object raw = body == null ? null : body.get("imageUrls");
+        if (raw == null)
+        {
+            return List.of();
+        }
+        if (!(raw instanceof List<?> list))
+        {
+            throw new ServiceException("imageUrls 必须是数组");
+        }
+        if (list.size() > MAX_CHAT_IMAGES)
+        {
+            throw new ServiceException("最多支持 " + MAX_CHAT_IMAGES + " 张图片");
+        }
+        List<String> urls = new ArrayList<>();
+        for (Object item : list)
+        {
+            String url = Convert.toStr(item);
+            if (StringUtils.isEmpty(url) || !isChatImageUrl(url))
+            {
+                throw new ServiceException("图片地址不合法，只允许本平台上传的聊天图片");
+            }
+            urls.add(url);
+        }
+        return urls;
+    }
+
+    private boolean isChatImageUrl(String url)
+    {
+        try
+        {
+            URI uri = URI.create(url);
+            String scheme = uri.getScheme();
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))
+            {
+                return false;
+            }
+            String prefixHost = URI.create(OssConfig.resolveUrlPrefix()).getHost();
+            if (StringUtils.isEmpty(prefixHost) || !prefixHost.equalsIgnoreCase(uri.getHost()))
+            {
+                return false;
+            }
+            String path = uri.getPath();
+            return path != null && path.startsWith("/agent/chat/");
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+    }
+
+    private String imagesRefsJson(List<String> imageUrls)
+    {
+        if (imageUrls == null || imageUrls.isEmpty())
+        {
+            return null;
+        }
+        Map<String, Object> refs = new LinkedHashMap<>();
+        List<Map<String, Object>> images = new ArrayList<>();
+        for (String url : imageUrls)
+        {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("url", url);
+            images.add(item);
+        }
+        refs.put("images", images);
+        try
+        {
+            return objectMapper.writeValueAsString(refs);
+        }
+        catch (Exception e)
+        {
+            log.warn("序列化图片引用失败", e);
+            return null;
+        }
     }
 
     private List<Map<String, String>> buildHistory(List<AgentMessage> messages)

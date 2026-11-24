@@ -15,7 +15,7 @@ def _env(name: str, default: str = "") -> str:
 
 DEEPSEEK_API_KEY = _env("DEEPSEEK_API_KEY")
 DEEPSEEK_BASE_URL = _env("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").rstrip("/")
-DEEPSEEK_MODEL = _env("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_MODEL = _env("DEEPSEEK_MODEL", "deepseek-flash")
 
 DASHSCOPE_API_KEY = _env("DASHSCOPE_API_KEY")
 DASHSCOPE_BASE_URL = _env(

@@ -30,4 +30,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 order by message_id asc
 	</select>
 
+	<!-- 游标分页：倒序取最近一页，Controller 再翻成升序返回 -->
+	<select id="selectMessagesBefore" resultMap="AgentMessageResult">
+		select message_id, session_id, user_id, role, content, content_type, refs_json, tokens, status, create_time
+		  from learning_agent_message
+		 where session_id = #{sessionId} and user_id = #{userId} and status = '0'
+		<if test="beforeMessageId != null">
+		   and message_id &lt; #{beforeMessageId}
+		</if>
+		 order by message_id desc
+		 limit #{pageSize}
+	</select>
+
+	<update id="deleteBySession">
+		update learning_agent_message
+		   set status = '1'
+		 where session_id = #{sessionId} and user_id = #{userId} and status = '0'
+	</update>
+
 </mapper>

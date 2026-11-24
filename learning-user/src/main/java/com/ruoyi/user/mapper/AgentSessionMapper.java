@@ -14,4 +14,9 @@ public interface AgentSessionMapper
     List<AgentSession> selectSessions(@Param("userId") Long userId);
 
     int touchSession(@Param("sessionId") Long sessionId, @Param("title") String title);
+
+    int deleteSession(@Param("userId") Long userId, @Param("sessionId") Long sessionId);
+
+    int updateTitle(@Param("userId") Long userId, @Param("sessionId") Long sessionId,
+                    @Param("title") String title);
 }

@@ -41,4 +41,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 where session_id = #{sessionId}
 	</update>
 
+	<!-- 软删：只改 status，条件带 user_id，防止越权删别人的会话 -->
+	<update id="deleteSession">
+		update learning_agent_session
+		   set status = '1', update_time = sysdate()
+		 where session_id = #{sessionId} and user_id = #{userId} and status = '0'
+	</update>
+
+	<update id="updateTitle">
+		update learning_agent_session
+		   set title = #{title}, update_time = sysdate()
+		 where session_id = #{sessionId} and user_id = #{userId} and status = '0'
+	</update>
+
 </mapper>

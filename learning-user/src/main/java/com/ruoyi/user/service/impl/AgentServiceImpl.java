@@ -1,5 +1,7 @@
 package com.ruoyi.user.service.impl;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -101,6 +103,42 @@ public class AgentServiceImpl implements IAgentService
     {
         requireSession(userId, sessionId);
         return messageMapper.selectMessages(userId, sessionId);
+    }
+
+    @Override
+    public List<AgentMessage> listMessagesPage(Long userId, Long sessionId, Long beforeMessageId, Integer pageSize)
+    {
+        requireSession(userId, sessionId);
+        int size = (pageSize == null || pageSize < 1) ? 30 : Math.min(pageSize, 100);
+        List<AgentMessage> rows = messageMapper.selectMessagesBefore(userId, sessionId, beforeMessageId, size);
+        // 查询是倒序（为了取最近一页），返回给前端要正序展示
+        List<AgentMessage> ordered = new ArrayList<>(rows == null ? Collections.emptyList() : rows);
+        Collections.reverse(ordered);
+        return ordered;
+    }
+
+    @Override
+    @Transactional
+    public void deleteSession(Long userId, Long sessionId)
+    {
+        // 先校验归属：不是自己的会话直接抛异常，不会走到删除
+        requireSession(userId, sessionId);
+        messageMapper.deleteBySession(userId, sessionId);
+        sessionMapper.deleteSession(userId, sessionId);
+    }
+
+    @Override
+    @Transactional
+    public AgentSession renameSession(Long userId, Long sessionId, String title)
+    {
+        requireSession(userId, sessionId);
+        String value = title == null ? "" : title.trim();
+        if (StringUtils.isEmpty(value))
+        {
+            throw new ServiceException("会话标题不能为空");
+        }
+        sessionMapper.updateTitle(userId, sessionId, cut(value, TITLE_MAX));
+        return sessionMapper.selectSession(userId, sessionId);
     }
 
     @Override

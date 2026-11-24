@@ -19,6 +19,15 @@ public interface IAgentService
 
     List<AgentMessage> listMessages(Long userId, Long sessionId);
 
+    /** 游标分页取消息，返回升序；beforeMessageId 为空表示取最新一页 */
+    List<AgentMessage> listMessagesPage(Long userId, Long sessionId, Long beforeMessageId, Integer pageSize);
+
+    /** 软删会话及其消息，重复调用幂等 */
+    void deleteSession(Long userId, Long sessionId);
+
+    /** 重命名会话，返回更新后的会话 */
+    AgentSession renameSession(Long userId, Long sessionId, String title);
+
     AgentTask createTask(Long userId, Long sessionId, String taskType, String inputJson, String idempotencyKey);
 
     AgentTask requireTask(Long userId, Long taskId);

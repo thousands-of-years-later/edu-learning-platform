@@ -45,6 +45,7 @@ PPT_TEMPLATE = BASE_DIR / "templates" / "business_template.pptx"
 PPT_OUTPUT_DIR = DATA_DIR / "ppt"
 
 RAG_INDEX_FILE = DATA_DIR / "rag_courses.json"
+COMMUNITY_INDEX_FILE = DATA_DIR / "rag_posts.json"
 
 # SQL 智能体只允许查询这些视图；Python 侧再按 v_agent_ 前缀做一次白名单
 ALLOWED_VIEWS = {
@@ -52,6 +53,7 @@ ALLOWED_VIEWS = {
     "v_agent_course_video",
     "v_agent_course_chapter",
     "v_agent_post",
+    "v_agent_post_content",
     "v_agent_comment_stat",
     "v_agent_study_stat",
     "v_agent_category",

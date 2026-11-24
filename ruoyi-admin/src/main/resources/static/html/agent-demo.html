@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>智能学习平台 · 智能体演示</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111a2e;
+      --card2: #16213a;
+      --line: #22304d;
+      --text: #e6eefc;
+      --muted: #8ea3c4;
+      --accent: #38bdf8;
+      --accent2: #818cf8;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --err: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 600px at 10% -10%, #1e3a5f 0%, transparent 60%),
+                  radial-gradient(900px 500px at 100% 0%, #312e81 0%, transparent 55%),
+                  var(--bg);
+      min-height: 100vh;
+    }
+    .app { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: grid; place-items: center; font-weight: 800; color: #06101f;
+    }
+    h1 { font-size: 21px; margin: 0; letter-spacing: .3px; }
+    .sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .pill { font-size: 12px; color: var(--muted); border: 1px solid var(--line); padding: 6px 10px; border-radius: 999px; }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.03), transparent), var(--card);
+      border: 1px solid var(--line); border-radius: 16px; padding: 18px;
+      box-shadow: 0 14px 40px rgba(0,0,0,.22);
+    }
+    .login { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    input, textarea {
+      background: #0d1628; border: 1px solid var(--line); color: var(--text);
+      border-radius: 10px; padding: 10px 12px; font-size: 14px; outline: none;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); }
+    input { min-width: 170px; }
+    textarea { width: 100%; min-height: 76px; resize: vertical; }
+    button {
+      border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: #06101f;
+      background: linear-gradient(135deg, var(--accent), #7dd3fc);
+    }
+    button:hover { filter: brightness(1.06); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    button.ghost {
+      background: transparent; color: var(--text); border: 1px solid var(--line);
+    }
+    button.small { padding: 7px 11px; font-size: 12px; }
+    .status { font-size: 12px; color: var(--muted); }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+    .status.warn { color: var(--warn); }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 12px; }
+    .tab {
+      background: transparent; color: var(--muted); border: 1px solid var(--line);
+      padding: 9px 14px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    }
+    .tab.active { color: #06101f; border-color: transparent; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .grid { display: grid; grid-template-columns: 1fr 360px; gap: 16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .answer {
+      white-space: pre-wrap; line-height: 1.75; font-size: 14px;
+      background: #0d1628; border: 1px solid var(--line); border-radius: 12px;
+      padding: 14px; min-height: 140px; max-height: 460px; overflow: auto;
+    }
+    .answer:empty::before { content: "结果会显示在这里…"; color: #52627e; }
+    .meta { font-size: 12px; color: var(--muted); margin-top: 8px; word-break: break-all; }
+    .refs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .ref { font-size: 12px; color: #bae6fd; background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.25); padding: 4px 8px; border-radius: 999px; }
+    .log {
+      height: 480px; overflow: auto; font-family: Consolas, monospace; font-size: 11px;
+      color: #9fb3d1; background: #0a1222; border: 1px solid var(--line);
+      border-radius: 12px; padding: 10px; white-space: pre-wrap; word-break: break-all;
+    }
+    .log .t { color: #64748b; }
+    .log .e { color: #fbbf24; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; }
+    th { color: var(--muted); font-weight: 500; }
+    .taskbar { height: 6px; background: #0d1628; border-radius: 999px; overflow: hidden; margin: 10px 0; }
+    .taskbar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .3s; }
+    .hint { color: var(--muted); font-size: 12px; line-height: 1.7; }
+    code { color: #bae6fd; }
+    a { color: #7dd3fc; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">AI</div>
+      <div>
+        <h1>智能学习平台 · 智能体演示</h1>
+        <div class="sub">DeepSeek · DashScope · RAG · Paraformer ASR · PPT · WebSocket 流式</div>
+      </div>
+    </div>
+    <div class="pill" id="wsState">WebSocket：未连接</div>
+  </header>
+
+  <section class="card" id="loginCard">
+    <div class="login">
+      <input id="phone" value="13900000001" placeholder="手机号"/>
+      <input id="password" value="123456" type="password" placeholder="密码"/>
+      <button id="loginBtn">登录并连接 WS</button>
+      <span class="status" id="loginStatus">演示账号已预填，直接点登录</span>
+    </div>
+    <div class="hint" style="margin-top:10px">
+      登录走 Java <code>/api/v1/login</code>，之后所有请求带 Token；WS 订阅 <code>user:{userId}</code>。
+    </div>
+  </section>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="chat">课程问答</button>
+    <button class="tab" data-tab="stream">流式问答</button>
+    <button class="tab" data-tab="video">视频总结</button>
+    <button class="tab" data-tab="ppt">PPT 生成</button>
+    <button class="tab" data-tab="sql">SQL 问答</button>
+  </div>
+
+  <div class="grid">
+    <div>
+      <!-- 课程问答 -->
+      <section class="card panel active" data-panel="chat">
+        <div class="label">问题（课程 RAG，可选 courseId）</div>
+        <textarea id="chatQuestion">Java 第一章主要讲什么？</textarea>
+        <div class="row" style="margin-top:10px">
+          <input id="chatCourseId" value="201" placeholder="courseId（可空）" style="width:150px"/>
+          <button id="chatBtn" disabled>提问</button>
+          <span class="status" id="chatStatus"></span>
+        </div>
+        <div class="answer" id="chatAnswer"></div>
+        <div class="refs" id="chatRefs"></div>
+        <div class="meta" id="chatMeta"></div>
+      </section>
+
+      <!-- 流式问答 -->
+      <section class="card panel" data-panel="stream">
+        <div class="label">问题（通过 WebSocket 逐字返回）</div>
+        <textarea id="streamQuestion">Java 课程主要讲什么？</textarea>
+        <div class="row" style="margin-top:10px">
+          <button id="streamBtn" disabled>开始流式提问</button>
+          <span class="status" id="streamStatus"></span>
+        </div>
+        <div class="answer" id="streamAnswer"></div>
+        <div class="refs" id="streamRefs"></div>
+        <div class="meta" id="streamMeta"></div>
+      </section>
+
+      <!-- 视频总结 -->
+      <section class="card panel" data-panel="video">
+        <div class="label">视频 ID（当前中文视频：201）</div>
+        <div class="row">
+          <input id="videoId" value="201" style="width:120px"/>
+          <button id="videoBtn" disabled>生成视频总结</button>
+          <span class="status" id="videoStatus"></span>
+        </div>
+        <div class="taskbar"><i id="videoBar"></i></div>
+        <div class="answer" id="videoAnswer"></div>
+        <div class="meta" id="videoMeta"></div>
+      </section>
+
+      <!-- PPT -->
+      <section class="card panel" data-panel="ppt">
+        <div class="label">PPT 主题</div>
+        <input id="pptTopic" value="Java 基础学习总结" style="width:100%"/>
+        <div class="row" style="margin-top:10px">
+          <button id="pptBtn" disabled>生成 PPT</button>
+          <span class="status" id="pptStatus"></span>
+        </div>
+        <div class="taskbar"><i id="pptBar"></i></div>
+        <div class="answer" id="pptAnswer"></div>
+        <div class="meta" id="pptMeta"></div>
+      </section>
+
+      <!-- SQL -->
+      <section class="card panel" data-panel="sql">
+        <div class="label">自然语言查数据（只读视图）</div>
+        <textarea id="sqlQuestion">平台一共有多少门课程？</textarea>
+        <div class="row" style="margin-top:10px">
+          <button id="sqlBtn" disabled>查询</button>
+          <span class="status" id="sqlStatus"></span>
+        </div>
+        <div class="answer" id="sqlAnswer"></div>
+        <div class="meta" id="sqlMeta"></div>
+        <div id="sqlTable"></div>
+      </section>
+    </div>
+
+    <aside class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="label" style="margin:0">WebSocket / 请求日志</div>
+        <button class="ghost small" id="clearLog">清空</button>
+      </div>
+      <div class="log" id="eventLog"></div>
+    </aside>
+  </div>
+
+  <div class="hint" style="margin-top:18px">
+    提示：视频总结约 20～40 秒，PPT 约 3～10 秒；两者都是异步任务，页面会自动轮询
+    <code>/api/v1/agent/tasks/{id}</code>。
+  </div>
+</div>
+
+<script>
+const state = { token: "", userId: null, ws: null, streamRequest: null, streamBuffer: [], busy: {} };
+const $ = (id) => document.getElementById(id);
+
+function log(text, cls) {
+  const el = $("eventLog");
+  const line = document.createElement("div");
+  line.innerHTML = `<span class="t">${new Date().toLocaleTimeString()}</span> <span class="${cls || ""}">${escapeHtml(text)}</span>`;
+  el.appendChild(line);
+  if (el.children.length > 80) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function setStatus(id, text, cls) {
+  const el = $(id); el.textContent = text || ""; el.className = "status " + (cls || ""); }
+function jsonText(data) { return JSON.stringify(data, null, 2); }
+function parseJson(value) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  try { return JSON.parse(value); } catch (e) { return null; }
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function api(path, options) {
+  options = options || {};
+  const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
+  if (state.token) headers.Authorization = "Bearer " + state.token;
+  const response = await fetch(path, Object.assign({}, options, { headers }));
+  const text = await response.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { raw: text }; }
+  if (!response.ok) throw new Error("HTTP " + response.status + " " + (data.msg || data.detail || text));
+  if (data && data.code !== undefined && data.code !== 0) throw new Error(data.msg || "请求失败");
+  return data;
+}
+
+async function login() {
+  const phone = $("phone").value.trim();
+  const password = $("password").value.trim();
+  setStatus("loginStatus", "登录中…");
+  const body = new URLSearchParams({ phone, password });
+  const response = await fetch("/api/v1/login", { method: "POST", body });
+  const data = await response.json();
+  if (!response.ok || data.code !== 0) throw new Error(data.msg || "登录失败");
+  state.token = data.token;
+  state.userId = data.userId;
+  setStatus("loginStatus", `已登录 userId=${data.userId}`, "ok");
+  ["chatBtn", "streamBtn", "videoBtn", "pptBtn", "sqlBtn"].forEach(id => $(id).disabled = false);
+  connectWs();
+}
+
+function connectWs() {
+  if (!state.token) return;
+  if (state.ws) { try { state.ws.close(); } catch (e) {} }
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws/forum?token=${state.token}`);
+  state.ws = ws;
+  $("wsState").textContent = "WebSocket：连接中…";
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ action: "subscribe", topics: [`user:${state.userId}`] }));
+    $("wsState").textContent = `WebSocket：已连接（user:${state.userId}）`;
+    log("WS opened, subscribed user:" + state.userId);
+  };
+  ws.onclose = () => {
+    $("wsState").textContent = "WebSocket：已断开";
+    log("WS closed", "e");
+  };
+  ws.onerror = () => { $("wsState").textContent = "WebSocket：错误"; log("WS error", "e"); };
+  ws.onmessage = (event) => {
+    let msg;
+    try { msg = JSON.parse(event.data); } catch (e) { return; }
+    log("WS " + msg.type);
+    if (!msg.type || !msg.type.startsWith("agent.")) return;
+    const data = msg.data || {};
+    if (state.streamRequest === null) { state.streamBuffer.push({ type: msg.type, data }); return; }
+    if (data.requestId !== state.streamRequest) return;
+    handleStreamEvent(msg.type, data);
+  };
+}
+
+function handleStreamEvent(type, data) {
+  if (type === "agent.start") {
+    setStatus("streamStatus", "开始生成…", "warn");
+  } else if (type === "agent.delta") {
+    $("streamAnswer").textContent += data.content || "";
+    setStatus("streamStatus", `生成中… seq=${data.seq}`, "warn");
+  } else if (type === "agent.done") {
+    $("streamAnswer").textContent = data.answer || $("streamAnswer").textContent;
+    $("streamRefs").innerHTML = (data.refs || []).map(r =>
+      `<span class="ref">${escapeHtml(r.course)} · ${escapeHtml(r.chapter)}</span>`).join("");
+    $("streamMeta").textContent = `sessionId=${data.sessionId} messageId=${data.messageId}`;
+    setStatus("streamStatus", "完成", "ok");
+    state.streamRequest = null;
+    state.streamBuffer = [];
+  } else if (type === "agent.error") {
+    setStatus("streamStatus", "失败：" + (data.message || data.code), "err");
+    state.streamRequest = null;
+    state.streamBuffer = [];
+  }
+}
+
+async function startStreamChat() {
+  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket 未连接，请先登录");
+  const question = $("streamQuestion").value.trim();
+  if (!question) throw new Error("问题不能为空");
+  $("streamAnswer").textContent = "";
+  $("streamRefs").innerHTML = "";
+  $("streamMeta").textContent = "";
+  state.streamRequest = null;
+  state.streamBuffer = [];
+  setStatus("streamStatus", "提交中…", "warn");
+  const result = await api("/api/v1/agent/chat/stream", {
+    method: "POST",
+    body: JSON.stringify({ question })
+  });
+  state.streamRequest = result.requestId;
+  $("streamMeta").textContent = `requestId=${result.requestId} sessionId=${result.sessionId}`;
+  const buffered = state.streamBuffer;
+  state.streamBuffer = [];
+  buffered.forEach(e => { if (e.data.requestId === state.streamRequest) handleStreamEvent(e.type, e.data); });
+  if (!buffered.length) setStatus("streamStatus", "等待模型…", "warn");
+}
+
+async function chat() {
+  const question = $("chatQuestion").value.trim();
+  if (!question) return;
+  const courseId = $("chatCourseId").value.trim();
+  setStatus("chatStatus", "请求中…", "warn");
+  $("chatAnswer").textContent = "";
+  $("chatRefs").innerHTML = "";
+  const body = { question };
+  if (courseId) body.courseId = Number(courseId);
+  const data = await api("/api/v1/agent/chat", { method: "POST", body: JSON.stringify(body) });
+  $("chatAnswer").textContent = data.answer || "";
+  $("chatRefs").innerHTML = (data.refs || []).map(r =>
+    `<span class="ref">${escapeHtml(r.course)} · ${escapeHtml(r.chapter)}</span>`).join("");
+  $("chatMeta").textContent = `sessionId=${data.sessionId} messageId=${data.messageId}`;
+  setStatus("chatStatus", "完成", "ok");
+}
+
+async function pollTask(taskId, statusId, barId, timeoutMs) {
+  const start = Date.now();
+  while (Date.now() - start < (timeoutMs || 180000)) {
+    const data = await api("/api/v1/agent/tasks/" + taskId);
+    const task = data.task || {};
+    const progress = task.progress || 0;
+    $(barId).style.width = Math.max(progress, 5) + "%";
+    setStatus(statusId, `${task.status} ${progress}%`, task.status === "FAILED" ? "err" : "warn");
+    if (task.status === "SUCCESS" || task.status === "FAILED") return task;
+    await sleep(2000);
+  }
+  throw new Error("任务轮询超时");
+}
+
+async function videoSummary() {
+  const videoId = Number($("videoId").value);
+  setStatus("videoStatus", "创建任务…", "warn");
+  $("videoAnswer").textContent = "";
+  $("videoMeta").textContent = "";
+  $("videoBar").style.width = "0";
+  const created = await api("/api/v1/agent/video/summary", { method: "POST", body: JSON.stringify({ videoId }) });
+  $("videoMeta").textContent = `taskId=${created.taskId}`;
+  const task = await pollTask(created.taskId, "videoStatus", "videoBar", 180000);
+  if (task.status === "FAILED") throw new Error(task.errorMsg || "任务失败");
+  const output = parseJson(task.outputJson) || {};
+  $("videoAnswer").textContent = output.summary || jsonText(output);
+  $("videoMeta").textContent = `taskId=${task.taskId} · transcriptChars=${output.transcriptChars || 0} · fallback=${output.fallback}`;
+  setStatus("videoStatus", output.fallback ? "完成（已回退）" : "完成", output.fallback ? "warn" : "ok");
+}
+
+async function generatePpt() {
+  const topic = $("pptTopic").value.trim();
+  if (!topic) return;
+  setStatus("pptStatus", "创建任务…", "warn");
+  $("pptAnswer").textContent = "";
+  $("pptMeta").textContent = "";
+  $("pptBar").style.width = "0";
+  const created = await api("/api/v1/agent/ppt/generate", { method: "POST", body: JSON.stringify({ topic, pages: 6 }) });
+  $("pptMeta").textContent = `taskId=${created.taskId}`;
+  const task = await pollTask(created.taskId, "pptStatus", "pptBar", 240000);
+  if (task.status === "FAILED") throw new Error(task.errorMsg || "任务失败");
+  const output = parseJson(task.outputJson) || {};
+  $("pptAnswer").innerHTML = output.url
+    ? `<a href="${escapeHtml(output.url)}" target="_blank" rel="noopener">下载 PPT：${escapeHtml(output.fileName || "生成结果")}</a><br/><br/>页数：${escapeHtml(output.slides || "")}<br/>链接 1 小时有效。`
+    : `<pre>${escapeHtml(jsonText(output))}</pre>`;
+  $("pptMeta").textContent = `taskId=${task.taskId} · OSS 签名 URL`;
+  setStatus("pptStatus", "完成", "ok");
+}
+
+async function sqlAsk() {
+  const question = $("sqlQuestion").value.trim();
+  if (!question) return;
+  setStatus("sqlStatus", "查询中…", "warn");
+  $("sqlAnswer").textContent = "";
+  $("sqlMeta").textContent = "";
+  $("sqlTable").innerHTML = "";
+  const data = await api("/api/v1/agent/sql/ask", { method: "POST", body: JSON.stringify({ question }) });
+  $("sqlAnswer").textContent = data.answer || "";
+  $("sqlMeta").textContent = "SQL： " + (data.sql || "") + (data.error ? "（执行失败）" : "");
+  const rows = data.rows || [];
+  if (rows.length) {
+    const keys = Object.keys(rows[0]);
+    const table = document.createElement("table");
+    table.innerHTML = `<thead><tr>${keys.map(k => `<th>${escapeHtml(k)}</th>`).join("")}</tr></thead>` +
+      `<tbody>${rows.slice(0, 20).map(row => `<tr>${keys.map(k => `<td>${escapeHtml(row[k])}</td>`).join("")}</tr>`).join("")}</tbody>`;
+    $("sqlTable").appendChild(table);
+  }
+  setStatus("sqlStatus", "完成", "ok");
+}
+
+function bind(id, fn) {
+  $(id).addEventListener("click", async () => {
+    if (state.busy[id]) return;
+    state.busy[id] = true;
+    const btn = $(id); const old = btn.textContent; btn.disabled = true; btn.textContent = "处理中…";
+    try { await fn(); }
+    catch (e) { log("ERROR " + e.message, "e"); setStatus(id.replace("Btn", "Status"), "失败：" + e.message, "err"); }
+    finally { btn.disabled = false; btn.textContent = old; state.busy[id] = false; }
+  });
+}
+
+$("loginBtn").addEventListener("click", async () => {
+  try { await login(); } catch (e) { setStatus("loginStatus", "登录失败：" + e.message, "err"); }
+});
+bind("chatBtn", chat);
+bind("streamBtn", startStreamChat);
+bind("videoBtn", videoSummary);
+bind("pptBtn", generatePpt);
+bind("sqlBtn", sqlAsk);
+$("clearLog").addEventListener("click", () => { $("eventLog").innerHTML = ""; });
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.querySelector(`.panel[data-panel="${tab.dataset.tab}"]`).classList.add("active");
+  });
+});
+
+log("页面已加载，请先登录");
+</script>
+</body>
+</html>

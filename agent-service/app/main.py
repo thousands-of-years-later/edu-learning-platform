@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from . import config, db, ppt_agent, rag, sql_agent, video_agent
+from . import community_rag, config, db, ppt_agent, rag, sql_agent, video_agent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("agent-service")
@@ -41,6 +41,11 @@ class PptGenerateRequest(BaseModel):
     pages: int = 6
     userId: int = 0
     taskId: Optional[str] = None
+
+
+class CommunityAskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+    history: list[dict] = []
 
 
 @app.get("/internal/health")
@@ -84,6 +89,24 @@ async def chat_stream(body: ChatAskRequest):
             yield json.dumps({"error": str(exc)}, ensure_ascii=False) + "\n"
 
     return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+@app.post("/internal/community/ask", dependencies=[Depends(verify_token)])
+async def community_ask(body: CommunityAskRequest):
+    try:
+        return await community_rag.ask(body.question, body.history)
+    except Exception as exc:
+        logger.exception("community ask failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/internal/community/ingest", dependencies=[Depends(verify_token)])
+async def community_ingest():
+    try:
+        return await community_rag.ingest()
+    except Exception as exc:
+        logger.exception("community ingest failed")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/internal/video/summary", dependencies=[Depends(verify_token)])

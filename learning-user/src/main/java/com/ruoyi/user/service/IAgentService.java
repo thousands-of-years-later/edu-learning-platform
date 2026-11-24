@@ -10,6 +10,8 @@ public interface IAgentService
 {
     AgentSession createSession(Long userId, String title);
 
+    AgentSession createSession(Long userId, String title, String scene);
+
     AgentSession requireSession(Long userId, Long sessionId);
 
     List<AgentSession> listSessions(Long userId);

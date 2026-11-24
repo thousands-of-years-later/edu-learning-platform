@@ -9,6 +9,8 @@
 | `POST /internal/sql/ask` | 自然语言 -> SQL -> 只读视图执行 -> 中文回答 |
 | `POST /internal/chat/ask` | 课程 RAG（课程简介 + 章节正文 + 小节标题），带来源 |
 | `POST /internal/chat/stream` | 课程 RAG 流式输出（NDJSON） |
+| `POST /internal/community/ask` | 社区帖子 RAG，回答引用 `postId` |
+| `POST /internal/community/ingest` | 重建社区帖子索引 |
 | `POST /internal/video/summary` | Paraformer ASR + 分段总结；无地址/ASR 失败时回退元数据 |
 | `POST /internal/ppt/generate` | 大纲 JSON -> python-pptx 套模板 -> OSS 签名 URL |
 | `POST /internal/rag/ingest` | 重建课程向量索引 |
@@ -54,8 +56,16 @@ curl.exe -s -H "x-internal-token: <AGENT_INTERNAL_TOKEN>" -H "Content-Type: appl
 
 ## RAG 说明
 
-当前知识库来自 `v_agent_course` 课程简介、`v_agent_course_chapter` 章节正文和
-`v_agent_course_video` 小节标题。课程正文/讲义/字幕越完整，回答质量越高。
+课程知识库来自 `v_agent_course` 课程简介、`v_agent_course_chapter` 章节正文和
+`v_agent_course_video` 小节标题；社区知识库来自 `v_agent_post_content` 的已发布帖子正文。
+课程正文/讲义/字幕越完整，回答质量越高。
+
+重建索引：
+
+```powershell
+python -m app.ingest
+# 或调用 POST /internal/community/ingest
+```
 
 视频总结使用 Paraformer `paraformer-v2`：视频 URL 由 OSS 签名后提交 ASR，
 转写文本分段总结；现有 6 个视频是英文测试素材，标题是中文时会回退到元数据摘要。

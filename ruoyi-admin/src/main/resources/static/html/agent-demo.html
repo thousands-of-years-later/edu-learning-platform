@@ -133,6 +133,7 @@
 
   <div class="tabs" id="tabs">
     <button class="tab active" data-tab="chat">课程问答</button>
+    <button class="tab" data-tab="community">社区问答</button>
     <button class="tab" data-tab="stream">流式问答</button>
     <button class="tab" data-tab="video">视频总结</button>
     <button class="tab" data-tab="ppt">PPT 生成</button>
@@ -154,6 +155,20 @@
         <div class="answer" id="chatAnswer"></div>
         <div class="refs" id="chatRefs"></div>
         <div class="meta" id="chatMeta"></div>
+      </section>
+
+      <!-- 社区问答 -->
+      <section class="card panel" data-panel="community">
+        <div class="label">问题（检索已发布帖子，并引用 postId）</div>
+        <div class="hint" style="margin-bottom:8px">同一页面连续提问会带上下文；刷新页面即新会话。</div>
+        <textarea id="communityQuestion">社区里有哪些关于 Java 的帖子？</textarea>
+        <div class="row" style="margin-top:10px">
+          <button id="communityBtn" disabled>提问</button>
+          <span class="status" id="communityStatus"></span>
+        </div>
+        <div class="answer" id="communityAnswer"></div>
+        <div class="refs" id="communityRefs"></div>
+        <div class="meta" id="communityMeta"></div>
       </section>
 
       <!-- 流式问答 -->
@@ -226,7 +241,7 @@
 </div>
 
 <script>
-const state = { token: "", userId: null, ws: null, streamRequest: null, streamBuffer: [], chatSessionId: null, streamSessionId: null, busy: {} };
+const state = { token: "", userId: null, ws: null, streamRequest: null, streamBuffer: [], chatSessionId: null, streamSessionId: null, communitySessionId: null, busy: {} };
 const $ = (id) => document.getElementById(id);
 
 function log(text, cls) {
@@ -274,7 +289,7 @@ async function login() {
   state.token = data.token;
   state.userId = data.userId;
   setStatus("loginStatus", `已登录 userId=${data.userId}`, "ok");
-  ["chatBtn", "streamBtn", "videoBtn", "pptBtn", "sqlBtn"].forEach(id => $(id).disabled = false);
+  ["chatBtn", "communityBtn", "streamBtn", "videoBtn", "pptBtn", "sqlBtn"].forEach(id => $(id).disabled = false);
   connectWs();
 }
 
@@ -352,6 +367,23 @@ async function startStreamChat() {
   state.streamBuffer = [];
   buffered.forEach(e => { if (e.data.requestId === state.streamRequest) handleStreamEvent(e.type, e.data); });
   if (!buffered.length) setStatus("streamStatus", "等待模型…", "warn");
+}
+
+async function communityChat() {
+  const question = $("communityQuestion").value.trim();
+  if (!question) return;
+  setStatus("communityStatus", "请求中…", "warn");
+  $("communityAnswer").textContent = "";
+  $("communityRefs").innerHTML = "";
+  const body = { question };
+  if (state.communitySessionId) body.sessionId = state.communitySessionId;
+  const data = await api("/api/v1/agent/community/ask", { method: "POST", body: JSON.stringify(body) });
+  $("communityAnswer").textContent = data.answer || "";
+  $("communityRefs").innerHTML = (data.refs || []).map(r =>
+    `<span class="ref">帖子 #${escapeHtml(r.postId)} · ${escapeHtml(r.postTitle)}</span>`).join("");
+  $("communityMeta").textContent = `sessionId=${data.sessionId} messageId=${data.messageId}`;
+  state.communitySessionId = data.sessionId;
+  setStatus("communityStatus", "完成", "ok");
 }
 
 async function chat() {
@@ -458,6 +490,7 @@ $("loginBtn").addEventListener("click", async () => {
   try { await login(); } catch (e) { setStatus("loginStatus", "登录失败：" + e.message, "err"); }
 });
 bind("chatBtn", chat);
+bind("communityBtn", communityChat);
 bind("streamBtn", startStreamChat);
 bind("videoBtn", videoSummary);
 bind("pptBtn", generatePpt);

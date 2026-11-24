@@ -357,6 +357,74 @@ public class ApiV1AgentController extends BaseController
         }
     }
 
+    /**
+     * 社区问答（引用帖子）：{sessionId?, question}
+     */
+    @PostMapping("/community/ask")
+    public AjaxResult communityAsk(@RequestBody Map<String, Object> body)
+    {
+        String question = body == null ? null : Convert.toStr(body.get("question"));
+        if (StringUtils.isEmpty(question))
+        {
+            return AjaxResult.error("问题不能为空");
+        }
+        Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
+
+        Long userId = ApiContext.getUserId();
+        AgentSession session;
+        if (sessionId == null)
+        {
+            session = agentService.createSession(userId, question, "community");
+        }
+        else
+        {
+            session = agentService.requireSession(userId, sessionId);
+            if (!"community".equals(session.getScene()))
+            {
+                return AjaxResult.error("该会话不是社区问答会话");
+            }
+        }
+
+        List<Map<String, String>> history = buildHistory(
+                agentService.listMessages(userId, session.getSessionId()));
+        agentService.addMessage(userId, session.getSessionId(), "user", question, "text", null, 0);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("question", question);
+        if (!history.isEmpty())
+        {
+            payload.put("history", history);
+        }
+
+        try
+        {
+            Map<String, Object> result = agentClient.post("/internal/community/ask", payload);
+            String answer = result == null ? "" : Convert.toStr(result.get("answer"));
+            String refsJson = result == null ? null : objectMapper.writeValueAsString(result.get("refs"));
+            AgentMessage assistant = agentService.addMessage(userId, session.getSessionId(),
+                    "assistant", answer, "text", refsJson, 0);
+
+            AjaxResult ajax = AjaxResult.success();
+            ajax.put("sessionId", session.getSessionId());
+            ajax.put("messageId", assistant.getMessageId());
+            if (result != null)
+            {
+                ajax.putAll(result);
+            }
+            return ajax;
+        }
+        catch (RestClientResponseException e)
+        {
+            log.warn("社区问答返回错误: status={}", e.getStatusCode());
+            return AjaxResult.error("智能体服务调用失败（" + e.getStatusCode().value() + "）");
+        }
+        catch (Exception e)
+        {
+            log.error("社区问答调用失败", e);
+            return AjaxResult.error("智能体服务暂不可用");
+        }
+    }
+
     /** 视频总结（异步任务：Paraformer ASR + 分段总结） */
     @PostMapping("/video/summary")
     public AjaxResult videoSummary(@RequestBody Map<String, Object> body)

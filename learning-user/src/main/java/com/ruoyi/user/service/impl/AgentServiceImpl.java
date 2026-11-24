@@ -34,11 +34,18 @@ public class AgentServiceImpl implements IAgentService
     @Transactional
     public AgentSession createSession(Long userId, String title)
     {
+        return createSession(userId, title, "chat");
+    }
+
+    @Override
+    @Transactional
+    public AgentSession createSession(Long userId, String title, String scene)
+    {
         checkUser(userId);
         AgentSession session = new AgentSession();
         session.setUserId(userId);
         session.setTitle(StringUtils.isEmpty(title) ? "新会话" : cut(title, TITLE_MAX));
-        session.setScene("chat");
+        session.setScene(StringUtils.isEmpty(scene) ? "chat" : scene);
         sessionMapper.insertSession(session);
         return session;
     }

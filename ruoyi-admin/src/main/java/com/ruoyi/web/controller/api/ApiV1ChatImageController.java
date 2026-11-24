@@ -21,17 +21,19 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.file.AliyunOssUtils;
 
 /**
- * 客户端图片上传（/api/v1/upload/**）
+ * 聊天图片上传（/api/v1/upload/image）
  *
- * 只服务聊天图片：存到 OSS 的 agent/chat/{userId}/ 下，
- * 供 /agent/chat、/agent/chat/stream 的 imageUrls 引用。
- * 后台管理用的通用上传仍走 /common/upload，两边不要混用。
+ * 与 learning-user 里的 ApiV1UploadController（/api/v1/upload，头像用）分开：
+ * 那边走 FileUploadUtils 存到 upload/ 下，本接口固定存 agent/chat/{userId}/，
+ * 只有这个前缀下的地址才允许被 /agent/chat、/agent/chat/stream 引用。
+ *
+ * @author edu
  */
 @RestController
 @RequestMapping("/api/v1/upload")
-public class ApiV1UploadController
+public class ApiV1ChatImageController
 {
-    private static final Logger log = LoggerFactory.getLogger(ApiV1UploadController.class);
+    private static final Logger log = LoggerFactory.getLogger(ApiV1ChatImageController.class);
 
     /** 单张上限 5MB：远低于模型侧 32MB，控制上传耗时 */
     private static final long MAX_IMAGE_SIZE = 5L * 1024 * 1024;

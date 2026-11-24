@@ -579,7 +579,18 @@ public class ApiV1AgentController extends BaseController
                 return false;
             }
             String path = uri.getPath();
-            return path != null && path.startsWith("/agent/chat/");
+            if (path == null)
+            {
+                return false;
+            }
+            // urlPrefix 可能带路径（生产是 http://host/oss-preview 这种后端代理），
+            // 先把前缀自带的 path 剥掉，剩下的才是真正的对象 key
+            String prefixPath = URI.create(OssConfig.resolveUrlPrefix()).getPath();
+            if (StringUtils.isNotEmpty(prefixPath) && path.startsWith(prefixPath))
+            {
+                path = path.substring(prefixPath.length());
+            }
+            return path.startsWith("/agent/chat/");
         }
         catch (Exception e)
         {

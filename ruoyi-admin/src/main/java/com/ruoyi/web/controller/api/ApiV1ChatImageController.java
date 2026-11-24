@@ -90,7 +90,10 @@ public class ApiV1ChatImageController
                 + UUID.randomUUID().toString().replace("-", "") + "." + ext;
         try
         {
-            String url = AliyunOssUtils.upload(file, objectKey);
+            AliyunOssUtils.upload(file, objectKey);
+            // 返回给前端/模型的是能被公网直连的地址：配置的 urlPrefix 若是 http
+            // （生产是 http://host/oss-preview 这类后端代理），模型侧会拒绝拉取
+            String url = publicImageUrl(objectKey);
             AjaxResult ajax = AjaxResult.success();
             ajax.put("url", url);
             ajax.put("objectKey", objectKey);
@@ -105,8 +108,23 @@ public class ApiV1ChatImageController
         }
     }
 
-    private String sniffImageType(MultipartFile file)
+    /**
+     * 图片的可访问地址
+     *
+     * 模型侧（DeepSeek）要求公网可直连，配置的 urlPrefix 是 http（生产为后端代理）
+     * 时拉不到，改用 bucket 直连的 https 域名。
+     */
+    private String publicImageUrl(String objectKey)
     {
+        String prefix = OssConfig.resolveUrlPrefix();
+        if (prefix.startsWith("https://"))
+        {
+            return prefix + "/" + objectKey;
+        }
+        return "https://" + OssConfig.getBucketName() + "." + OssConfig.getEndpoint() + "/" + objectKey;
+    }
+
+    private String sniffImageType(MultipartFile file)    {
         try (InputStream in = file.getInputStream())
         {
             byte[] head = in.readNBytes(12);

@@ -574,7 +574,12 @@ public class ApiV1AgentController extends BaseController
                 return false;
             }
             String prefixHost = URI.create(OssConfig.resolveUrlPrefix()).getHost();
-            if (StringUtils.isEmpty(prefixHost) || !prefixHost.equalsIgnoreCase(uri.getHost()))
+            // 上传接口返回的是 bucket 直连 https 地址（模型侧只认 https），
+            // 所以直连域名也要放行，不能只认 urlPrefix 的 host
+            String directHost = OssConfig.getBucketName() + "." + OssConfig.getEndpoint();
+            boolean hostAllowed = (StringUtils.isNotEmpty(prefixHost) && prefixHost.equalsIgnoreCase(uri.getHost()))
+                    || directHost.equalsIgnoreCase(uri.getHost());
+            if (!hostAllowed)
             {
                 return false;
             }

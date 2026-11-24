@@ -1,0 +1,37 @@
+"""阿里云 OSS：签名 URL 与 PPT 上传。"""
+from urllib.parse import urlparse
+
+import oss2
+
+from . import config
+
+
+def _bucket() -> oss2.Bucket:
+    config.require("OSS_ACCESS_KEY_ID", config.OSS_ACCESS_KEY_ID)
+    config.require("OSS_ACCESS_KEY_SECRET", config.OSS_ACCESS_KEY_SECRET)
+    auth = oss2.Auth(config.OSS_ACCESS_KEY_ID, config.OSS_ACCESS_KEY_SECRET)
+    return oss2.Bucket(auth, config.OSS_ENDPOINT, config.OSS_BUCKET)
+
+
+def sign_url(url_or_key: str, expires: int = 3600) -> str:
+    """OSS 地址转签名 URL；非 OSS 地址原样返回。"""
+    if not url_or_key:
+        return url_or_key
+    if url_or_key.startswith("oss://"):
+        key = url_or_key[6:].split("/", 1)[1] if "/" in url_or_key[6:] else ""
+        return _bucket().sign_url("GET", key, expires)
+
+    if url_or_key.startswith("http://") or url_or_key.startswith("https://"):
+        parsed = urlparse(url_or_key)
+        expected_host = f"{config.OSS_BUCKET}.{config.OSS_ENDPOINT}"
+        if parsed.netloc != expected_host and not parsed.netloc.endswith("." + config.OSS_ENDPOINT):
+            return url_or_key
+        key = parsed.path.lstrip("/")
+        return _bucket().sign_url("GET", key, expires)
+
+    return _bucket().sign_url("GET", url_or_key.lstrip("/"), expires)
+
+
+def upload_file(local_path: str, key: str) -> str:
+    _bucket().put_object_from_file(key, local_path)
+    return _bucket().sign_url("GET", key, 3600)

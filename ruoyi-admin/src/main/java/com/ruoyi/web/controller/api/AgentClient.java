@@ -32,7 +32,7 @@ public class AgentClient
         this.internalToken = internalToken;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(3));
-        factory.setReadTimeout(Duration.ofSeconds(120));
+        factory.setReadTimeout(Duration.ofSeconds(300));
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(factory)

@@ -6,3 +6,5 @@ pymysql>=1.1
 sqlglot>=25
 python-dotenv>=1.0
 numpy>=1.26
+python-pptx>=1.0
+oss2>=2.18

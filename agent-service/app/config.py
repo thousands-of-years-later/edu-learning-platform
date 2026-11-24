@@ -27,13 +27,30 @@ DB_READONLY_URL = _env("DB_READONLY_URL")
 AGENT_INTERNAL_TOKEN = _env("AGENT_INTERNAL_TOKEN", "change-me")
 AGENT_PORT = int(_env("AGENT_PORT", "8100"))
 
+# 阿里云 OSS：PPT 上传、视频签名 URL
+OSS_ACCESS_KEY_ID = _env("OSS_ACCESS_KEY_ID")
+OSS_ACCESS_KEY_SECRET = _env("OSS_ACCESS_KEY_SECRET")
+OSS_BUCKET = _env("OSS_BUCKET", "zhinengguanggaopingtai")
+OSS_ENDPOINT = _env("OSS_ENDPOINT", "oss-cn-shanghai.aliyuncs.com")
+OSS_PPT_PREFIX = _env("OSS_PPT_PREFIX", "agent/ppt")
+
+# DashScope Paraformer 录音文件识别
+ASR_BASE_URL = _env("ASR_BASE_URL", "https://dashscope.aliyuncs.com/api/v1").rstrip("/")
+ASR_MODEL = _env("ASR_MODEL", "paraformer-v2")
+ASR_TIMEOUT_SECONDS = int(_env("ASR_TIMEOUT_SECONDS", "180"))
+
+# PPT
 DATA_DIR = BASE_DIR / "data"
+PPT_TEMPLATE = BASE_DIR / "templates" / "business_template.pptx"
+PPT_OUTPUT_DIR = DATA_DIR / "ppt"
+
 RAG_INDEX_FILE = DATA_DIR / "rag_courses.json"
 
 # SQL 智能体只允许查询这些视图；Python 侧再按 v_agent_ 前缀做一次白名单
 ALLOWED_VIEWS = {
     "v_agent_course",
     "v_agent_course_video",
+    "v_agent_course_chapter",
     "v_agent_post",
     "v_agent_comment_stat",
     "v_agent_study_stat",

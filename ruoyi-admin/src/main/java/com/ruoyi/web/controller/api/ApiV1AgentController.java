@@ -344,7 +344,7 @@ public class ApiV1AgentController extends BaseController
         }
     }
 
-    /** 视频总结（一期同步 mock，任务状态落库） */
+    /** 视频总结（异步任务：Paraformer ASR + 分段总结） */
     @PostMapping("/video/summary")
     public AjaxResult videoSummary(@RequestBody Map<String, Object> body)
     {
@@ -364,30 +364,81 @@ public class ApiV1AgentController extends BaseController
             return AjaxResult.error("参数格式不合法");
         }
 
-        AgentTask task = agentService.createTask(ApiContext.getUserId(), null,
-                "video_summary", inputJson, null);
-        agentService.markRunning(task.getTaskId());
+        Long userId = ApiContext.getUserId();
+        AgentTask task = agentService.createTask(userId, null, "video_summary", inputJson, null);
+        CompletableFuture.runAsync(() -> runVideoTask(userId, task.getTaskId(), videoId));
 
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("taskId", task.getTaskId());
+        ajax.put("status", "PENDING");
+        return ajax;
+    }
+
+    private void runVideoTask(Long userId, Long taskId, Long videoId)
+    {
+        agentService.markRunning(taskId);
         try
         {
             Map<String, Object> result = agentClient.post("/internal/video/summary",
                     Map.of("videoId", videoId));
-            String outputJson = objectMapper.writeValueAsString(result);
-            agentService.markSuccess(task.getTaskId(), outputJson);
-
-            AjaxResult ajax = AjaxResult.success();
-            ajax.put("taskId", task.getTaskId());
-            if (result != null)
-            {
-                ajax.putAll(result);
-            }
-            return ajax;
+            agentService.markSuccess(taskId, objectMapper.writeValueAsString(result));
         }
         catch (Exception e)
         {
-            log.error("视频总结任务失败: taskId={}", task.getTaskId(), e);
-            agentService.markFailed(task.getTaskId(), e.getMessage());
-            return AjaxResult.error("视频总结失败，请稍后重试");
+            log.error("视频总结任务失败: taskId={}", taskId, e);
+            agentService.markFailed(taskId, e.getMessage());
+        }
+    }
+
+    /** PPT 生成（异步任务） */
+    @PostMapping("/ppt/generate")
+    public AjaxResult pptGenerate(@RequestBody Map<String, Object> body)
+    {
+        String topic = body == null ? null : Convert.toStr(body.get("topic"));
+        if (StringUtils.isEmpty(topic))
+        {
+            return AjaxResult.error("PPT 主题不能为空");
+        }
+        Integer pages = body == null ? null : Convert.toInt(body.get("pages"));
+        int pageCount = pages == null || pages < 1 ? 6 : Math.min(pages, 20);
+
+        String inputJson;
+        try
+        {
+            inputJson = objectMapper.writeValueAsString(body);
+        }
+        catch (Exception e)
+        {
+            return AjaxResult.error("参数格式不合法");
+        }
+
+        Long userId = ApiContext.getUserId();
+        AgentTask task = agentService.createTask(userId, null, "ppt", inputJson, null);
+        CompletableFuture.runAsync(() -> runPptTask(userId, task.getTaskId(), topic, pageCount));
+
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("taskId", task.getTaskId());
+        ajax.put("status", "PENDING");
+        return ajax;
+    }
+
+    private void runPptTask(Long userId, Long taskId, String topic, int pages)
+    {
+        agentService.markRunning(taskId);
+        try
+        {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("topic", topic);
+            payload.put("pages", pages);
+            payload.put("userId", userId);
+            payload.put("taskId", String.valueOf(taskId));
+            Map<String, Object> result = agentClient.post("/internal/ppt/generate", payload);
+            agentService.markSuccess(taskId, objectMapper.writeValueAsString(result));
+        }
+        catch (Exception e)
+        {
+            log.error("PPT 生成任务失败: taskId={}", taskId, e);
+            agentService.markFailed(taskId, e.getMessage());
         }
     }
 

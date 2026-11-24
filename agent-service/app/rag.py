@@ -102,6 +102,37 @@ def _course_chunks() -> List[Dict[str, Any]]:
                     },
                 }
             )
+
+        chapters = conn.execute(
+            text(
+                """
+                select chapter_id, course_id, course_name, chapter_title, chapter_content
+                  from v_agent_course_chapter
+                 order by course_id, order_num, chapter_id
+                """
+            )
+        ).mappings().all()
+
+        for row in chapters:
+            content = (row["chapter_content"] or "").strip()
+            if not content:
+                continue
+            chunks.append(
+                {
+                    "id": f"chapter-{row['chapter_id']}",
+                    "text": (
+                        f"课程：{row['course_name']}\n"
+                        f"章节：{row['chapter_title']}\n"
+                        f"内容：{content}"
+                    ),
+                    "metadata": {
+                        "course_id": int(row["course_id"]),
+                        "course": row["course_name"],
+                        "chapter": row["chapter_title"],
+                        "type": "chapter",
+                    },
+                }
+            )
     return chunks
 
 

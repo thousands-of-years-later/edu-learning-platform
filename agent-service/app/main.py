@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from . import config, db, rag, sql_agent, video_agent
+from . import config, db, ppt_agent, rag, sql_agent, video_agent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("agent-service")
@@ -33,6 +33,13 @@ class ChatAskRequest(BaseModel):
 
 class VideoSummaryRequest(BaseModel):
     videoId: int
+
+
+class PptGenerateRequest(BaseModel):
+    topic: str = Field(min_length=1, max_length=200)
+    pages: int = 6
+    userId: int = 0
+    taskId: Optional[str] = None
 
 
 @app.get("/internal/health")
@@ -84,6 +91,15 @@ async def video_summary(body: VideoSummaryRequest):
         return await video_agent.summary(body.videoId)
     except Exception as exc:
         logger.exception("video summary failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/internal/ppt/generate", dependencies=[Depends(verify_token)])
+async def ppt_generate(body: PptGenerateRequest):
+    try:
+        return await ppt_agent.generate(body.topic, body.pages, body.userId, body.taskId)
+    except Exception as exc:
+        logger.exception("ppt generate failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 

@@ -1,4 +1,4 @@
-﻿# edu-learning agent-service
+# edu-learning agent-service
 
 独立 Python 智能体服务，FastAPI + DeepSeek + DashScope embedding，给若依 Java 后端做内网调用。
 
@@ -7,8 +7,10 @@
 | 能力 | 状态 |
 |---|---|
 | `POST /internal/sql/ask` | 自然语言 -> SQL -> 只读视图执行 -> 中文回答 |
-| `POST /internal/chat/ask` | 课程 RAG（课程简介 + 章节/小节标题），带来源 |
-| `POST /internal/video/summary` | mock，返回视频元数据说明 |
+| `POST /internal/chat/ask` | 课程 RAG（课程简介 + 章节正文 + 小节标题），带来源 |
+| `POST /internal/chat/stream` | 课程 RAG 流式输出（NDJSON） |
+| `POST /internal/video/summary` | Paraformer ASR + 分段总结；无地址/ASR 失败时回退元数据 |
+| `POST /internal/ppt/generate` | 大纲 JSON -> python-pptx 套模板 -> OSS 签名 URL |
 | `POST /internal/rag/ingest` | 重建课程向量索引 |
 | `GET /internal/health` | 健康检查 |
 
@@ -52,13 +54,21 @@ curl.exe -s -H "x-internal-token: <AGENT_INTERNAL_TOKEN>" -H "Content-Type: appl
 
 ## RAG 说明
 
-当前知识库来自 `v_agent_course` 的课程简介和 `v_agent_course_video` 的小节标题。
-课程正文/讲义/字幕入库后，回答质量会明显提升；视频 ASR 接入前先使用 mock。
+当前知识库来自 `v_agent_course` 课程简介、`v_agent_course_chapter` 章节正文和
+`v_agent_course_video` 小节标题。课程正文/讲义/字幕越完整，回答质量越高。
+
+视频总结使用 Paraformer `paraformer-v2`：视频 URL 由 OSS 签名后提交 ASR，
+转写文本分段总结；现有 6 个视频是英文测试素材，标题是中文时会回退到元数据摘要。
+
+## PPT 说明
+
+模板：`templates/business_template.pptx`（已移除模板最后一页版权页）。
+生成时只保留封面、目录、章节页、亮点页、要点页、结尾页共 6 页，
+上传路径 `agent/ppt/{userId}/{taskId}.pptx`，返回 1 小时签名 URL。
 
 ## 待办
 
 - [ ] 换成 `edu_ro` 只读账号；
-- [ ] 视频 ASR 接入；
-- [ ] PPT 生成；
-- [ ] 课程讲义/字幕入库；
-- [ ] Java `ApiV1AgentController` 对接与 WS 流式推送。
+- [ ] 用真实课程视频替换英文测试素材；
+- [ ] 课程讲义/字幕批量入库；
+- [ ] Java 会话/任务/流式已对接，后续补多轮上下文与审计限流。

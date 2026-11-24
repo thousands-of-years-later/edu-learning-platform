@@ -78,6 +78,12 @@
 				title: title,
 				area: ['820px', '620px'],
 				content: url,
+				// 缺了 btn/yes，iframe 里的 submitHandler 永远不会被触发，上传完的 URL 只留在弹窗里
+				btn: ['确定', '关闭'],
+				yes: function (index, layero) {
+					var iframeWin = layero.find('iframe')[0].contentWindow;
+					iframeWin.submitHandler(index, layero);
+				},
 				end: function () {
 					$.treeTable.refresh();
 				}

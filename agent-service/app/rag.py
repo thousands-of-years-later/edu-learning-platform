@@ -20,17 +20,35 @@ SYSTEM = """你是学习平台的课程答疑助手。只能根据提供的课�
 """
 
 # 只在 /chat（非流式）追加：让模型顺带提议长期记忆，由用户确认后再写入
-MEMORY_RULE = """另外，如果用户在本轮明确表达了值得长期记住的个人事实或稳定偏好（姓名、身份、职业、学校、长期目标、学习习惯，或明确说“记住/以后都”的内容），在回答最后单独输出若干行，每行格式：
+MEMORY_RULE = """另外，如果用户在本轮明确表达了值得长期记住的个人事实或稳定偏好（姓名、身份、职业、学校、长期目标、学习习惯，或明确说“记住/以后都”的内容），在回答最后单独输出，格式严格为：
 <<MEMORY:{"content":"不超过100字的事实本身"}>>
-content 只写事实，不写“用户说”，不加解释。
+要求：最多 2 条；同一事实只输出一次，不要用不同措辞重复；不要把“希望助手记住”“用户要求记住”这类元信息写进 content；content 只写事实本身，不写“用户说”，不加解释。
 没有这类内容时，不要输出任何 <<MEMORY: 标记，也不要解释这条规则。"""
 
-_MEMORY_RE = re.compile(r"<<MEMORY:\s*(\{[^\n]*?\})\s*>>")
+_MEMORY_RE = re.compile(r"<<MEMORY:\s*(\{.*?\})\s*>>", re.S)
+# 模型被 max_tokens 截断时会留下半截标记，这里从标记处直接截掉
+_MEMORY_HEAD = re.compile(r"<\s*<\s*MEMORY")
+_META_RE = re.compile(r"希望助手|请助手|助手记住|让助手|记住其|记住我|用户要求|要求记住|以上信息|其姓名和职业")
 _PERSONAL_HINT = re.compile(r"记住|我是|我叫|我的名字|我希望|我习惯|以后都|请记")
+
+# 去重用的归一化：去掉标点和“用户/姓名/职业”这类包装词，只留事实骨架
+_NORM_STRIP = re.compile(r"[，。！？、；：\s\"“”'’‘]")
+_NORM_WORDS = ("用户", "希望助手", "助手", "记住", "其", "姓名", "名字", "职业", "岗位",
+               "信息", "工作", "从事", "一名", "是", "的", "了", "在", "做")
+
+
+def _normalize_memory(content: str) -> str:
+    text = _NORM_STRIP.sub("", content)
+    for word in _NORM_WORDS:
+        text = text.replace(word, "")
+    return text
 
 
 def _split_memory_candidates(answer: str) -> tuple[str, List[Dict[str, str]]]:
-    """剥离模型输出里的 <<MEMORY:{...}>> 标记，返回干净回答 + 候选记忆。"""
+    """剥离模型输出里的 <<MEMORY:{...}>> 标记，返回干净回答 + 候选记忆。
+
+    加固点：跨行 JSON、规范化去重、元信息过滤、最多 3 条、残留半截标记兜底截断。
+    """
     candidates: List[Dict[str, str]] = []
     seen = set()
 
@@ -40,12 +58,22 @@ def _split_memory_candidates(answer: str) -> tuple[str, List[Dict[str, str]]]:
         except Exception:
             return ""
         content = str(obj.get("content") or "").strip()
-        if content and content not in seen:
-            seen.add(content)
-            candidates.append({"content": content[:100], "reason": "模型从本轮对话中识别"})
+        if not content:
+            return ""
+        if _META_RE.search(content):
+            return ""
+        key = _normalize_memory(content)
+        if not key or key in seen or len(candidates) >= 3:
+            return ""
+        seen.add(key)
+        candidates.append({"content": content[:100], "reason": "模型从本轮对话中识别"})
         return ""
 
     clean = _MEMORY_RE.sub(repl, answer)
+    # 兜底：还有残缺标记（输出被截断/格式跑偏），从标记出现处截掉
+    head = _MEMORY_HEAD.search(clean)
+    if head:
+        clean = clean[: head.start()]
     clean = re.sub(r"\n{3,}", "\n\n", clean).strip()
     return clean, candidates
 

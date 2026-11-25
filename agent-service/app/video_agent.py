@@ -1,9 +1,14 @@
 """视频总结：Paraformer ASR + 分段摘要；无 URL/ASR 失败时回退到元数据摘要。"""
+import logging
+import re
 from typing import Any, Dict, List
+from urllib.parse import quote
 
 from sqlalchemy import text
 
 from . import asr, config, db, llm
+
+logger = logging.getLogger(__name__)
 
 SUMMARY_SYSTEM = """你是学习平台的视频总结助手。请根据视频转写文本输出中文总结。
 结构：
@@ -39,9 +44,14 @@ async def summary(video_id: int) -> Dict[str, Any]:
         "durationMinutes": float(row["duration_min"] or 0),
     }
 
-    video_url = row["video_url"]
+    video_url = (row["video_url"] or "").strip()
     if not video_url:
         return {**base, **_fallback(row, "视频缺少可访问地址")}
+    # 相对路径（/profile/upload/...）ASR 侧下载不到，直接给可读原因，别抛 FILE_DOWNLOAD_FAILED
+    if not video_url.lower().startswith(("http://", "https://")):
+        return {**base, **_fallback(row, "视频地址不是公网可访问地址，无法进行语音识别")}
+    # 文件名里有空格/中文时做百分号编码，否则下游下载会失败
+    video_url = quote(video_url, safe=":/?&=%#")
 
     try:
         transcript = await asr.transcribe(video_url)
@@ -61,7 +71,23 @@ async def summary(video_id: int) -> Dict[str, Any]:
             "fallback": False,
         }
     except Exception as exc:
-        return {**base, **_fallback(row, f"ASR 失败：{exc}")}
+        logger.warning("视频总结 ASR 失败 videoId=%s: %s", video_id, exc, exc_info=True)
+        return {
+            **base,
+            **_fallback(row, _clean_reason(str(exc))),
+            "asrErrorCode": getattr(exc, "code", "ASR_ERROR"),
+        }
+
+
+def _clean_reason(reason: str) -> str:
+    """降级文案只给一句原因：去掉 JSON、request_id 等排查信息。"""
+    text = re.sub(r"\{.*\}", "", str(reason or ""), flags=re.S)
+    text = re.sub(r"[\"']?request_id[\"']?\s*[:=]\s*[\"']?[\w-]+[\"']?", "", text)
+    text = re.sub(r"[\"']?code[\"']?\s*[:=]\s*[\"']?[\w.-]+[\"']?", "", text)
+    text = re.sub(r"\s+", " ", text).strip(" ：:，,")
+    if len(text) > 80:
+        text = text[:80] + "…"
+    return text or "语音识别服务暂时不可用"
 
 
 def _fallback(row: Any, reason: str) -> Dict[str, Any]:

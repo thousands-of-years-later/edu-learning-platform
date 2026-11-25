@@ -1,6 +1,5 @@
 """DashScope Paraformer 录音文件识别（paraformer-v2）。"""
 import asyncio
-import json
 from typing import Any, Dict
 
 import httpx
@@ -9,7 +8,30 @@ from . import config, oss_client
 
 
 class AsrError(RuntimeError):
-    pass
+    """语音识别失败。message 只放可展示的中文原因，code 放错误码供日志/前端区分。"""
+
+    def __init__(self, message: str, code: str = "ASR_ERROR"):
+        super().__init__(message)
+        self.code = code
+
+
+# DashScope 错误码 → 用户能看懂的一句话，不要把原始 JSON 抛到界面
+_ERROR_HINTS = {
+    "FILE_DOWNLOAD_FAILED": "视频文件无法下载，可能已失效或不是公网可访问地址",
+    "FILE_ACCESS_FAILED": "视频文件无法访问",
+    "INVALID_FILE": "视频文件格式不支持",
+    "FILE_DURATION_TOO_LONG": "视频时长超出识别上限",
+    "FILE_SIZE_TOO_LARGE": "视频文件过大",
+    "UNSUPPORTED_SAMPLE_RATE": "音频采样率不支持",
+}
+
+
+def _failure(output: Dict[str, Any], data: Dict[str, Any], default: str) -> AsrError:
+    """从 DashScope 响应里取 code/message，转成简短中文，不带 request_id 等排查信息。"""
+    code = str((output or {}).get("code") or (data or {}).get("code") or "ASR_ERROR")
+    message = str((output or {}).get("message") or (data or {}).get("message") or "").strip()
+    hint = _ERROR_HINTS.get(code) or message[:80] or default
+    return AsrError(hint, code)
 
 
 async def transcribe(video_url: str) -> Dict[str, Any]:
@@ -38,10 +60,10 @@ async def transcribe(video_url: str) -> Dict[str, Any]:
             json=payload,
         )
         if response.status_code >= 400:
-            raise AsrError(f"ASR 提交失败 {response.status_code}: {response.text[:300]}")
+            raise AsrError("语音识别服务调用失败", f"HTTP_{response.status_code}")
         task_id = response.json().get("output", {}).get("task_id")
         if not task_id:
-            raise AsrError(f"ASR 没有返回 task_id: {response.text[:300]}")
+            raise AsrError("语音识别服务没有返回任务编号", "NO_TASK_ID")
 
         deadline = asyncio.get_running_loop().time() + config.ASR_TIMEOUT_SECONDS
         result = None
@@ -57,17 +79,17 @@ async def transcribe(video_url: str) -> Dict[str, Any]:
                 result = output
                 break
             if status in ("FAILED", "CANCELED"):
-                raise AsrError(f"ASR 任务失败: {json.dumps(data, ensure_ascii=False)[:500]}")
+                raise _failure(output, data, "语音识别任务失败")
             await asyncio.sleep(2)
         if result is None:
-            raise AsrError("ASR 任务超时")
+            raise AsrError("语音识别超时，请稍后重试", "TIMEOUT")
 
         transcription_url = _transcription_url(result)
         if not transcription_url:
-            raise AsrError(f"ASR 没有返回转写地址: {json.dumps(result, ensure_ascii=False)[:500]}")
+            raise AsrError("语音识别没有返回转写结果", "NO_TRANSCRIPTION_URL")
         transcript_response = await client.get(transcription_url, timeout=60)
         if transcript_response.status_code >= 400:
-            raise AsrError(f"下载转写结果失败 {transcript_response.status_code}")
+            raise AsrError("转写结果下载失败", f"HTTP_{transcript_response.status_code}")
         transcript = transcript_response.json()
 
     texts = []
@@ -87,7 +109,7 @@ async def transcribe(video_url: str) -> Dict[str, Any]:
 
     full_text = "\n".join(texts).strip()
     if not full_text:
-        raise AsrError("ASR 转写结果为空")
+        raise AsrError("没有识别出有效语音内容", "EMPTY_TRANSCRIPT")
     return {"text": full_text, "sentences": sentences, "fileUrl": file_url}
 
 

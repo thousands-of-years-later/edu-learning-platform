@@ -78,6 +78,8 @@ def _post_chunks() -> List[Dict[str, Any]]:
                     "category": row["category_name"] or "未分类",
                     "author": row["author_nickname"] or "匿名",
                     "createTime": str(row["create_time"] or ""),
+                    # 引用卡片用：正文前 80 字（已去过 HTML 标签、压过空白）
+                    "excerpt": content[:80],
                 },
             }
         )
@@ -113,6 +115,17 @@ async def search(question: str, top_k: int = 5) -> List[Dict[str, Any]]:
     return scored[:top_k]
 
 
+def _excerpt_of(chunk: Dict[str, Any]) -> str:
+    """引用摘要：优先用索引里的 excerpt，老索引没有就从正文 chunk 里截。"""
+    meta = chunk.get("metadata") or {}
+    excerpt = (meta.get("excerpt") or "").strip()
+    if excerpt:
+        return excerpt
+    text = chunk.get("text") or ""
+    body = text.split("内容：", 1)[-1] if "内容：" in text else text
+    return " ".join(body.split())[:80]
+
+
 def _refs_of(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     refs: List[Dict[str, Any]] = []
     seen = set()
@@ -127,6 +140,7 @@ def _refs_of(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "postId": post_id,
                 "postTitle": meta.get("postTitle", ""),
                 "category": meta.get("category", ""),
+                "excerpt": _excerpt_of(chunk),
             }
         )
     return refs

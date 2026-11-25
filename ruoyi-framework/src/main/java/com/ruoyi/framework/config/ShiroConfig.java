@@ -319,6 +319,9 @@ public class ShiroConfig
         // 后台的菜单/角色/@RequiresPermissions/Cookie 会话登录一个字都没动，
         // 老的 /api/login、/api/register、/api/interaction 也照旧走会话（见下面 /** 那条）。
         filterChainDefinitionMap.put("/api/v1/**", "anon");
+        // 智能体旧前缀兼容：老客户端与测试脚本用的是 /agent/**，
+        // 鉴权同样交给 ApiTokenFilter（见 ApiFilterConfig），Shiro 这层只放行。
+        filterChainDefinitionMap.put("/agent/**", "anon");
         // 论坛 WebSocket：握手鉴权由 WsHandshakeInterceptor 自行完成，Shiro 只放行
         filterChainDefinitionMap.put("/ws/**", "anon");
         // 系统权限列表

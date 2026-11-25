@@ -1,6 +1,7 @@
 package com.ruoyi.user.service;
 
 import java.util.List;
+import com.ruoyi.user.domain.AgentMemory;
 import com.ruoyi.user.domain.AgentMessage;
 import com.ruoyi.user.domain.AgentSession;
 import com.ruoyi.user.domain.AgentTask;
@@ -39,4 +40,16 @@ public interface IAgentService
     void markSuccess(Long taskId, String outputJson);
 
     void markFailed(Long taskId, String errorMsg);
+
+    /** 用户长期记忆，按 memoryId 倒序，只返回生效中的 */
+    List<AgentMemory> listMemories(Long userId);
+
+    /** 新增一条长期记忆，内容上限 500 字，单用户最多 50 条 */
+    AgentMemory addMemory(Long userId, String content, String source);
+
+    /** 更新一条记忆内容，只能改自己的 */
+    void updateMemory(Long userId, Long memoryId, String content);
+
+    /** 软删一条记忆，幂等 */
+    void deleteMemory(Long userId, Long memoryId);
 }

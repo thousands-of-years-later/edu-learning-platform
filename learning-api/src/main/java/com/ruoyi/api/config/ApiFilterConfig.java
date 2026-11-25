@@ -32,7 +32,7 @@ public class ApiFilterConfig
         // 只在正常请求上跑：错误页转发（ERROR）不必再校验一次
         registration.setDispatcherTypes(DispatcherType.REQUEST);
         registration.setFilter(new ApiTokenFilter(apiTokenService));
-        registration.addUrlPatterns("/api/v1/*");
+        registration.addUrlPatterns("/api/v1/*", "/agent/*");
         registration.setName("apiTokenFilter");
         // 排到最前面：Token 校验要尽可能早，没带 Token 的请求直接拿到 JSON 401，
         // 而不是先被 Shiro 那条链当成匿名请求处理一遍

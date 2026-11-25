@@ -39,6 +39,7 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.ws.WsEventPublisher;
+import com.ruoyi.user.domain.AgentMemory;
 import com.ruoyi.user.domain.AgentMessage;
 import com.ruoyi.user.domain.AgentSession;
 import com.ruoyi.user.domain.AgentTask;
@@ -52,13 +53,17 @@ import com.ruoyi.user.service.IAgentService;
  * @author edu
  */
 @RestController
-@RequestMapping("/api/v1/agent")
+@RequestMapping({"/api/v1/agent", "/agent"})
 public class ApiV1AgentController extends BaseController
 {
     private static final Logger log = LoggerFactory.getLogger(ApiV1AgentController.class);
 
     /** 单次对话最多带 3 张图，控制延迟与费用 */
     private static final int MAX_CHAT_IMAGES = 3;
+
+    /** 注入模型的长期记忆：最多 20 条、单条 200 字，避免撑爆 prompt */
+    private static final int MEMORY_MAX_INJECT = 20;
+    private static final int MEMORY_CONTENT_MAX = 200;
 
     /** 只传图不带文字时，用于落库展示与会话标题 */
     private static final String DEFAULT_IMAGE_QUESTION = "请描述这张图片的内容";
@@ -78,6 +83,58 @@ public class ApiV1AgentController extends BaseController
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
+    /**
+     * 长期记忆列表：GET /memories -> {total, rows}
+     *
+     * 只返回当前用户生效中的记忆，按 memoryId 倒序。
+     */
+    @GetMapping("/memories")
+    public AjaxResult memories()
+    {
+        List<AgentMemory> rows = agentService.listMemories(ApiContext.getUserId());
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("total", rows.size());
+        ajax.put("rows", rows);
+        return ajax;
+    }
+
+    /** 新增长期记忆：{content, source?} -> {memoryId} */
+    @PostMapping("/memories")
+    public AjaxResult addMemory(@RequestBody Map<String, Object> body)
+    {
+        String content = body == null ? null : Convert.toStr(body.get("content"));
+        String source = body == null ? null : Convert.toStr(body.get("source"));
+        if (StringUtils.isEmpty(content))
+        {
+            return AjaxResult.error("记忆内容不能为空");
+        }
+        AgentMemory memory = agentService.addMemory(ApiContext.getUserId(), content, source);
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("memoryId", memory.getMemoryId());
+        return ajax;
+    }
+
+    /** 更新长期记忆：PUT /memories/{memoryId} {content}，只能改自己的 */
+    @PutMapping("/memories/{memoryId}")
+    public AjaxResult updateMemory(@PathVariable Long memoryId, @RequestBody Map<String, Object> body)
+    {
+        String content = body == null ? null : Convert.toStr(body.get("content"));
+        if (StringUtils.isEmpty(content))
+        {
+            return AjaxResult.error("记忆内容不能为空");
+        }
+        agentService.updateMemory(ApiContext.getUserId(), memoryId, content);
+        return AjaxResult.success();
+    }
+
+    /** 删除长期记忆：DELETE /memories/{memoryId}，幂等 */
+    @DeleteMapping("/memories/{memoryId}")
+    public AjaxResult deleteMemory(@PathVariable Long memoryId)
+    {
+        agentService.deleteMemory(ApiContext.getUserId(), memoryId);
+        return AjaxResult.success();
+    }
+
     /** SQL 问答：{question} -> {answer, sql, rows, rowCount, error} */
     @PostMapping("/sql/ask")
     public AjaxResult sqlAsk(@RequestBody Map<String, Object> body)
@@ -85,11 +142,22 @@ public class ApiV1AgentController extends BaseController
         return proxy("/internal/sql/ask", body);
     }
 
-    /** 课程 RAG 问答：{question, courseId?} -> {answer, refs, retrieved} */
+    /**
+     * 课程 RAG 问答：{question, courseId?, history?, imageUrls?, memories?}
+     *
+     * 与 /chat 一样注入长期记忆，只是不建会话、不落消息（纯代理）。
+     */
     @PostMapping("/chat/ask")
     public AjaxResult chatAsk(@RequestBody Map<String, Object> body)
     {
-        return proxy("/internal/chat/ask", body);
+        Map<String, Object> payload = body == null
+                ? new LinkedHashMap<>() : new LinkedHashMap<>(body);
+        List<String> memories = memoryTexts(ApiContext.getUserId());
+        if (!memories.isEmpty())
+        {
+            payload.put("memories", memories);
+        }
+        return proxy("/internal/chat/ask", payload);
     }
 
     /** 新建会话：{title?} */
@@ -216,6 +284,11 @@ public class ApiV1AgentController extends BaseController
         {
             payload.put("history", history);
         }
+        List<String> memories = memoryTexts(ApiContext.getUserId());
+        if (!memories.isEmpty())
+        {
+            payload.put("memories", memories);
+        }
 
         try
         {
@@ -304,6 +377,11 @@ public class ApiV1AgentController extends BaseController
         {
             payload.put("history", history);
         }
+        List<String> memories = memoryTexts(userId);
+        if (!memories.isEmpty())
+        {
+            payload.put("memories", memories);
+        }
 
         String requestId = UUID.randomUUID().toString();
         CompletableFuture.runAsync(() -> streamChat(userId, session.getSessionId(), payload, requestId));
@@ -312,6 +390,24 @@ public class ApiV1AgentController extends BaseController
         ajax.put("requestId", requestId);
         ajax.put("sessionId", session.getSessionId());
         return ajax;
+    }
+
+    /** 注入模型的长期记忆文本：最多 20 条，单条截 200 字 */
+    private List<String> memoryTexts(Long userId)
+    {
+        List<String> texts = new ArrayList<>();
+        List<AgentMemory> memories = agentService.listMemories(userId);
+        for (int i = 0; i < memories.size() && i < MEMORY_MAX_INJECT; i++)
+        {
+            String content = memories.get(i).getContent();
+            if (StringUtils.isEmpty(content))
+            {
+                continue;
+            }
+            texts.add(content.length() > MEMORY_CONTENT_MAX
+                    ? content.substring(0, MEMORY_CONTENT_MAX) : content);
+        }
+        return texts;
     }
 
     private void streamChat(Long userId, Long sessionId, Map<String, Object> payload, String requestId)
@@ -532,7 +628,7 @@ public class ApiV1AgentController extends BaseController
         catch (Exception e)
         {
             log.error("视频总结任务失败: taskId={}", taskId, e);
-            agentService.markFailed(taskId, e.getMessage());
+            agentService.markFailed(taskId, friendlyError(e));
         }
     }
 
@@ -584,7 +680,7 @@ public class ApiV1AgentController extends BaseController
         catch (Exception e)
         {
             log.error("PPT 生成任务失败: taskId={}", taskId, e);
-            agentService.markFailed(taskId, e.getMessage());
+            agentService.markFailed(taskId, friendlyError(e));
         }
     }
 
@@ -731,6 +827,61 @@ public class ApiV1AgentController extends BaseController
             history.add(item);
         }
         return history;
+    }
+
+    /**
+     * 把下游异常清洗成前端能直接展示的一句话
+     *
+     * Python 侧抛的是 {"detail":"视频不存在或已删除"}，
+     * 原始 e.getMessage() 是 `500 Internal Server Error: "{"detail":...}"`，
+     * 前端拿到既没法展示、也没法做 i18n，所以这里取 detail，
+     * 取不到再按 HTTP 状态码给兜底文案。
+     */
+    private String friendlyError(Exception e)
+    {
+        if (e instanceof RestClientResponseException rest)
+        {
+            String detail = extractDetail(rest.getResponseBodyAsString());
+            if (StringUtils.isNotEmpty(detail))
+            {
+                return detail.length() > 200 ? detail.substring(0, 200) : detail;
+            }
+            int status = rest.getStatusCode().value();
+            if (status == 404)
+            {
+                return "目标内容不存在或已删除";
+            }
+            if (status == 400)
+            {
+                return "请求参数不合法";
+            }
+            return "智能体服务处理失败（" + status + "），请稍后重试";
+        }
+        String message = e.getMessage();
+        return StringUtils.isEmpty(message) ? "任务执行失败，请稍后重试" : message;
+    }
+
+    private String extractDetail(String body)
+    {
+        if (StringUtils.isEmpty(body))
+        {
+            return null;
+        }
+        try
+        {
+            Map<String, Object> map = objectMapper.readValue(body,
+                    new TypeReference<Map<String, Object>>() {});
+            Object detail = map.get("detail");
+            if (detail instanceof String && StringUtils.isNotEmpty((String) detail))
+            {
+                return (String) detail;
+            }
+        }
+        catch (Exception ignored)
+        {
+            // 非 JSON 响应体：交给状态码兜底
+        }
+        return null;
     }
 
     private AjaxResult proxy(String path, Map<String, Object> body)

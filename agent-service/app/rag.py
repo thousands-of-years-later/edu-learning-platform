@@ -178,34 +178,47 @@ async def search(question: str, course_id: Optional[int] = None, top_k: int = 5)
 
 async def ask(course_id: Optional[int], question: str,
               history: Optional[List[Dict[str, str]]] = None,
-              images: Optional[List[str]] = None) -> Dict[str, Any]:
+              images: Optional[List[str]] = None,
+              memories: Optional[List[str]] = None) -> Dict[str, Any]:
     question = (question or "").strip()
     images = [url for url in (images or []) if url]
+    memories = [text.strip() for text in (memories or []) if text and text.strip()]
     if not question and not images:
         raise ValueError("问题不能为空")
 
     # 纯图片提问没有可检索的文本，跳过向量检索，直接把图片交给模型
     chunks = await search(question, course_id=course_id, top_k=5) if question else []
-    if not chunks and not images:
+    if not chunks and not images and not memories:
         return {
             "answer": "课程资料中没有相关内容。请先确认课程知识库已入库。",
             "refs": [],
             "retrieved": 0,
         }
 
-    messages = _build_messages(question, chunks, history, images)
+    messages = _build_messages(question, chunks, history, images, memories)
     answer = await llm.chat(messages, temperature=0.2, max_tokens=1000)
     return {"answer": answer.strip(), "refs": _refs_of(chunks), "retrieved": len(chunks)}
 
 
 def _build_messages(question: str, chunks: List[Dict[str, Any]],
                     history: Optional[List[Dict[str, str]]] = None,
-                    images: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+                    images: Optional[List[str]] = None,
+                    memories: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     context = "\n\n".join(
         f"[来源: {c['metadata'].get('course', '')}-{c['metadata'].get('chapter', '')}]\n{c['text']}"
         for c in chunks
     )
     messages: List[Dict[str, Any]] = [{"role": "system", "content": SYSTEM}]
+
+    # 用户长期记忆：放在第二条 system 消息，最多 20 条、单条 200 字
+    if memories:
+        lines = [text[:200] for text in memories[:20]]
+        messages.append({
+            "role": "system",
+            "content": "以下是当前用户的长期记忆（回答时请参考并遵守这些偏好与事实；"
+                       "若与课程资料冲突，以课程资料为准并说明差异）：\n"
+                       + "\n".join(f"- {line}" for line in lines),
+        })
 
     # 只带最近 8 条，单条截断，避免历史把上下文撑爆
     total_chars = 0
@@ -252,22 +265,24 @@ def _refs_of(chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
 
 async def stream_answer(course_id: Optional[int], question: str,
                         history: Optional[List[Dict[str, str]]] = None,
-                        images: Optional[List[str]] = None):
+                        images: Optional[List[str]] = None,
+                        memories: Optional[List[str]] = None):
     """逐段产出 {"delta": ...}，最后产出 {"done": True, "refs": [...]}。"""
     question = (question or "").strip()
     images = [url for url in (images or []) if url]
+    memories = [text.strip() for text in (memories or []) if text and text.strip()]
     if not question and not images:
         yield {"error": "问题不能为空"}
         return
 
     chunks = await search(question, course_id=course_id, top_k=5) if question else []
-    if not chunks and not images:
+    if not chunks and not images and not memories:
         text = "课程资料中没有相关内容。请先确认课程知识库已入库。"
         yield {"delta": text}
         yield {"done": True, "refs": [], "retrieved": 0}
         return
 
-    async for delta in llm.chat_stream(_build_messages(question, chunks, history, images),
+    async for delta in llm.chat_stream(_build_messages(question, chunks, history, images, memories),
                                        temperature=0.2, max_tokens=1000):
         yield {"delta": delta}
     yield {"done": True, "refs": _refs_of(chunks), "retrieved": len(chunks)}

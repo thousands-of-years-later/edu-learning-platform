@@ -8,9 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.user.domain.AgentMemory;
 import com.ruoyi.user.domain.AgentMessage;
 import com.ruoyi.user.domain.AgentSession;
 import com.ruoyi.user.domain.AgentTask;
+import com.ruoyi.user.mapper.AgentMemoryMapper;
 import com.ruoyi.user.mapper.AgentMessageMapper;
 import com.ruoyi.user.mapper.AgentSessionMapper;
 import com.ruoyi.user.mapper.AgentTaskMapper;
@@ -22,6 +24,8 @@ public class AgentServiceImpl implements IAgentService
 {
     private static final int TITLE_MAX = 100;
     private static final int SESSION_TITLE_PREVIEW = 30;
+    private static final int MEMORY_MAX = 500;
+    private static final int MEMORY_LIMIT = 50;
 
     @Autowired
     private AgentSessionMapper sessionMapper;
@@ -31,6 +35,9 @@ public class AgentServiceImpl implements IAgentService
 
     @Autowired
     private AgentTaskMapper taskMapper;
+
+    @Autowired
+    private AgentMemoryMapper memoryMapper;
 
     @Override
     @Transactional
@@ -199,6 +206,66 @@ public class AgentServiceImpl implements IAgentService
     public void markFailed(Long taskId, String errorMsg)
     {
         taskMapper.markFailed(taskId, errorMsg);
+    }
+
+    @Override
+    public List<AgentMemory> listMemories(Long userId)
+    {
+        checkUser(userId);
+        return memoryMapper.selectMemories(userId);
+    }
+
+    @Override
+    @Transactional
+    public AgentMemory addMemory(Long userId, String content, String source)
+    {
+        checkUser(userId);
+        if (StringUtils.isEmpty(content))
+        {
+            throw new ServiceException("记忆内容不能为空");
+        }
+        if (memoryMapper.selectMemories(userId).size() >= MEMORY_LIMIT)
+        {
+            throw new ServiceException("记忆条数已达上限（" + MEMORY_LIMIT + "），请先删除部分记忆");
+        }
+        AgentMemory memory = new AgentMemory();
+        memory.setUserId(userId);
+        memory.setContent(cut(content, MEMORY_MAX));
+        memory.setSource(StringUtils.isEmpty(source) ? "manual" : cut(source, 32));
+        memoryMapper.insertMemory(memory);
+        return memory;
+    }
+
+    @Override
+    @Transactional
+    public void updateMemory(Long userId, Long memoryId, String content)
+    {
+        checkUser(userId);
+        if (memoryId == null)
+        {
+            throw new ServiceException("记忆ID不能为空");
+        }
+        if (StringUtils.isEmpty(content))
+        {
+            throw new ServiceException("记忆内容不能为空");
+        }
+        int rows = memoryMapper.updateMemory(userId, memoryId, cut(content, MEMORY_MAX));
+        if (rows == 0)
+        {
+            throw new ServiceException("记忆不存在或无权访问");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteMemory(Long userId, Long memoryId)
+    {
+        checkUser(userId);
+        if (memoryId == null)
+        {
+            throw new ServiceException("记忆ID不能为空");
+        }
+        memoryMapper.deleteMemory(userId, memoryId);
     }
 
     private void checkUser(Long userId)

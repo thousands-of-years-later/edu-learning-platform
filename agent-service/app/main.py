@@ -32,6 +32,8 @@ class ChatAskRequest(BaseModel):
     courseId: Optional[int] = None
     history: list[dict] = []
     imageUrls: list[str] = []
+    # 用户长期记忆（Java 侧注入），拼进 system prompt
+    memories: list[str] = []
 
 
 class VideoSummaryRequest(BaseModel):
@@ -74,7 +76,7 @@ async def sql_ask(body: SqlAskRequest):
 @app.post("/internal/chat/ask", dependencies=[Depends(verify_token)])
 async def chat_ask(body: ChatAskRequest):
     try:
-        return await rag.ask(body.courseId, body.question, body.history, body.imageUrls)
+        return await rag.ask(body.courseId, body.question, body.history, body.imageUrls, body.memories)
     except Exception as exc:
         logger.exception("chat ask failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -84,7 +86,7 @@ async def chat_ask(body: ChatAskRequest):
 async def chat_stream(body: ChatAskRequest):
     async def generate():
         try:
-            async for item in rag.stream_answer(body.courseId, body.question, body.history, body.imageUrls):
+            async for item in rag.stream_answer(body.courseId, body.question, body.history, body.imageUrls, body.memories):
                 yield json.dumps(item, ensure_ascii=False) + "\n"
         except Exception as exc:
             logger.exception("chat stream failed")

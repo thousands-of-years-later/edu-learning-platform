@@ -38,4 +38,7 @@ def sign_url(url_or_key: str, expires: int = 3600) -> str:
 
 def upload_file(local_path: str, key: str) -> str:
     _bucket().put_object_from_file(key, local_path)
-    return _bucket().sign_url("GET", key, 3600, slash_safe=True)
+    # bucket 为公共读：直接返回可长期访问的直连地址。
+    # 不再签名 —— 签名 URL 只有 1 小时有效期，客户端下载 PPT 会被 403。
+    host = config.OSS_ENDPOINT.replace("https://", "").replace("http://", "").rstrip("/")
+    return f"https://{config.OSS_BUCKET}.{host}/{key}"

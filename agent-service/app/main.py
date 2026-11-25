@@ -40,6 +40,11 @@ class VideoSummaryRequest(BaseModel):
     videoId: int
 
 
+class VideoSubtitleRequest(BaseModel):
+    videoId: int
+    force: bool = False
+
+
 class PptGenerateRequest(BaseModel):
     topic: str = Field(min_length=1, max_length=200)
     pages: int = 6
@@ -119,6 +124,17 @@ async def video_summary(body: VideoSummaryRequest):
         return await video_agent.summary(body.videoId)
     except Exception as exc:
         logger.exception("video summary failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/internal/video/subtitle", dependencies=[Depends(verify_token)])
+async def video_subtitle(body: VideoSubtitleRequest):
+    try:
+        return await video_agent.subtitle(body.videoId, body.force)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("video subtitle failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 

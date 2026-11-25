@@ -761,6 +761,74 @@ public class ApiV1AgentController extends BaseController
         }
     }
 
+    /** 视频字幕（异步任务：Paraformer ASR 转 SRT/VTT） */
+    @PostMapping("/video/subtitle")
+    public AjaxResult videoSubtitle(@RequestBody Map<String, Object> body)
+    {
+        Long videoId = body == null ? null : Convert.toLong(body.get("videoId"));
+        if (videoId == null)
+        {
+            return AjaxResult.error("视频ID不能为空");
+        }
+
+        String inputJson;
+        try
+        {
+            inputJson = objectMapper.writeValueAsString(body);
+        }
+        catch (Exception e)
+        {
+            return AjaxResult.error("参数格式不合法");
+        }
+
+        Long userId = ApiContext.getUserId();
+        Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
+        AgentSession session;
+        try
+        {
+            session = sessionId == null
+                    ? agentService.createSession(userId, "视频字幕")
+                    : agentService.requireSession(userId, sessionId);
+        }
+        catch (ServiceException e)
+        {
+            return AjaxResult.error(e.getMessage());
+        }
+        agentService.addMessage(userId, session.getSessionId(), "user",
+                "生成视频字幕（videoId=" + videoId + "）", "text", null, 0);
+
+        AgentTask task = agentService.createTask(userId, session.getSessionId(), "video_subtitle", inputJson, null);
+        AgentMessage taskMessage = agentService.addMessage(userId, session.getSessionId(), "assistant",
+                "已提交视频字幕任务，完成后可获取 SRT/VTT", "task", null, 0, task.getTaskId(), null);
+        boolean force = body != null && Boolean.TRUE.equals(Convert.toBool(body.get("force"), false));
+        CompletableFuture.runAsync(() -> runVideoSubtitleTask(userId, task.getTaskId(), videoId, force));
+
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("taskId", task.getTaskId());
+        ajax.put("status", "PENDING");
+        ajax.put("sessionId", session.getSessionId());
+        ajax.put("messageId", taskMessage.getMessageId());
+        return ajax;
+    }
+
+    private void runVideoSubtitleTask(Long userId, Long taskId, Long videoId, boolean force)
+    {
+        agentService.markRunning(taskId);
+        try
+        {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("videoId", videoId);
+            payload.put("force", force);
+            Map<String, Object> result = agentClient.post("/internal/video/subtitle", payload);
+            agentService.markSuccess(taskId, objectMapper.writeValueAsString(result));
+        }
+        catch (Exception e)
+        {
+            log.error("视频字幕任务失败: taskId={}", taskId, e);
+            agentService.markFailed(taskId, friendlyError(e));
+        }
+    }
+
     /** PPT 生成（异步任务） */
     @PostMapping("/ppt/generate")
     public AjaxResult pptGenerate(@RequestBody Map<String, Object> body)

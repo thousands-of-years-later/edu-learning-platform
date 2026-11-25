@@ -36,6 +36,19 @@ def sign_url(url_or_key: str, expires: int = 3600) -> str:
     return _bucket().sign_url("GET", url_or_key.lstrip("/"), expires, slash_safe=True)
 
 
+def read_text(key: str) -> str:
+    """读取小文本对象（字幕等），用于回填元信息。"""
+    return _bucket().get_object(key).read().decode("utf-8", "ignore")
+
+
+def exists(key: str) -> bool:
+    """判断对象是否已存在，用于字幕等产物缓存。"""
+    try:
+        return bool(_bucket().object_exists(key))
+    except Exception:
+        return False
+
+
 def upload_file(local_path: str, key: str) -> str:
     _bucket().put_object_from_file(key, local_path)
     # bucket 为公共读：直接返回可长期访问的直连地址。

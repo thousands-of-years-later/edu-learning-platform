@@ -12,11 +12,14 @@ from . import config, db, llm
 
 SYSTEM = """你是学习平台的社区问答助手。只能根据提供的社区帖子回答，不要使用帖子之外的知识。
 要求：
-1. 回答末尾用 [来源: 帖子《标题》#postId] 标注引用；
+1. 回答正文不要标注来源（客户端会用引用卡片单独展示来源），不要写 [来源: ...]、“来源：”之类；
 2. 可以综合多个帖子，但不要编造帖子没有的内容；
 3. 如果帖子内容不足以回答，明确说“社区帖子中没有找到相关内容”；
 4. 用简洁的中文回答。
 """
+
+# 兜底：模型仍可能按习惯输出来源标注，返回前统一剥掉，来源只由 refs 卡片展示
+_SOURCE_TAG = re.compile(r"[\[【]\s*来源\s*[:：][^\]】]*[\]】]")
 
 
 def _load() -> Dict[str, Any]:
@@ -180,4 +183,11 @@ async def ask(question: str, history: Optional[List[Dict[str, str]]] = None) -> 
             "retrieved": 0,
         }
     answer = await llm.chat(_messages(question, chunks, history), temperature=0.2, max_tokens=1000)
-    return {"answer": answer.strip(), "refs": _refs_of(chunks), "retrieved": len(chunks)}
+    return {"answer": _strip_source_tags(answer), "refs": _refs_of(chunks), "retrieved": len(chunks)}
+
+
+def _strip_source_tags(answer: str) -> str:
+    """去掉正文里的 [来源: 帖子…] / 【来源：…】 标注，来源统一由 refs 卡片展示。"""
+    text = _SOURCE_TAG.sub("", answer or "")
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()

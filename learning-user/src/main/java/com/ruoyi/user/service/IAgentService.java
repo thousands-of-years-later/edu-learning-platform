@@ -20,6 +20,11 @@ public interface IAgentService
     AgentMessage addMessage(Long userId, Long sessionId, String role, String content,
                             String contentType, String refsJson, int tokens);
 
+    /** 带任务/结果快照的消息：taskId 给 PPT、视频用，resultJson 给 SQL 表格用 */
+    AgentMessage addMessage(Long userId, Long sessionId, String role, String content,
+                            String contentType, String refsJson, int tokens,
+                            Long taskId, String resultJson);
+
     List<AgentMessage> listMessages(Long userId, Long sessionId);
 
     /** 游标分页取消息，返回升序；beforeMessageId 为空表示取最新一页 */
@@ -34,6 +39,9 @@ public interface IAgentService
     AgentTask createTask(Long userId, Long sessionId, String taskType, String inputJson, String idempotencyKey);
 
     AgentTask requireTask(Long userId, Long taskId);
+
+    /** 历史消息联查任务：按 taskId 批量取，返回属于该用户的 */
+    List<AgentTask> listTasksByIds(Long userId, List<Long> taskIds);
 
     void markRunning(Long taskId);
 

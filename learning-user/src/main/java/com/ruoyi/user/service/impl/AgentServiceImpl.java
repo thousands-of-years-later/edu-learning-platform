@@ -87,6 +87,15 @@ public class AgentServiceImpl implements IAgentService
     public AgentMessage addMessage(Long userId, Long sessionId, String role, String content,
                                    String contentType, String refsJson, int tokens)
     {
+        return addMessage(userId, sessionId, role, content, contentType, refsJson, tokens, null, null);
+    }
+
+    @Override
+    @Transactional
+    public AgentMessage addMessage(Long userId, Long sessionId, String role, String content,
+                                   String contentType, String refsJson, int tokens,
+                                   Long taskId, String resultJson)
+    {
         requireSession(userId, sessionId);
         AgentMessage message = new AgentMessage();
         message.setSessionId(sessionId);
@@ -95,6 +104,8 @@ public class AgentServiceImpl implements IAgentService
         message.setContent(content);
         message.setContentType(StringUtils.isEmpty(contentType) ? "text" : contentType);
         message.setRefsJson(refsJson);
+        message.setTaskId(taskId);
+        message.setResultJson(resultJson);
         message.setTokens(Math.max(tokens, 0));
         messageMapper.insertMessage(message);
 
@@ -188,6 +199,16 @@ public class AgentServiceImpl implements IAgentService
             throw new ServiceException("任务不存在或无权访问");
         }
         return task;
+    }
+
+    @Override
+    public List<AgentTask> listTasksByIds(Long userId, List<Long> taskIds)
+    {
+        if (taskIds == null || taskIds.isEmpty())
+        {
+            return List.of();
+        }
+        return taskMapper.selectTasksByIds(userId, taskIds);
     }
 
     @Override

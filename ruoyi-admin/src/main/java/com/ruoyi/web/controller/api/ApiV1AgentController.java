@@ -135,11 +135,95 @@ public class ApiV1AgentController extends BaseController
         return AjaxResult.success();
     }
 
-    /** SQL 问答：{question} -> {answer, sql, rows, rowCount, error} */
+    /**
+     * SQL 问答：{question, sessionId?} -> {answer, sql, rows, rowCount, error, sessionId, messageId}
+     *
+     * 结果落一条 content_type=table 的 assistant 消息，result_json 存前 20 行，
+     * 这样从历史打开会话能还原表格卡片。
+     */
     @PostMapping("/sql/ask")
     public AjaxResult sqlAsk(@RequestBody Map<String, Object> body)
     {
-        return proxy("/internal/sql/ask", body);
+        String question = body == null ? null : Convert.toStr(body.get("question"));
+        if (StringUtils.isEmpty(question))
+        {
+            return AjaxResult.error("问题不能为空");
+        }
+        Long userId = ApiContext.getUserId();
+        Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
+        AgentSession session;
+        try
+        {
+            session = sessionId == null
+                    ? agentService.createSession(userId, question)
+                    : agentService.requireSession(userId, sessionId);
+        }
+        catch (ServiceException e)
+        {
+            return AjaxResult.error(e.getMessage());
+        }
+        agentService.addMessage(userId, session.getSessionId(), "user", question, "text", null, 0);
+
+        try
+        {
+            Map<String, Object> result = agentClient.post("/internal/sql/ask", body);
+            String answer = result == null ? "" : Convert.toStr(result.get("answer"));
+            AgentMessage assistant = agentService.addMessage(userId, session.getSessionId(),
+                    "assistant", answer, "table", null, 0, null, tableSnapshot(result));
+
+            AjaxResult ajax = AjaxResult.success();
+            ajax.put("sessionId", session.getSessionId());
+            ajax.put("messageId", assistant.getMessageId());
+            if (result != null)
+            {
+                ajax.putAll(result);
+            }
+            return ajax;
+        }
+        catch (RestClientResponseException e)
+        {
+            log.warn("SQL 问答返回错误: status={}", e.getStatusCode());
+            return AjaxResult.error("智能体服务调用失败（" + e.getStatusCode().value() + "）");
+        }
+        catch (Exception e)
+        {
+            log.error("SQL 问答调用失败", e);
+            return AjaxResult.error("智能体服务暂不可用");
+        }
+    }
+
+    /** 表格快照：只留前 20 行，避免一条消息把库撑大 */
+    private String tableSnapshot(Map<String, Object> result)
+    {
+        if (result == null)
+        {
+            return null;
+        }
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("sql", result.get("sql"));
+        snapshot.put("rows", trimRows(result.get("rows"), 20));
+        snapshot.put("rowCount", result.get("rowCount"));
+        snapshot.put("error", result.get("error"));
+        try
+        {
+            return objectMapper.writeValueAsString(snapshot);
+        }
+        catch (Exception e)
+        {
+            log.warn("表格快照序列化失败", e);
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Object> trimRows(Object rows, int limit)
+    {
+        if (!(rows instanceof List))
+        {
+            return List.of();
+        }
+        List<Object> list = (List<Object>) rows;
+        return list.size() > limit ? new ArrayList<>(list.subList(0, limit)) : list;
     }
 
     /**
@@ -201,6 +285,32 @@ public class ApiV1AgentController extends BaseController
     {
         List<AgentMessage> messages = agentService.listMessagesPage(
                 ApiContext.getUserId(), sessionId, beforeMessageId, pageSize);
+
+        // 历史结果卡：带 taskId 的消息批量联查任务，一次补全状态与输出，避免 N+1
+        List<Long> taskIds = new ArrayList<>();
+        for (AgentMessage message : messages)
+        {
+            if (message.getTaskId() != null && !taskIds.contains(message.getTaskId()))
+            {
+                taskIds.add(message.getTaskId());
+            }
+        }
+        if (!taskIds.isEmpty())
+        {
+            Map<Long, AgentTask> tasks = new LinkedHashMap<>();
+            for (AgentTask task : agentService.listTasksByIds(ApiContext.getUserId(), taskIds))
+            {
+                tasks.put(task.getTaskId(), task);
+            }
+            for (AgentMessage message : messages)
+            {
+                if (message.getTaskId() != null)
+                {
+                    message.setTask(tasks.get(message.getTaskId()));
+                }
+            }
+        }
+
         AjaxResult ajax = AjaxResult.success();
         ajax.put("rows", messages);
         return ajax;
@@ -607,12 +717,31 @@ public class ApiV1AgentController extends BaseController
         }
 
         Long userId = ApiContext.getUserId();
-        AgentTask task = agentService.createTask(userId, null, "video_summary", inputJson, null);
+        Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
+        AgentSession session;
+        try
+        {
+            session = sessionId == null
+                    ? agentService.createSession(userId, "视频总结")
+                    : agentService.requireSession(userId, sessionId);
+        }
+        catch (ServiceException e)
+        {
+            return AjaxResult.error(e.getMessage());
+        }
+        agentService.addMessage(userId, session.getSessionId(), "user",
+                "总结视频（videoId=" + videoId + "）", "text", null, 0);
+
+        AgentTask task = agentService.createTask(userId, session.getSessionId(), "video_summary", inputJson, null);
+        AgentMessage taskMessage = agentService.addMessage(userId, session.getSessionId(), "assistant",
+                "已提交视频总结任务，完成后可在此查看", "task", null, 0, task.getTaskId(), null);
         CompletableFuture.runAsync(() -> runVideoTask(userId, task.getTaskId(), videoId));
 
         AjaxResult ajax = AjaxResult.success();
         ajax.put("taskId", task.getTaskId());
         ajax.put("status", "PENDING");
+        ajax.put("sessionId", session.getSessionId());
+        ajax.put("messageId", taskMessage.getMessageId());
         return ajax;
     }
 
@@ -655,12 +784,32 @@ public class ApiV1AgentController extends BaseController
         }
 
         Long userId = ApiContext.getUserId();
-        AgentTask task = agentService.createTask(userId, null, "ppt", inputJson, null);
+        Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
+        AgentSession session;
+        try
+        {
+            session = sessionId == null
+                    ? agentService.createSession(userId, "生成 PPT：" + topic)
+                    : agentService.requireSession(userId, sessionId);
+        }
+        catch (ServiceException e)
+        {
+            return AjaxResult.error(e.getMessage());
+        }
+        agentService.addMessage(userId, session.getSessionId(), "user",
+                "生成 PPT：" + topic, "text", null, 0);
+
+        AgentTask task = agentService.createTask(userId, session.getSessionId(), "ppt", inputJson, null);
+        AgentMessage taskMessage = agentService.addMessage(userId, session.getSessionId(), "assistant",
+                "已提交 PPT 生成：《" + topic + "》，共 " + pageCount + " 页，完成后可在此查看",
+                "task", null, 0, task.getTaskId(), null);
         CompletableFuture.runAsync(() -> runPptTask(userId, task.getTaskId(), topic, pageCount));
 
         AjaxResult ajax = AjaxResult.success();
         ajax.put("taskId", task.getTaskId());
         ajax.put("status", "PENDING");
+        ajax.put("sessionId", session.getSessionId());
+        ajax.put("messageId", taskMessage.getMessageId());
         return ajax;
     }
 

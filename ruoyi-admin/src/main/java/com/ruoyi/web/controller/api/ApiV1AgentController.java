@@ -155,7 +155,7 @@ public class ApiV1AgentController extends BaseController
         try
         {
             session = sessionId == null
-                    ? agentService.createSession(userId, question)
+                    ? agentService.createSession(userId, question, "sql")
                     : agentService.requireSession(userId, sessionId);
         }
         catch (ServiceException e)
@@ -367,7 +367,7 @@ public class ApiV1AgentController extends BaseController
         AgentSession session;
         if (sessionId == null)
         {
-            session = agentService.createSession(ApiContext.getUserId(), displayContent);
+            session = agentService.createSession(ApiContext.getUserId(), displayContent, "course");
         }
         else
         {
@@ -465,7 +465,7 @@ public class ApiV1AgentController extends BaseController
         Long courseId = body == null ? null : Convert.toLong(body.get("courseId"));
 
         AgentSession session = sessionId == null
-                ? agentService.createSession(userId, displayContent)
+                ? agentService.createSession(userId, displayContent, "course")
                 : agentService.requireSession(userId, sessionId);
 
         List<Map<String, String>> history = buildHistory(
@@ -722,7 +722,7 @@ public class ApiV1AgentController extends BaseController
         try
         {
             session = sessionId == null
-                    ? agentService.createSession(userId, "视频总结")
+                    ? agentService.createSession(userId, "视频总结", "video")
                     : agentService.requireSession(userId, sessionId);
         }
         catch (ServiceException e)
@@ -730,7 +730,7 @@ public class ApiV1AgentController extends BaseController
             return AjaxResult.error(e.getMessage());
         }
         agentService.addMessage(userId, session.getSessionId(), "user",
-                "总结视频（videoId=" + videoId + "）", "text", null, 0);
+                "总结视频", "text", null, 0);
 
         AgentTask task = agentService.createTask(userId, session.getSessionId(), "video_summary", inputJson, null);
         AgentMessage taskMessage = agentService.addMessage(userId, session.getSessionId(), "assistant",
@@ -787,7 +787,7 @@ public class ApiV1AgentController extends BaseController
         try
         {
             session = sessionId == null
-                    ? agentService.createSession(userId, "视频字幕")
+                    ? agentService.createSession(userId, "视频字幕", "video")
                     : agentService.requireSession(userId, sessionId);
         }
         catch (ServiceException e)
@@ -795,7 +795,7 @@ public class ApiV1AgentController extends BaseController
             return AjaxResult.error(e.getMessage());
         }
         agentService.addMessage(userId, session.getSessionId(), "user",
-                "生成视频字幕（videoId=" + videoId + "）", "text", null, 0);
+                "生成视频字幕", "text", null, 0);
 
         AgentTask task = agentService.createTask(userId, session.getSessionId(), "video_subtitle", inputJson, null);
         AgentMessage taskMessage = agentService.addMessage(userId, session.getSessionId(), "assistant",
@@ -838,6 +838,17 @@ public class ApiV1AgentController extends BaseController
         {
             return AjaxResult.error("PPT 主题不能为空");
         }
+        if (topic.length() > 100)
+        {
+            return AjaxResult.error("PPT 主题最长 100 字（当前 " + topic.length()
+                    + " 字）；正文素材请放到 content 字段，topic 只做标题");
+        }
+        String content = body == null ? null : Convert.toStr(body.get("content"));
+        if (content != null && content.length() > 8000)
+        {
+            return AjaxResult.error("PPT 素材最长 8000 字（当前 " + content.length() + " 字），请精简后再提交");
+        }
+        Long videoId = body == null ? null : Convert.toLong(body.get("videoId"));
         Integer pages = body == null ? null : Convert.toInt(body.get("pages"));
         int pageCount = pages == null || pages < 1 ? 6 : Math.min(pages, 20);
 
@@ -857,21 +868,20 @@ public class ApiV1AgentController extends BaseController
         try
         {
             session = sessionId == null
-                    ? agentService.createSession(userId, "生成 PPT：" + topic)
+                    ? agentService.createSession(userId, topic, "ppt")
                     : agentService.requireSession(userId, sessionId);
         }
         catch (ServiceException e)
         {
             return AjaxResult.error(e.getMessage());
         }
-        agentService.addMessage(userId, session.getSessionId(), "user",
-                "生成 PPT：" + topic, "text", null, 0);
+        agentService.addMessage(userId, session.getSessionId(), "user", topic, "text", null, 0);
 
         AgentTask task = agentService.createTask(userId, session.getSessionId(), "ppt", inputJson, null);
         AgentMessage taskMessage = agentService.addMessage(userId, session.getSessionId(), "assistant",
                 "已提交 PPT 生成：《" + topic + "》，共 " + pageCount + " 页，完成后可在此查看",
                 "task", null, 0, task.getTaskId(), null);
-        CompletableFuture.runAsync(() -> runPptTask(userId, task.getTaskId(), topic, pageCount));
+        CompletableFuture.runAsync(() -> runPptTask(userId, task.getTaskId(), topic, pageCount, content, videoId));
 
         AjaxResult ajax = AjaxResult.success();
         ajax.put("taskId", task.getTaskId());
@@ -881,7 +891,7 @@ public class ApiV1AgentController extends BaseController
         return ajax;
     }
 
-    private void runPptTask(Long userId, Long taskId, String topic, int pages)
+    private void runPptTask(Long userId, Long taskId, String topic, int pages, String content, Long videoId)
     {
         agentService.markRunning(taskId);
         try
@@ -891,6 +901,14 @@ public class ApiV1AgentController extends BaseController
             payload.put("pages", pages);
             payload.put("userId", userId);
             payload.put("taskId", String.valueOf(taskId));
+            if (StringUtils.isNotEmpty(content))
+            {
+                payload.put("content", content);
+            }
+            if (videoId != null)
+            {
+                payload.put("videoId", videoId);
+            }
             Map<String, Object> result = agentClient.post("/internal/ppt/generate", payload);
             agentService.markSuccess(taskId, objectMapper.writeValueAsString(result));
         }
@@ -1071,6 +1089,10 @@ public class ApiV1AgentController extends BaseController
             if (status == 400)
             {
                 return "请求参数不合法";
+            }
+            if (status == 422)
+            {
+                return "请求参数不合法（字段过长或格式错误），请检查后重试";
             }
             return "智能体服务处理失败（" + status + "），请稍后重试";
         }

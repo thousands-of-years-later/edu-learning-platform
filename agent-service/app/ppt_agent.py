@@ -29,15 +29,25 @@ JSON 结构：
 """
 
 
-async def generate(topic: str, pages: int = 6, user_id: int = 0, task_id: str | None = None) -> Dict[str, Any]:
+async def generate(topic: str, pages: int = 6, user_id: int = 0, task_id: str | None = None,
+                   content: str | None = None, video_id: int | None = None) -> Dict[str, Any]:
+    """topic 只做标题；正文素材走 content（如视频总结、字幕、课程笔记），避免把长文塞进 topic。"""
     topic = (topic or "").strip()
     if not topic:
         raise ValueError("PPT 主题不能为空")
+    source = (content or "").strip()
+    if len(source) > 4000:
+        # 控制上下文长度：超长素材只取前 4000 字，由前端提示用户精简
+        source = source[:4000]
+
+    user_content = f"主题：{topic}\n页数参考：{pages}"
+    if source:
+        user_content += f"\n\n以下是可用素材，请据此提炼大纲，不要照抄长句：\n{source}"
 
     outline_text = await llm.chat(
         [
             {"role": "system", "content": OUTLINE_SYSTEM},
-            {"role": "user", "content": f"主题：{topic}\n页数参考：{pages}"},
+            {"role": "user", "content": user_content},
         ],
         temperature=0.4,
         max_tokens=1200,
@@ -55,9 +65,24 @@ async def generate(topic: str, pages: int = 6, user_id: int = 0, task_id: str | 
     return {
         "url": url,
         "fileName": f"{outline['title']}.pptx",
-        "slides": slide_count,
+        "pageCount": slide_count,
+        "slides": _slide_list(outline),
         "outline": outline,
+        "videoId": video_id,
     }
+
+
+def _slide_list(outline: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """结构化页列表，与实际渲染的 6 页一一对应，客户端可直接渲染缩略列表。"""
+    sections = outline["sections"]
+    return [
+        {"page": 1, "type": "cover", "title": outline["title"], "bullets": [outline["subtitle"]]},
+        {"page": 2, "type": "contents", "title": "目录", "bullets": [item["title"] for item in sections]},
+        {"page": 3, "type": "section", "title": sections[0]["title"], "bullets": [sections[0]["summary"]]},
+        {"page": 4, "type": "highlights", "title": "核心亮点", "bullets": list(outline["highlights"])},
+        {"page": 5, "type": "keyPoints", "title": "关键要点", "bullets": list(outline["keyPoints"])},
+        {"page": 6, "type": "closing", "title": outline["closing"], "bullets": []},
+    ]
 
 
 def _normalize(raw: Dict[str, Any], topic: str) -> Dict[str, Any]:

@@ -245,6 +245,13 @@ public class AgentServiceImpl implements IAgentService
         {
             throw new ServiceException("记忆内容不能为空");
         }
+        // 幂等：同一用户下内容完全相同的记忆只保留一条，前端重复点“记住”不会叠加
+        String normalized = cut(content, MEMORY_MAX);
+        AgentMemory existing = memoryMapper.selectByContent(userId, normalized);
+        if (existing != null)
+        {
+            return existing;
+        }
         if (memoryMapper.selectMemories(userId).size() >= MEMORY_LIMIT)
         {
             throw new ServiceException("记忆条数已达上限（" + MEMORY_LIMIT + "），请先删除部分记忆");

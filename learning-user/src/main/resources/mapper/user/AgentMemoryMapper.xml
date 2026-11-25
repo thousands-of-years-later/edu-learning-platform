@@ -26,6 +26,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 order by memory_id desc
 	</select>
 
+	<select id="selectByContent" resultMap="AgentMemoryResult">
+		select memory_id, user_id, content, source, status, create_time, update_time
+		  from learning_agent_memory
+		 where user_id = #{userId} and content = #{content} and status = '0'
+		 limit 1
+	</select>
+
 	<!-- 更新内容；只允许改自己的、生效中的记录 -->
 	<update id="updateMemory">
 		update learning_agent_memory

@@ -1,5 +1,6 @@
 """课程 RAG：课程简介 + 章节/小节标题入库，DashScope 向量检索。"""
 import datetime
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -13,7 +14,7 @@ from . import config, db, llm
 SYSTEM = """你是学习平台的课程答疑助手。只能根据提供的课程资料回答，不要使用资料之外的知识。
 要求：
 1. 结合对话历史理解“它/这门课/上面说的”等指代；
-2. 回答末尾用 [来源: 课程名-章节名] 标注出处；
+2. 回答正文不要标注来源（客户端会用引用卡片单独展示来源），不要写 [来源: …]、[来源：…]、“来源：”之类；
 3. 资料里没有的内容，明确说“课程资料中没有相关内容”，不要编造；
 4. 用简洁的中文回答，适合学生阅读；
 5. 用户附带图片时，先如实描述图片中可见的内容（文字、报错、图表），再结合课程资料解答；看不清就说明看不清，不要猜测。
@@ -66,7 +67,12 @@ def _split_memory_candidates(answer: str) -> tuple[str, List[Dict[str, str]]]:
         if not key or key in seen or len(candidates) >= 3:
             return ""
         seen.add(key)
-        candidates.append({"content": content[:100], "reason": "模型从本轮对话中识别"})
+        candidates.append({
+            "content": content[:100],
+            "reason": "模型从本轮对话中识别",
+            # 稳定 id：前端“记住”后可按 candidateId 去重/关联，重复点击不会再加一条
+            "candidateId": hashlib.sha1(content.encode("utf-8")).hexdigest()[:12],
+        })
         return ""
 
     clean = _MEMORY_RE.sub(repl, answer)
@@ -235,6 +241,16 @@ async def search(question: str, course_id: Optional[int] = None, top_k: int = 5)
     return scored[:top_k]
 
 
+_SOURCE_TAG = re.compile(r"[\[【]\s*来源\s*[:：][^\]】]*[\]】]")
+
+
+def _strip_source_tags(answer: str) -> str:
+    """去掉正文里残留的 [来源: 课程-章节] 标注，来源统一由 refs 卡片展示。"""
+    clean = _SOURCE_TAG.sub("", answer or "")
+    clean = re.sub(r"\n{3,}", "\n\n", clean)
+    return clean.strip()
+
+
 async def ask(course_id: Optional[int], question: str,
               history: Optional[List[Dict[str, str]]] = None,
               images: Optional[List[str]] = None,
@@ -259,7 +275,7 @@ async def ask(course_id: Optional[int], question: str,
     messages = _build_messages(question, chunks, history, images, memories, allow_memory_candidates=True)
     answer = await llm.chat(messages, temperature=0.2, max_tokens=1000)
     clean, candidates = _split_memory_candidates(answer)
-    result: Dict[str, Any] = {"answer": clean, "refs": _refs_of(chunks), "retrieved": len(chunks)}
+    result: Dict[str, Any] = {"answer": _strip_source_tags(clean), "refs": _refs_of(chunks), "retrieved": len(chunks)}
     if candidates:
         result["memoryCandidates"] = candidates
     return result

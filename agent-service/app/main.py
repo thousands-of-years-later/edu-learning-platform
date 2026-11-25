@@ -46,10 +46,13 @@ class VideoSubtitleRequest(BaseModel):
 
 
 class PptGenerateRequest(BaseModel):
-    topic: str = Field(min_length=1, max_length=200)
+    # topic 只做标题，最长 100 字；正文素材走 content，避免长文塞进 topic 触发 422
+    topic: str = Field(min_length=1, max_length=100)
+    content: Optional[str] = Field(default=None, max_length=8000)
     pages: int = 6
     userId: int = 0
     taskId: Optional[str] = None
+    videoId: Optional[int] = None
 
 
 class CommunityAskRequest(BaseModel):
@@ -141,7 +144,8 @@ async def video_subtitle(body: VideoSubtitleRequest):
 @app.post("/internal/ppt/generate", dependencies=[Depends(verify_token)])
 async def ppt_generate(body: PptGenerateRequest):
     try:
-        return await ppt_agent.generate(body.topic, body.pages, body.userId, body.taskId)
+        return await ppt_agent.generate(body.topic, body.pages, body.userId, body.taskId,
+                                       body.content, body.videoId)
     except Exception as exc:
         logger.exception("ppt generate failed")
         raise HTTPException(status_code=500, detail=str(exc))

@@ -45,6 +45,10 @@ class VideoSubtitleRequest(BaseModel):
     force: bool = False
 
 
+class VideoMetaRequest(BaseModel):
+    videoId: int
+
+
 class PptGenerateRequest(BaseModel):
     # topic 只做标题，最长 100 字；正文素材走 content，避免长文塞进 topic 触发 422
     topic: str = Field(min_length=1, max_length=100)
@@ -127,6 +131,17 @@ async def video_summary(body: VideoSummaryRequest):
         return await video_agent.summary(body.videoId)
     except Exception as exc:
         logger.exception("video summary failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/internal/video/meta", dependencies=[Depends(verify_token)])
+async def video_meta(body: VideoMetaRequest):
+    try:
+        return video_agent.meta(body.videoId)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception("video meta failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 

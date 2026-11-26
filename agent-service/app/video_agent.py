@@ -65,6 +65,16 @@ def _asr_url(row: Any) -> str:
     return quote(video_url, safe=":/?&=%#")
 
 
+def meta(video_id: int) -> Dict[str, Any]:
+    """视频元信息：给 Java 侧生成会话标题用（小节名），不触发 ASR。"""
+    row = _load_video(video_id)
+    return {
+        **_base(row),
+        "courseName": row["course_name"],
+        "chapterTitle": row["chapter_title"],
+    }
+
+
 async def summary(video_id: int) -> Dict[str, Any]:
     row = _load_video(video_id)
     base = _base(row)

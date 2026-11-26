@@ -718,11 +718,12 @@ public class ApiV1AgentController extends BaseController
 
         Long userId = ApiContext.getUserId();
         Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
+        String sessionTitle = videoSessionTitle("视频总结", videoId);
         AgentSession session;
         try
         {
             session = sessionId == null
-                    ? agentService.createSession(userId, "视频总结", "video")
+                    ? agentService.createSession(userId, sessionTitle, "video")
                     : agentService.requireSession(userId, sessionId);
         }
         catch (ServiceException e)
@@ -731,6 +732,11 @@ public class ApiV1AgentController extends BaseController
         }
         agentService.addMessage(userId, session.getSessionId(), "user",
                 "总结视频", "text", null, 0);
+        // 首条用户消息会把标题覆盖成消息内容，这里把标题改回“视频总结：小节名”
+        if (sessionId == null)
+        {
+            renameQuietly(userId, session.getSessionId(), sessionTitle);
+        }
 
         AgentTask task = agentService.createTask(userId, session.getSessionId(), "video_summary", inputJson, null);
         AgentMessage taskMessage = agentService.addMessage(userId, session.getSessionId(), "assistant",
@@ -783,11 +789,12 @@ public class ApiV1AgentController extends BaseController
 
         Long userId = ApiContext.getUserId();
         Long sessionId = body == null ? null : Convert.toLong(body.get("sessionId"));
+        String sessionTitle = videoSessionTitle("视频字幕", videoId);
         AgentSession session;
         try
         {
             session = sessionId == null
-                    ? agentService.createSession(userId, "视频字幕", "video")
+                    ? agentService.createSession(userId, sessionTitle, "video")
                     : agentService.requireSession(userId, sessionId);
         }
         catch (ServiceException e)
@@ -796,6 +803,11 @@ public class ApiV1AgentController extends BaseController
         }
         agentService.addMessage(userId, session.getSessionId(), "user",
                 "生成视频字幕", "text", null, 0);
+        // 首条用户消息会把标题覆盖成消息内容，这里把标题改回“视频字幕：小节名”
+        if (sessionId == null)
+        {
+            renameQuietly(userId, session.getSessionId(), sessionTitle);
+        }
 
         AgentTask task = agentService.createTask(userId, session.getSessionId(), "video_subtitle", inputJson, null);
         AgentMessage taskMessage = agentService.addMessage(userId, session.getSessionId(), "assistant",
@@ -916,6 +928,46 @@ public class ApiV1AgentController extends BaseController
         {
             log.error("PPT 生成任务失败: taskId={}", taskId, e);
             agentService.markFailed(taskId, friendlyError(e));
+        }
+    }
+
+    /**
+     * 视频会话标题：优先取小节名，形如「视频总结：01-环境搭建与第一个程序」。
+     * 取不到元信息时降级为「视频总结」，不影响任务提交。
+     */
+    private String videoSessionTitle(String prefix, Long videoId)
+    {
+        if (videoId == null)
+        {
+            return prefix;
+        }
+        try
+        {
+            Map<String, Object> meta = agentClient.post("/internal/video/meta",
+                    Map.of("videoId", videoId));
+            String title = meta == null ? null : Convert.toStr(meta.get("videoTitle"));
+            if (StringUtils.isNotEmpty(title))
+            {
+                return prefix + "：" + title;
+            }
+        }
+        catch (Exception e)
+        {
+            log.warn("获取视频元信息失败 videoId={}: {}", videoId, e.getMessage());
+        }
+        return prefix;
+    }
+
+    /** 改标题失败不影响任务本身（标题只是展示属性） */
+    private void renameQuietly(Long userId, Long sessionId, String title)
+    {
+        try
+        {
+            agentService.renameSession(userId, sessionId, title);
+        }
+        catch (Exception e)
+        {
+            log.warn("会话标题更新失败 sessionId={}: {}", sessionId, e.getMessage());
         }
     }
 

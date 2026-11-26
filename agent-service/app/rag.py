@@ -223,7 +223,17 @@ def _cosine(a: List[float], b: List[float]) -> float:
     return float(np.dot(va, vb) / denom) if denom else 0.0
 
 
-async def search(question: str, course_id: Optional[int] = None, top_k: int = 5) -> List[Dict[str, Any]]:
+# 课程引用相关度阈值（DashScope text-embedding-v3 实测）：
+#   强相关 0.56–0.78（命中课程章节）
+#   无关   0.43–0.50（问「循环结构」时 MySQL/Redis 章节也在这个区间）
+# 低于 MIN_SCORE 不进上下文、也不做来源卡片；与最高分差超 RELATIVE_MARGIN 的丢弃。
+MIN_SCORE = 0.52
+RELATIVE_MARGIN = 0.10
+MAX_REFS = 3
+
+
+async def search(question: str, course_id: Optional[int] = None, top_k: int = 5,
+                 min_score: float = MIN_SCORE) -> List[Dict[str, Any]]:
     index = _load()
     chunks = index.get("chunks") or []
     if not chunks:
@@ -238,7 +248,11 @@ async def search(question: str, course_id: Optional[int] = None, top_k: int = 5)
         scored.append({**chunk, "score": _cosine(query_vector, chunk["vector"])})
 
     scored.sort(key=lambda item: item["score"], reverse=True)
-    return scored[:top_k]
+    if not scored:
+        return []
+    best = scored[0]["score"]
+    cutoff = max(min_score, best - RELATIVE_MARGIN)
+    return [chunk for chunk in scored[:top_k] if chunk["score"] >= cutoff]
 
 
 _SOURCE_TAG = re.compile(r"[\[【]\s*来源\s*[:：][^\]】]*[\]】]")
@@ -267,7 +281,7 @@ async def ask(course_id: Optional[int], question: str,
         # 用户可能在表达个人信息（“记住我叫…”），这类也要走模型才能拿到候选记忆
         if not _PERSONAL_HINT.search(question):
             return {
-                "answer": "课程资料中没有相关内容。请先确认课程知识库已入库。",
+                "answer": f"课程资料中没有找到与「{question}」相关的内容。",
                 "refs": [],
                 "retrieved": 0,
             }
@@ -343,6 +357,8 @@ def _refs_of(chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         if key not in seen:
             seen.add(key)
             refs.append({"course": meta.get("course", ""), "chapter": meta.get("chapter", "")})
+            if len(refs) >= MAX_REFS:
+                break
     return refs
 
 
@@ -360,7 +376,7 @@ async def stream_answer(course_id: Optional[int], question: str,
 
     chunks = await search(question, course_id=course_id, top_k=5) if question else []
     if not chunks and not images and not memories:
-        text = "课程资料中没有相关内容。请先确认课程知识库已入库。"
+        text = f"课程资料中没有找到与「{question}」相关的内容。"
         yield {"delta": text}
         yield {"done": True, "refs": [], "retrieved": 0}
         return

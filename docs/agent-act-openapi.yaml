@@ -334,18 +334,27 @@ components:
 
     Ref:
       type: object
-      description: 来源卡片，按存在的字段渲染
+      description: |
+        来源卡片。课程来源用 course/chapter；社区来源用 postId/postTitle/category/excerpt。
+        检索侧已做相关度过滤，没有相关内容时返回空数组。
       properties:
-        courseId:
-          type: integer
-          format: int64
-        chapterTitle:
+        course:
           type: string
+          description: 课程名（课程来源）
+        chapter:
+          type: string
+          description: 章节名（课程来源）
         postId:
           type: integer
           format: int64
-        title:
+          description: 帖子 ID（社区来源）
+        postTitle:
           type: string
+        category:
+          type: string
+        excerpt:
+          type: string
+          maxLength: 80
 
     TaskStatus:
       type: string

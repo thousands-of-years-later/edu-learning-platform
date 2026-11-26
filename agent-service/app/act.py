@@ -61,8 +61,9 @@ def _dedup_refs(refs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for ref in refs:
         if not isinstance(ref, dict):
             continue
-        key = ref.get("postId") or ref.get("courseId") or ref.get("chapterTitle")
-        if key is None or key in seen:
+        key = (ref.get("postId") or ref.get("courseId") or ref.get("chapterTitle")
+               or f"{ref.get('course') or ''}|{ref.get('chapter') or ''}")
+        if key in (None, "", "|") or key in seen:
             continue
         seen.add(key)
         result.append(ref)

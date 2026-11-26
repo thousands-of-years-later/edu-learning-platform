@@ -21,6 +21,54 @@ SYSTEM = """你是学习平台的社区问答助手。只能根据提供的社�
 # 兜底：模型仍可能按习惯输出来源标注，返回前统一剥掉，来源只由 refs 卡片展示
 _SOURCE_TAG = re.compile(r"[\[【]\s*来源\s*[:：][^\]】]*[\]】]")
 
+# 引用相关度阈值（DashScope text-embedding-v3 实测分布）：
+#   强相关 0.69–0.81（如 MySQL→索引失效、Redis→缓存穿透）
+#   次相关 0.44–0.54（同分类但主题不同，如「计算机网络」→微服务演进）
+#   无关   0.39–0.48
+# 低于 MIN_SCORE 不视为来源；比最高分低超过 RELATIVE_MARGIN 的也丢掉，
+# 避免「一个主题命中后把同批 top-k 全部当来源」。
+MIN_SCORE = 0.52
+RELATIVE_MARGIN = 0.10
+MAX_REFS = 3
+
+# 模型会把「循环结构」改写成「循环结构相关的讨论、经验与踩坑」，
+# 这些泛化词会把不相关帖子也拉过分数线，所以先用关键词覆盖做一道硬门槛：
+# 去掉通用词后，query 的实词（中文 2-gram / 英文整词）必须出现在帖子标题、分类或摘要里。
+_GENERIC_WORDS = (
+    "相关", "讨论", "经验", "踩坑", "分享", "内容", "问题", "怎么", "如何", "哪些",
+    "什么", "介绍", "总结", "一下", "主要", "这门", "课程", "帖子", "社区", "学习",
+    "知识", "方面", "大家", "遇到", "请", "帮忙", "查", "找", "看看", "说说",
+    "一般", "具体", "的", "了", "我", "有", "是", "在", "和", "与", "或", "及",
+    "吗", "呢", "啊", "讲", "学",
+)
+_TOKEN_SPLIT = re.compile(r"[\s,，。、；;:：!?！？/\\()（）\[\]【】\"'“”‘’]+")
+_ENGLISH_TOKEN = re.compile(r"^[a-z0-9]+$")
+
+
+def _keywords(text: str) -> set:
+    text = (text or "").lower()
+    for word in _GENERIC_WORDS:
+        text = text.replace(word, " ")
+    grams = set()
+    for token in _TOKEN_SPLIT.split(text):
+        token = token.strip()
+        if len(token) < 2:
+            continue
+        if _ENGLISH_TOKEN.match(token):
+            grams.add(token)
+            continue
+        for i in range(len(token) - 1):
+            grams.add(token[i:i + 2])
+    return grams
+
+
+def _keyword_hit(chunk: Dict[str, Any], keywords: set) -> bool:
+    meta = chunk.get("metadata") or {}
+    haystack = " ".join(
+        str(meta.get(key) or "") for key in ("postTitle", "category", "excerpt")
+    ).lower()
+    return any(word in haystack for word in keywords)
+
 
 def _load() -> Dict[str, Any]:
     path: Path = config.COMMUNITY_INDEX_FILE
@@ -108,14 +156,26 @@ def _cosine(a: List[float], b: List[float]) -> float:
     return float(np.dot(va, vb) / denom) if denom else 0.0
 
 
-async def search(question: str, top_k: int = 5) -> List[Dict[str, Any]]:
+async def search(question: str, top_k: int = 5,
+                 min_score: float = MIN_SCORE) -> List[Dict[str, Any]]:
+    """向量召回 + 相关度过滤。
+
+    纯 top-k 在没有命中时也会硬凑 5 条（问「计算机网络」会带回 uni-app、Kafka），
+    所以这里加两道闸：绝对分下限 + 与最高分的相对差。
+    """
     chunks = _load().get("chunks") or []
     if not chunks:
         return []
     query_vector = (await llm.embed([question]))[0]
     scored = [{**chunk, "score": _cosine(query_vector, chunk["vector"])} for chunk in chunks]
     scored.sort(key=lambda item: item["score"], reverse=True)
-    return scored[:top_k]
+    best = scored[0]["score"]
+    cutoff = max(min_score, best - RELATIVE_MARGIN)
+    keywords = _keywords(question)
+    return [
+        chunk for chunk in scored[:top_k]
+        if chunk["score"] >= cutoff and (not keywords or _keyword_hit(chunk, keywords))
+    ]
 
 
 def _excerpt_of(chunk: Dict[str, Any]) -> str:
@@ -178,12 +238,16 @@ async def ask(question: str, history: Optional[List[Dict[str, str]]] = None) -> 
     chunks = await search(question, top_k=5)
     if not chunks:
         return {
-            "answer": "社区帖子中没有找到相关内容。请先确认帖子索引已重建。",
+            "answer": f"社区帖子中没有找到与「{question}」相关的内容。",
             "refs": [],
             "retrieved": 0,
         }
     answer = await llm.chat(_messages(question, chunks, history), temperature=0.2, max_tokens=1000)
-    return {"answer": _strip_source_tags(answer), "refs": _refs_of(chunks), "retrieved": len(chunks)}
+    return {
+        "answer": _strip_source_tags(answer),
+        "refs": _refs_of(chunks[:MAX_REFS]),
+        "retrieved": len(chunks),
+    }
 
 
 def _strip_source_tags(answer: str) -> str:

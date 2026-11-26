@@ -64,4 +64,32 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		 where task_id = #{taskId}
 	</update>
 
+	<update id="updateProgress">
+		update learning_agent_task
+		   set progress = #{progress}, update_time = sysdate()
+		 where task_id = #{taskId} and status = 'RUNNING'
+	</update>
+
+	<update id="markCanceled">
+		update learning_agent_task
+		   set status = 'CANCELED', finish_time = sysdate(), update_time = sysdate()
+		 where task_id = #{taskId} and status in ('PENDING', 'RUNNING')
+	</update>
+
+	<update id="markFailedWithOutput">
+		update learning_agent_task
+		   set status = 'FAILED', error_msg = left(#{errorMsg}, 500),
+		       output_json = #{outputJson},
+		       finish_time = sysdate(), update_time = sysdate()
+		 where task_id = #{taskId} and status in ('PENDING', 'RUNNING')
+	</update>
+
+	<select id="selectByIdempotencyKey" resultMap="AgentTaskResult">
+		select task_id, user_id, session_id, task_type, status, progress, input_json, output_json,
+		       error_msg, retry_count, idempotency_key, create_time, start_time, finish_time, update_time
+		  from learning_agent_task
+		 where idempotency_key = #{idempotencyKey}
+		 limit 1
+	</select>
+
 </mapper>

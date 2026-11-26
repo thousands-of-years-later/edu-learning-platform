@@ -1,0 +1,372 @@
+openapi: 3.0.3
+info:
+  title: 学习平台执行型智能体 API
+  version: "1.1"
+  description: |
+    `/agent/act` 的提交、轮询、取消契约。所有接口同时支持 `/api/v1/agent` 前缀，
+    行为与 `/agent` 完全一致；新代码建议用 `/api/v1/agent`。
+servers:
+  - url: http://192.168.100.3:1000
+    description: p01 测试服
+security:
+  - bearerAuth: []
+tags:
+  - name: act
+    description: 执行型智能体
+  - name: task
+    description: 通用任务
+
+paths:
+  /agent/act:
+    post:
+      tags: [act]
+      summary: 提交执行目标（异步）
+      operationId: submitAct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActRequest'
+      responses:
+        '200':
+          description: 已受理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActAccepted'
+        '400':
+          description: 参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agent/act/{taskId}:
+    get:
+      tags: [act]
+      summary: 轮询执行状态、步骤、答案
+      operationId: getAct
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 任务详情（RUNNING 时也能拿到已完成步骤）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '401':
+          description: 未登录或 Token 失效
+
+  /agent/tasks/{taskId}/steps:
+    get:
+      tags: [task]
+      summary: 通用任务步骤
+      operationId: getTaskSteps
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 任务步骤
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSteps'
+
+  /agent/tasks/{taskId}/cancel:
+    post:
+      tags: [task]
+      summary: 取消任务
+      operationId: cancelTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 取消结果（已结束的任务 canceled=false）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelResult'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+  schemas:
+    ActRequest:
+      type: object
+      required: [goal]
+      properties:
+        goal:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: 自然语言目标
+          example: 总结 videoId=201 这个视频，并做成 6 页 PPT
+        sessionId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 不传则新建会话，scene=act
+        maxSteps:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 8
+          description: 模型推理轮次上限（不是工具调用数），越界自动夹取
+        idempotencyKey:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: |
+            幂等键。不传时服务端按 userId + goal 生成 5 分钟时间桶键。
+            同一键重复提交直接返回已有任务。
+
+    ActAccepted:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            taskId:
+              type: integer
+              format: int64
+            status:
+              $ref: '#/components/schemas/TaskStatus'
+            sessionId:
+              type: integer
+              format: int64
+            idempotent:
+              type: boolean
+              description: true 表示命中幂等键，返回的是已有任务
+
+    ActDetail:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            task:
+              $ref: '#/components/schemas/Task'
+            steps:
+              type: array
+              items:
+                $ref: '#/components/schemas/Step'
+            answer:
+              type: string
+              nullable: true
+            refs:
+              type: array
+              description: 来源卡片
+              items:
+                $ref: '#/components/schemas/Ref'
+            currentStep:
+              type: string
+              example: 正在检索课程资料
+            progress:
+              type: integer
+              minimum: 0
+              maximum: 100
+            rounds:
+              type: integer
+              description: 模型推理轮次
+            maxSteps:
+              type: integer
+            toolCallCount:
+              type: integer
+            truncated:
+              type: boolean
+              description: true 表示因步数/超时/失败提前结束，答案可能不完整
+            stepCount:
+              type: integer
+
+    TaskSteps:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            taskId:
+              type: integer
+              format: int64
+            status:
+              $ref: '#/components/schemas/TaskStatus'
+            progress:
+              type: integer
+              minimum: 0
+              maximum: 100
+            currentStep:
+              type: string
+            steps:
+              type: array
+              items:
+                $ref: '#/components/schemas/Step'
+
+    CancelResult:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            taskId:
+              type: integer
+              format: int64
+            status:
+              $ref: '#/components/schemas/TaskStatus'
+            canceled:
+              type: boolean
+            message:
+              type: string
+
+    Task:
+      type: object
+      properties:
+        taskId:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        sessionId:
+          type: integer
+          format: int64
+        taskType:
+          type: string
+          enum: [act, chat, course, video, community, sql, ppt]
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        inputJson:
+          type: string
+          description: JSON 字符串，需二次 JSON.parse
+        outputJson:
+          type: string
+          nullable: true
+          description: JSON 字符串，结构见 ActOutput
+        errorMsg:
+          type: string
+          nullable: true
+        idempotencyKey:
+          type: string
+          nullable: true
+        createTime:
+          type: string
+          format: date-time
+        startTime:
+          type: string
+          format: date-time
+          nullable: true
+        finishTime:
+          type: string
+          format: date-time
+          nullable: true
+
+    ActOutput:
+      type: object
+      properties:
+        answer:
+          type: string
+        refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ref'
+        rounds:
+          type: integer
+        maxSteps:
+          type: integer
+        toolCallCount:
+          type: integer
+        truncated:
+          type: boolean
+        stepCount:
+          type: integer
+        status:
+          type: string
+          enum: [SUCCESS, FAILED]
+
+    Step:
+      type: object
+      properties:
+        stepId:
+          type: integer
+          format: int64
+        taskId:
+          type: integer
+          format: int64
+        seq:
+          type: integer
+        stepType:
+          type: string
+          enum: [thought, tool, observation]
+        toolName:
+          type: string
+          nullable: true
+        argsJson:
+          type: string
+          nullable: true
+        observationJson:
+          type: string
+          nullable: true
+        status:
+          type: string
+          nullable: true
+          enum: [ok, error, null]
+        errorCode:
+          type: string
+          nullable: true
+        elapsedMs:
+          type: integer
+          nullable: true
+        createTime:
+          type: string
+          format: date-time
+
+    Ref:
+      type: object
+      description: 来源卡片，按存在的字段渲染
+      properties:
+        courseId:
+          type: integer
+          format: int64
+        chapterTitle:
+          type: string
+        postId:
+          type: integer
+          format: int64
+        title:
+          type: string
+
+    TaskStatus:
+      type: string
+      enum: [PENDING, RUNNING, SUCCESS, FAILED, CANCELED]
+
+    Envelope:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        msg:
+          type: string
+          example: 操作成功
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 400
+        msg:
+          type: string
+          example: 目标最长 500 字（当前 501 字）

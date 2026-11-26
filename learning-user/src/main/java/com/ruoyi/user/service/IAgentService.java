@@ -49,6 +49,18 @@ public interface IAgentService
 
     void markFailed(Long taskId, String errorMsg);
 
+    /** 运行中更新进度（0-100，只改 RUNNING 的任务） */
+    void updateProgress(Long taskId, Integer progress);
+
+    /** 用户取消：PENDING/RUNNING → CANCELED */
+    void markCanceled(Long taskId);
+
+    /** 按幂等键查任务（不校验用户，调用方自行比对 userId） */
+    AgentTask findByIdempotencyKey(String idempotencyKey);
+
+    /** 失败时保留部分结果：errorMsg + outputJson（truncated/rounds/refs 等） */
+    void markFailedWithOutput(Long taskId, String errorMsg, String outputJson);
+
     /** 用户长期记忆，按 memoryId 倒序，只返回生效中的 */
     List<AgentMemory> listMemories(Long userId);
 

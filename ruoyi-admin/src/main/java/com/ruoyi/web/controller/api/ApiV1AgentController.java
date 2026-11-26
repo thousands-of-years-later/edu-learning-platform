@@ -42,7 +42,9 @@ import com.ruoyi.common.ws.WsEventPublisher;
 import com.ruoyi.user.domain.AgentMemory;
 import com.ruoyi.user.domain.AgentMessage;
 import com.ruoyi.user.domain.AgentSession;
+import com.ruoyi.user.domain.AgentStep;
 import com.ruoyi.user.domain.AgentTask;
+import com.ruoyi.user.mapper.AgentStepMapper;
 import com.ruoyi.user.service.IAgentService;
 
 /**
@@ -76,6 +78,12 @@ public class ApiV1AgentController extends BaseController
 
     @Autowired
     private WsEventPublisher wsEventPublisher;
+
+    @Autowired
+    private AgentStepMapper agentStepMapper;
+
+    @Autowired
+    private ActTaskRegistry actTaskRegistry;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -986,6 +994,55 @@ public class ApiV1AgentController extends BaseController
         AgentTask task = agentService.requireTask(ApiContext.getUserId(), taskId);
         AjaxResult ajax = AjaxResult.success();
         ajax.put("task", task);
+        return ajax;
+    }
+
+    /**
+     * 执行步骤（RUNNING 期间轮询也能拿到已完成步骤）
+     *
+     * GET /agent/tasks/{taskId}/steps -> {taskId, status, progress, currentStep, steps}
+     */
+    @GetMapping("/tasks/{taskId}/steps")
+    public AjaxResult taskSteps(@PathVariable Long taskId)
+    {
+        AgentTask task = agentService.requireTask(ApiContext.getUserId(), taskId);
+        List<AgentStep> steps = agentStepMapper.selectStepsByTask(taskId);
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("taskId", taskId);
+        ajax.put("status", task.getStatus());
+        ajax.put("progress", task.getProgress());
+        ajax.put("currentStep", ActTaskRegistry.currentStep(task.getStatus(), steps));
+        ajax.put("steps", steps);
+        return ajax;
+    }
+
+    /**
+     * 取消任务（长任务前端“停止”按钮）
+     *
+     * POST /agent/tasks/{taskId}/cancel
+     * 运行中的任务会打取消标记，Java 侧读到下一行事件即停止消费并落 CANCELED。
+     */
+    @PostMapping("/tasks/{taskId}/cancel")
+    public AjaxResult cancelTask(@PathVariable Long taskId)
+    {
+        AgentTask task = agentService.requireTask(ApiContext.getUserId(), taskId);
+        String status = task.getStatus();
+        if ("SUCCESS".equals(status) || "FAILED".equals(status) || "CANCELED".equals(status))
+        {
+            AjaxResult ajax = AjaxResult.success();
+            ajax.put("taskId", taskId);
+            ajax.put("status", status);
+            ajax.put("canceled", false);
+            ajax.put("message", "任务已结束，无需取消");
+            return ajax;
+        }
+        actTaskRegistry.requestCancel(taskId);
+        agentService.markCanceled(taskId);
+
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("taskId", taskId);
+        ajax.put("status", "CANCELED");
+        ajax.put("canceled", true);
         return ajax;
     }
 

@@ -175,13 +175,34 @@ public class AgentServiceImpl implements IAgentService
         {
             throw new ServiceException("任务类型不能为空");
         }
+        // 幂等：同 key 已存在直接返回，不再建新任务（唯一索引 uk_agent_task_idem 兜底并发）
+        if (StringUtils.isNotEmpty(idempotencyKey))
+        {
+            AgentTask existing = taskMapper.selectByIdempotencyKey(idempotencyKey);
+            if (existing != null)
+            {
+                return existing;
+            }
+        }
         AgentTask task = new AgentTask();
         task.setUserId(userId);
         task.setSessionId(sessionId);
         task.setTaskType(taskType);
         task.setInputJson(inputJson);
         task.setIdempotencyKey(idempotencyKey);
-        taskMapper.insertTask(task);
+        try
+        {
+            taskMapper.insertTask(task);
+        }
+        catch (org.springframework.dao.DuplicateKeyException e)
+        {
+            AgentTask existing = taskMapper.selectByIdempotencyKey(idempotencyKey);
+            if (existing != null)
+            {
+                return existing;
+            }
+            throw e;
+        }
         return taskMapper.selectTask(userId, task.getTaskId());
     }
 
@@ -227,6 +248,35 @@ public class AgentServiceImpl implements IAgentService
     public void markFailed(Long taskId, String errorMsg)
     {
         taskMapper.markFailed(taskId, errorMsg);
+    }
+
+    @Override
+    public void updateProgress(Long taskId, Integer progress)
+    {
+        int value = progress == null ? 0 : Math.max(0, Math.min(100, progress));
+        taskMapper.updateProgress(taskId, value);
+    }
+
+    @Override
+    public void markCanceled(Long taskId)
+    {
+        taskMapper.markCanceled(taskId);
+    }
+
+    @Override
+    public AgentTask findByIdempotencyKey(String idempotencyKey)
+    {
+        if (StringUtils.isEmpty(idempotencyKey))
+        {
+            return null;
+        }
+        return taskMapper.selectByIdempotencyKey(idempotencyKey);
+    }
+
+    @Override
+    public void markFailedWithOutput(Long taskId, String errorMsg, String outputJson)
+    {
+        taskMapper.markFailedWithOutput(taskId, errorMsg, outputJson);
     }
 
     @Override

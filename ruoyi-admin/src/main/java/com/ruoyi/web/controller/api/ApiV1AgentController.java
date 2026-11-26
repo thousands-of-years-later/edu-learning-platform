@@ -840,13 +840,13 @@ public class ApiV1AgentController extends BaseController
         }
         if (topic.length() > 100)
         {
-            return AjaxResult.error("PPT 主题最长 100 字（当前 " + topic.length()
+            return badRequest("PPT 主题最长 100 字（当前 " + topic.length()
                     + " 字）；正文素材请放到 content 字段，topic 只做标题");
         }
         String content = body == null ? null : Convert.toStr(body.get("content"));
         if (content != null && content.length() > 8000)
         {
-            return AjaxResult.error("PPT 素材最长 8000 字（当前 " + content.length() + " 字），请精简后再提交");
+            return badRequest("PPT 素材最长 8000 字（当前 " + content.length() + " 字），请精简后再提交");
         }
         Long videoId = body == null ? null : Convert.toLong(body.get("videoId"));
         Integer pages = body == null ? null : Convert.toInt(body.get("pages"));
@@ -917,6 +917,14 @@ public class ApiV1AgentController extends BaseController
             log.error("PPT 生成任务失败: taskId={}", taskId, e);
             agentService.markFailed(taskId, friendlyError(e));
         }
+    }
+
+    /** 参数类错误统一返回业务码 400 + 中文原因，前端不必再按 500 猜 */
+    private AjaxResult badRequest(String message)
+    {
+        AjaxResult ajax = AjaxResult.error(message);
+        ajax.put("code", 400);
+        return ajax;
     }
 
     /** 任务状态 */

@@ -26,6 +26,8 @@ DASHSCOPE_EMBEDDING_MODEL = _env("DASHSCOPE_EMBEDDING_MODEL", "text-embedding-v3
 DB_READONLY_URL = _env("DB_READONLY_URL")
 AGENT_INTERNAL_TOKEN = _env("AGENT_INTERNAL_TOKEN", "change-me")
 AGENT_PORT = int(_env("AGENT_PORT", "8100"))
+# 内部回调 Java 后端（save_memory 需要写库，agent 只有只读库权限）
+BACKEND_INTERNAL_URL = _env("BACKEND_INTERNAL_URL", "http://backend:80").rstrip("/")
 
 # 阿里云 OSS：PPT 上传、视频签名 URL
 OSS_ACCESS_KEY_ID = _env("OSS_ACCESS_KEY_ID")

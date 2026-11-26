@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from . import community_rag, config, db, ppt_agent, rag, sql_agent, video_agent
+from . import act, community_rag, config, db, ppt_agent, rag, sql_agent, video_agent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("agent-service")
@@ -62,6 +62,13 @@ class PptGenerateRequest(BaseModel):
 class CommunityAskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     history: list[dict] = []
+
+
+class ActRequest(BaseModel):
+    goal: str = Field(min_length=1, max_length=500)
+    userId: int = 0
+    taskId: Optional[str] = None
+    maxSteps: int = Field(default=8, ge=1, le=10)
 
 
 @app.get("/internal/health")
@@ -173,6 +180,29 @@ async def rag_ingest():
     except Exception as exc:
         logger.exception("rag ingest failed")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/internal/agent/act", dependencies=[Depends(verify_token)])
+async def agent_act(body: ActRequest):
+    try:
+        return await act.run(body.goal, body.userId, body.taskId or "", body.maxSteps)
+    except Exception as exc:
+        logger.exception("agent act failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/internal/agent/act/stream", dependencies=[Depends(verify_token)])
+async def agent_act_stream(body: ActRequest):
+    async def generate():
+        try:
+            async for item in act.stream_act(body.goal, body.userId, body.taskId or "", body.maxSteps):
+                yield json.dumps(item, ensure_ascii=False, default=str) + "\n"
+        except Exception as exc:
+            logger.exception("agent act stream failed")
+            yield json.dumps({"type": "error", "errorCode": "INTERNAL",
+                              "message": str(exc)[:300]}, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
 if __name__ == "__main__":

@@ -57,6 +57,39 @@ async def chat(
         raise LlmError(f"模型返回格式异常: {data}") from exc
 
 
+async def chat_tools(
+    messages: List[Dict[str, Any]],
+    tools: List[Dict[str, Any]],
+    temperature: float = 0.2,
+    max_tokens: int = 1500,
+) -> Dict[str, Any]:
+    """function calling：返回完整的 assistant message（可能含 tool_calls）。"""
+    config.require("DEEPSEEK_API_KEY", config.DEEPSEEK_API_KEY)
+    payload: Dict[str, Any] = {
+        "model": config.DEEPSEEK_MODEL,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": False,
+        "thinking": {"type": "disabled"},
+    }
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+    data = await _post_with_retry(
+        f"{config.DEEPSEEK_BASE_URL}/chat/completions",
+        {
+            "Authorization": f"Bearer {config.DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        payload,
+    )
+    try:
+        return data["choices"][0]["message"]
+    except (KeyError, IndexError) as exc:
+        raise LlmError(f"模型返回格式异常: {data}") from exc
+
+
 async def chat_stream(
     messages: List[Dict[str, Any]],
     temperature: float = 0.2,

@@ -322,6 +322,8 @@ public class ShiroConfig
         // 智能体旧前缀兼容：老客户端与测试脚本用的是 /agent/**，
         // 鉴权同样交给 ApiTokenFilter（见 ApiFilterConfig），Shiro 这层只放行。
         filterChainDefinitionMap.put("/agent/**", "anon");
+        // 智能体内部回调（agent → Java）：关闭 Shiro 鉴权，由接口自己校验 x-internal-token
+        filterChainDefinitionMap.put("/internal/agent/**", "anon");
         // 论坛 WebSocket：握手鉴权由 WsHandshakeInterceptor 自行完成，Shiro 只放行
         filterChainDefinitionMap.put("/ws/**", "anon");
         // 系统权限列表

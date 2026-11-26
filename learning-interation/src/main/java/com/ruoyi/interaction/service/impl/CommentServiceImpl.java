@@ -13,6 +13,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.ws.WsEventPublisher;
 import com.ruoyi.interaction.domain.Comment;
 import com.ruoyi.interaction.mapper.CommentMapper;
+import com.ruoyi.interaction.service.CommentContentChecker;
 import com.ruoyi.interaction.service.ICommentService;
 import com.ruoyi.interaction.service.INotificationService;
 
@@ -55,6 +56,10 @@ public class CommentServiceImpl implements ICommentService
     @Autowired
     private WsEventPublisher wsEventPublisher;
 
+    /** 评论违禁词校验（词库与帖子侧共用 learning_sensitive_word） */
+    @Autowired
+    private CommentContentChecker contentChecker;
+
     @Override
     @Transactional
     public Map<String, Object> insertComment(Long userId, String targetType, Long targetId, String content, Long parentId)
@@ -92,6 +97,9 @@ public class CommentServiceImpl implements ICommentService
         {
             throw new ServiceException("评论内容不能超过" + Comment.MAX_CONTENT_LENGTH + "个字");
         }
+
+        // 违禁词校验：与帖子侧共用 learning_sensitive_word 词库
+        contentChecker.check(text);
 
         if (!targetExists(targetType, targetId))
         {

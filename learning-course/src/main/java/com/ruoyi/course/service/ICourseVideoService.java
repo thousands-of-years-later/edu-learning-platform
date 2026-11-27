@@ -1,6 +1,7 @@
 package com.ruoyi.course.service;
 
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.course.domain.CourseVideo;
 
 /**
@@ -51,10 +52,12 @@ public interface ICourseVideoService
     public int deleteVideoByIds(String ids);
 
     /**
-     * 批量重新探测视频时长（修复历史手工填写错误的记录）
+     * 分批重新探测视频时长（修复历史手工填写错误的记录）
      *
      * @param operator 操作人
-     * @return 实际更新条数
+     * @param offset   本批起始下标
+     * @param batch    本批条数
+     * @return total/scanned/updated/failed/skipped/nextOffset/done/failures
      */
-    public int refreshDurations(String operator);
+    public Map<String, Object> refreshDurations(String operator, int offset, int batch);
 }

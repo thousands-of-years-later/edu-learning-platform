@@ -1,5 +1,6 @@
 package com.ruoyi.common.utils.file;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -7,6 +8,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.model.GetObjectRequest;
 import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectMetadata;
 import org.springframework.web.multipart.MultipartFile;
@@ -84,6 +86,66 @@ public class AliyunOssUtils
         catch (Exception e)
         {
             throw new IOException("从 OSS 下载失败：" + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * OSS 对象大小（字节）
+     */
+    public static long size(String key) throws IOException
+    {
+        if (!OssConfig.isReady())
+        {
+            throw new IOException("OSS 配置不完整，缺少：" + OssConfig.describeMissing());
+        }
+        try
+        {
+            ObjectMetadata meta = getClient().getObjectMetadata(OssConfig.getBucketName(), key);
+            return meta == null ? -1 : meta.getContentLength();
+        }
+        catch (Exception e)
+        {
+            throw new IOException("读取 OSS 对象元信息失败：" + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 分段读取 OSS 对象（start/end 含，单位字节），供 MP4 moov 探测使用，避免整文件下载
+     */
+    public static byte[] readRange(String key, long start, long end) throws IOException
+    {
+        if (!OssConfig.isReady())
+        {
+            throw new IOException("OSS 配置不完整，缺少：" + OssConfig.describeMissing());
+        }
+        if (end < start)
+        {
+            return null;
+        }
+        try
+        {
+            GetObjectRequest request = new GetObjectRequest(OssConfig.getBucketName(), key);
+            request.setRange(start, end);
+            OSSObject object = getClient().getObject(request);
+            try (InputStream in = object.getObjectContent())
+            {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buffer = new byte[8192];
+                int len;
+                while ((len = in.read(buffer)) != -1)
+                {
+                    out.write(buffer, 0, len);
+                }
+                return out.toByteArray();
+            }
+            finally
+            {
+                object.close();
+            }
+        }
+        catch (Exception e)
+        {
+            throw new IOException("从 OSS 分段读取失败：" + e.getMessage(), e);
         }
     }
 

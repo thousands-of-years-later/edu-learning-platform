@@ -1,6 +1,7 @@
 package com.ruoyi.course.controller;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -128,14 +129,11 @@ public class CourseVideoController extends BaseController
             return error(ADMIN_ONLY_MSG);
         }
         video.setCreateBy(getLoginName());
-        // 上传接口已经返回 duration 时优先使用；没传到就从视频地址解析兜底
-        if (video.getDuration() == null || video.getDuration() <= 0)
+        // 保存时一律按实际视频重算：运营手填的时长（例如 6 分钟填成 10 分钟）不能进库
+        Integer detected = VideoDurationUtils.fromUrl(video.getVideoUrl());
+        if (detected != null)
         {
-            Integer detected = VideoDurationUtils.fromUrl(video.getVideoUrl());
-            if (detected != null)
-            {
-                video.setDuration(detected);
-            }
+            video.setDuration(detected);
         }
         return toAjax(courseVideoService.insertVideo(video));
     }
@@ -161,21 +159,24 @@ public class CourseVideoController extends BaseController
     }
 
     /**
-     * 批量刷新视频时长：逐个下载视频读取 MP4 真实时长，修复历史手工填写错误
+     * 分批刷新视频时长：读取 MP4 真实时长，修复历史手工填写错误。
+     * 前端按 nextOffset 循环调用，避免一次全量请求被网关超时截断。
      */
     @RequiresPermissions("course:course:edit")
     @Log(title = "课程视频", businessType = BusinessType.UPDATE)
     @PostMapping("/refreshDuration")
     @ResponseBody
-    public AjaxResult refreshDuration()
+    public AjaxResult refreshDuration(Integer offset, Integer batch)
     {
         if (!ShiroUtils.isAdmin())
         {
             return error(ADMIN_ONLY_MSG);
         }
-        int updated = courseVideoService.refreshDurations(getLoginName());
+        Map<String, Object> result = courseVideoService.refreshDurations(getLoginName(),
+                offset == null ? 0 : offset,
+                batch == null ? 20 : Math.min(Math.max(batch, 1), 50));
         AjaxResult ajax = AjaxResult.success();
-        ajax.put("updated", updated);
+        ajax.putAll(result);
         return ajax;
     }
 

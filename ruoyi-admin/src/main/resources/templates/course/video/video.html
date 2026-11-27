@@ -60,11 +60,48 @@
 		}
 
 		function refreshDurations() {
-			$.modal.confirm("会逐个下载视频重新识别时长，视频较多时可能较慢，确定继续？", function () {
-				$.operate.post(prefix + "/refreshDuration", {}, function (result) {
-					$.modal.msgSuccess("已更新 " + (result.updated || 0) + " 条视频时长");
-					$.table.refresh();
-				});
+			$.modal.confirm("会分批读取视频真实时长，视频较多时耗时较长，确定继续？", function () {
+				var offset = 0, batch = 20, updated = 0, failed = 0, skipped = 0;
+				$.modal.loading("正在读取视频时长...");
+				function loadNext() {
+					$.ajax({
+						url: prefix + "/refreshDuration",
+						type: "post",
+						data: { offset: offset, batch: batch },
+						dataType: "json",
+						success: function (result) {
+							if (result.code !== 0) {
+								$.modal.closeLoading();
+								$.modal.alertError(result.msg);
+								return;
+							}
+							updated += result.updated || 0;
+							failed += result.failed || 0;
+							skipped += result.skipped || 0;
+							if (result.done) {
+								$.modal.closeLoading();
+								var msg = "刷新完成：更新 " + updated + " 条，失败 " + failed + " 条，跳过 " + skipped + " 条";
+								if (result.failures && result.failures.length > 0) {
+									msg += "<br>失败视频：";
+									$.each(result.failures, function (i, item) {
+										msg += "<br>ID " + item.videoId + "：" + item.videoUrl;
+									});
+								}
+								$.modal.alertSuccess(msg);
+								$.table.refresh();
+							} else {
+								offset = result.nextOffset;
+								$.modal.loading("正在读取视频时长（" + offset + "/" + result.total + "）...");
+								loadNext();
+							}
+						},
+						error: function () {
+							$.modal.closeLoading();
+							$.modal.alertError("刷新中断，已更新 " + updated + " 条");
+						}
+					});
+				}
+				loadNext();
 			});
 		}
 

@@ -1,6 +1,8 @@
 package com.ruoyi.course.service.impl;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -91,19 +93,31 @@ public class CourseVideoServiceImpl implements ICourseVideoService
     }
 
     /**
-     * 批量重新探测视频时长：同一 URL 只下载/解析一次，只更新有变化的记录。
+     * 分批重新探测视频时长：同一批内同一 URL 只下载/解析一次，只更新有变化的记录。
+     * 分页参数由控制层传入，避免一次请求跑全量被网关超时截断。
      */
     @Override
-    public int refreshDurations(String operator)
+    public Map<String, Object> refreshDurations(String operator, int offset, int batch)
     {
         List<CourseVideo> videos = courseVideoMapper.selectVideoList(new CourseVideo());
+        int total = videos.size();
+        int start = Math.max(0, offset);
+        int end = Math.min(total, start + Math.max(1, batch));
         Map<String, Integer> cache = new HashMap<>();
+        List<Map<String, Object>> failures = new ArrayList<>();
+        int scanned = 0;
         int updated = 0;
-        for (CourseVideo video : videos)
+        int failed = 0;
+        int skipped = 0;
+        for (int i = start; i < end; i++)
         {
+            CourseVideo video = videos.get(i);
+            scanned++;
             String url = video.getVideoUrl();
             if (StringUtils.isEmpty(url) || !url.startsWith("http"))
             {
+                // 本地相对路径和历史脏数据无法远程探测，单独计数，不混进失败
+                skipped++;
                 continue;
             }
             Integer detected;
@@ -116,7 +130,19 @@ public class CourseVideoServiceImpl implements ICourseVideoService
                 detected = VideoDurationUtils.fromUrl(url);
                 cache.put(url, detected);
             }
-            if (detected == null || detected.equals(video.getDuration()))
+            if (detected == null)
+            {
+                failed++;
+                if (failures.size() < 10)
+                {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("videoId", video.getVideoId());
+                    item.put("videoUrl", url);
+                    failures.add(item);
+                }
+                continue;
+            }
+            if (detected.equals(video.getDuration()))
             {
                 continue;
             }
@@ -126,7 +152,17 @@ public class CourseVideoServiceImpl implements ICourseVideoService
             update.setUpdateBy(operator);
             updated += courseVideoMapper.updateVideo(update);
         }
-        return updated;
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", total);
+        result.put("offset", start);
+        result.put("scanned", scanned);
+        result.put("updated", updated);
+        result.put("failed", failed);
+        result.put("skipped", skipped);
+        result.put("nextOffset", end);
+        result.put("done", end >= total);
+        result.put("failures", failures);
+        return result;
     }
 
     /**

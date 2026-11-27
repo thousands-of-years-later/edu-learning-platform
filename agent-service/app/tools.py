@@ -329,6 +329,10 @@ async def execute(name: str, args: Dict[str, Any], ctx: ToolContext) -> Dict[str
                         "换用其他工具或直接说明该步骤未完成")
     except ValueError as exc:
         raise ToolError("PARAM_INVALID", str(exc)[:200])
+    except Exception as exc:
+        # 依赖服务超时/断连/返回异常等非参数错误：归 TOOL_ERROR，交给 act 层重试一次
+        raise ToolError("TOOL_ERROR", f"{name} 执行失败：{str(exc)[:160]}",
+                        "依赖服务异常，已自动重试一次；仍失败请换方案或如实说明")
     finally:
         elapsed = int((time.monotonic() - started) * 1000)
         if elapsed > 200:

@@ -32,6 +32,9 @@
 				<a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="course:course:edit">
 		            <i class="fa fa-edit"></i> 修改
 		        </a>
+				<a class="btn btn-info" onclick="refreshDurations()" shiro:hasPermission="course:course:edit">
+		            <i class="fa fa-clock-o"></i> 刷新时长
+		        </a>
 				<a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="course:course:remove">
 		            <i class="fa fa-remove"></i> 删除
 		        </a>
@@ -54,6 +57,15 @@
 		/* $.operate.add(id) 只会替换 createUrl 里的 {id}，所以父课程 ID 用路径变量带走 */
 		function addVideo() {
 			$.operate.add($("#courseId").val());
+		}
+
+		function refreshDurations() {
+			$.modal.confirm("会逐个下载视频重新识别时长，视频较多时可能较慢，确定继续？", function () {
+				$.operate.post(prefix + "/refreshDuration", {}, function (result) {
+					$.modal.msgSuccess("已更新 " + (result.updated || 0) + " 条视频时长");
+					$.table.refresh();
+				});
+			});
 		}
 
 		$(function() {

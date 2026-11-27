@@ -1,6 +1,8 @@
 package com.ruoyi.course.service.impl;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,7 @@ import com.ruoyi.course.mapper.CourseChapterMapper;
 import com.ruoyi.course.mapper.CourseMapper;
 import com.ruoyi.course.mapper.CourseVideoMapper;
 import com.ruoyi.course.service.ICourseVideoService;
+import com.ruoyi.course.utils.VideoDurationUtils;
 
 /**
  * 课程视频 服务层处理
@@ -85,6 +88,45 @@ public class CourseVideoServiceImpl implements ICourseVideoService
             }
         }
         return courseVideoMapper.deleteVideoByIds(videoIds);
+    }
+
+    /**
+     * 批量重新探测视频时长：同一 URL 只下载/解析一次，只更新有变化的记录。
+     */
+    @Override
+    public int refreshDurations(String operator)
+    {
+        List<CourseVideo> videos = courseVideoMapper.selectVideoList(new CourseVideo());
+        Map<String, Integer> cache = new HashMap<>();
+        int updated = 0;
+        for (CourseVideo video : videos)
+        {
+            String url = video.getVideoUrl();
+            if (StringUtils.isEmpty(url) || !url.startsWith("http"))
+            {
+                continue;
+            }
+            Integer detected;
+            if (cache.containsKey(url))
+            {
+                detected = cache.get(url);
+            }
+            else
+            {
+                detected = VideoDurationUtils.fromUrl(url);
+                cache.put(url, detected);
+            }
+            if (detected == null || detected.equals(video.getDuration()))
+            {
+                continue;
+            }
+            CourseVideo update = new CourseVideo();
+            update.setVideoId(video.getVideoId());
+            update.setDuration(detected);
+            update.setUpdateBy(operator);
+            updated += courseVideoMapper.updateVideo(update);
+        }
+        return updated;
     }
 
     /**

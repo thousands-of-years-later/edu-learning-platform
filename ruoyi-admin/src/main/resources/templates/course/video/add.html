@@ -68,6 +68,9 @@
         	var rsp = data.response;
             if (rsp.code == 0) {
             	$("#videoUrl").val(rsp.fileName);
+            	if (rsp.duration != null && rsp.duration > 0) {
+            		$("#duration").val(rsp.duration);
+            	}
             } else {
             	$.modal.alertError(rsp.msg);
             }

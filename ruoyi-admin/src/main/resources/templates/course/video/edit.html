@@ -71,10 +71,30 @@
         	var rsp = data.response;
             if (rsp.code == 0) {
             	$("#videoUrl").val(rsp.fileName);
+            	if (rsp.duration != null && rsp.duration > 0) {
+            		$("#duration").val(rsp.duration);
+            	}
             } else {
             	$.modal.alertError(rsp.msg);
             }
         });
+
+        // 打开编辑页时用浏览器读取当前视频的真实时长，先修正输入框；
+        // 保存时后端还会再探测一次，避免历史手工填写错误
+        (function () {
+            var url = $("#videoUrl").val();
+            if (!url) {
+                return;
+            }
+            var probe = document.createElement("video");
+            probe.preload = "metadata";
+            probe.onloadedmetadata = function () {
+                if (isFinite(probe.duration) && probe.duration > 0) {
+                    $("#duration").val(Math.round(probe.duration));
+                }
+            };
+            probe.src = url;
+        })();
 
 		$("#form-video-edit").validate({
 			onkeyup: false,

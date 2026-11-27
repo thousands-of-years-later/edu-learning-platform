@@ -20,6 +20,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.file.FileUploadUtils;
 import com.ruoyi.common.utils.file.FileUtils;
+import com.ruoyi.course.utils.VideoDurationUtils;
 
 /**
  * 通用请求处理
@@ -80,6 +81,8 @@ public class CommonController
         {
             // 上传文件路径
             String filePath = RuoYiConfig.getUploadPath();
+            // 先读时长：FileUploadUtils 上传 OSS 时会消费 MultipartFile 的流
+            Integer duration = VideoDurationUtils.fromMultipart(file);
             // 上传并返回新文件名称
             String fileName = FileUploadUtils.upload(filePath, file);
             // OSS 模式下 FileUploadUtils 返回的是完整 URL（https://bucket.oss-.../upload/...），
@@ -90,6 +93,8 @@ public class CommonController
             ajax.put("fileName", fileName);
             ajax.put("newFileName", FileUtils.getName(fileName));
             ajax.put("originalFilename", file.getOriginalFilename());
+            // 视频上传时直接解析 MP4 时长，前端可自动回填 duration；非 MP4 返回 null
+            ajax.put("duration", duration);
             return ajax;
         }
         catch (Exception e)

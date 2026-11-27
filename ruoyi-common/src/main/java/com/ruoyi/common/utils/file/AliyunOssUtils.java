@@ -1,9 +1,13 @@
 package com.ruoyi.common.utils.file;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectMetadata;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.config.OssConfig;
@@ -55,6 +59,32 @@ public class AliyunOssUtils
         }
 
         return OssConfig.resolveUrlPrefix() + "/" + key;
+    }
+
+    /**
+     * 下载 OSS 对象到本地临时文件（供视频时长探测使用）
+     */
+    public static void download(String key, File target) throws IOException
+    {
+        if (!OssConfig.isReady())
+        {
+            throw new IOException("OSS 配置不完整，缺少：" + OssConfig.describeMissing());
+        }
+        try (OSSObject object = getClient().getObject(OssConfig.getBucketName(), key);
+             InputStream in = object.getObjectContent();
+             OutputStream out = new FileOutputStream(target))
+        {
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = in.read(buffer)) != -1)
+            {
+                out.write(buffer, 0, len);
+            }
+        }
+        catch (Exception e)
+        {
+            throw new IOException("从 OSS 下载失败：" + e.getMessage(), e);
+        }
     }
 
     /**

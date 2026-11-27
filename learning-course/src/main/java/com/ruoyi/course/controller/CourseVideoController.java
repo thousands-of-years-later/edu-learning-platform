@@ -23,6 +23,7 @@ import com.ruoyi.course.domain.CourseChapter;
 import com.ruoyi.course.domain.CourseVideo;
 import com.ruoyi.course.service.ICourseChapterService;
 import com.ruoyi.course.service.ICourseVideoService;
+import com.ruoyi.course.utils.VideoDurationUtils;
 
 /**
  * 课程视频 控制器
@@ -127,6 +128,15 @@ public class CourseVideoController extends BaseController
             return error(ADMIN_ONLY_MSG);
         }
         video.setCreateBy(getLoginName());
+        // 上传接口已经返回 duration 时优先使用；没传到就从视频地址解析兜底
+        if (video.getDuration() == null || video.getDuration() <= 0)
+        {
+            Integer detected = VideoDurationUtils.fromUrl(video.getVideoUrl());
+            if (detected != null)
+            {
+                video.setDuration(detected);
+            }
+        }
         return toAjax(courseVideoService.insertVideo(video));
     }
 
@@ -141,7 +151,32 @@ public class CourseVideoController extends BaseController
             return error(ADMIN_ONLY_MSG);
         }
         video.setUpdateBy(getLoginName());
+        // 编辑时重新探测一次：修复历史手工填写错误（例如 6 分钟视频写成 10 分钟）
+        Integer detected = VideoDurationUtils.fromUrl(video.getVideoUrl());
+        if (detected != null)
+        {
+            video.setDuration(detected);
+        }
         return toAjax(courseVideoService.updateVideo(video));
+    }
+
+    /**
+     * 批量刷新视频时长：逐个下载视频读取 MP4 真实时长，修复历史手工填写错误
+     */
+    @RequiresPermissions("course:course:edit")
+    @Log(title = "课程视频", businessType = BusinessType.UPDATE)
+    @PostMapping("/refreshDuration")
+    @ResponseBody
+    public AjaxResult refreshDuration()
+    {
+        if (!ShiroUtils.isAdmin())
+        {
+            return error(ADMIN_ONLY_MSG);
+        }
+        int updated = courseVideoService.refreshDurations(getLoginName());
+        AjaxResult ajax = AjaxResult.success();
+        ajax.put("updated", updated);
+        return ajax;
     }
 
     /**

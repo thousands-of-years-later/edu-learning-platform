@@ -49,4 +49,12 @@ public interface ICourseVideoService
      * @return 结果
      */
     public int deleteVideoByIds(String ids);
+
+    /**
+     * 批量重新探测视频时长（修复历史手工填写错误的记录）
+     *
+     * @param operator 操作人
+     * @return 实际更新条数
+     */
+    public int refreshDurations(String operator);
 }
